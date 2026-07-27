@@ -1,0 +1,13 @@
+{
+  "Id": "user-1",
+  "Name": "testuser",
+  "ServerId": "server-1",
+  "Configuration": {
+    "AudioLanguagePreference": "jpn",
+    "PlayDefaultAudioTrack": false,
+    "SubtitleLanguagePreference": "eng",
+    "SubtitleMode": "Smart",
+    "RememberAudioSelections": true,
+    "RememberSubtitleSelections": false
+  }
+}

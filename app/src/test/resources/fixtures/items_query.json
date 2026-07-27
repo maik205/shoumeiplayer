@@ -1,0 +1,25 @@
+{
+  "Items": [
+    {
+      "Id": "item-1",
+      "Name": "Test Movie",
+      "Type": "Movie",
+      "Overview": "A test movie",
+      "RunTimeTicks": 72000000000,
+      "ProductionYear": 2020,
+      "IsFolder": false,
+      "ImageTags": {
+        "Primary": "tag1"
+      },
+      "Genres": ["Action"],
+      "UserData": {
+        "Played": false,
+        "PlaybackPositionTicks": 0,
+        "PlayCount": 0,
+        "IsFavorite": false
+      }
+    }
+  ],
+  "TotalRecordCount": 1,
+  "StartIndex": 0
+}

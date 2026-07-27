@@ -1,0 +1,23 @@
+{
+  "Id": "user-1",
+  "Name": "testuser",
+  "ServerId": "server-1",
+  "Configuration": {
+    "AudioLanguagePreference": "jpn",
+    "PlayDefaultAudioTrack": false,
+    "SubtitleLanguagePreference": "eng",
+    "SubtitleMode": "Smart",
+    "DisplayMissingEpisodes": true,
+    "GroupedFolders": ["folder-a", "folder-b"],
+    "DisplayCollectionsView": true,
+    "EnableLocalPassword": true,
+    "OrderedViews": ["view-1", "view-2", "view-3"],
+    "LatestItemsExcludes": ["exclude-1"],
+    "MyMediaExcludes": ["exclude-2", "exclude-3"],
+    "HidePlayedInLatest": false,
+    "RememberAudioSelections": true,
+    "RememberSubtitleSelections": false,
+    "EnableNextEpisodeAutoPlay": true,
+    "CastReceiverId": "cast-receiver-1"
+  }
+}

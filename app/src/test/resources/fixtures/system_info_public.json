@@ -1,0 +1,7 @@
+{
+  "Id": "abc123",
+  "ServerName": "Test Server",
+  "Version": "10.9.0",
+  "ProductName": "Jellyfin Server",
+  "StartupWizardCompleted": true
+}

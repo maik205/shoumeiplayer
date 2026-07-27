@@ -1,0 +1,9 @@
+{
+  "User": {
+    "Id": "user-1",
+    "Name": "testuser",
+    "ServerId": "server-1"
+  },
+  "AccessToken": "test-access-token",
+  "ServerId": "server-1"
+}

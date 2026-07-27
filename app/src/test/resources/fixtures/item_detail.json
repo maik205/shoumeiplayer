@@ -1,0 +1,105 @@
+{
+  "Items": [
+    {
+      "Id": "ep-1",
+      "Name": "The Winds of Winter",
+      "OriginalTitle": "The Winds of Winter",
+      "Type": "Episode",
+      "Overview": "Cersei faces the High Sparrow.",
+      "RunTimeTicks": 41400000000,
+      "ProductionYear": 2016,
+      "PremiereDate": "2016-06-26T00:00:00.0000000Z",
+      "EndDate": "2019-05-19T00:00:00.0000000Z",
+      "Status": "Ended",
+      "CommunityRating": 9.9,
+      "CriticRating": 88,
+      "OfficialRating": "TV-MA",
+      "PrimaryImageAspectRatio": 1.7777777777777777,
+      "IndexNumber": 10,
+      "ParentIndexNumber": 6,
+      "SeriesId": "series-1",
+      "SeriesName": "Game of Thrones",
+      "SeasonId": "season-6",
+      "SeasonName": "Season 6",
+      "ParentId": "season-6",
+      "IsFolder": false,
+      "ChildCount": 0,
+      "Genres": ["Drama", "Fantasy"],
+      "Taglines": ["Winter is here."],
+      "ImageTags": {
+        "Primary": "primary-tag",
+        "Logo": "logo-tag"
+      },
+      "BackdropImageTags": [],
+      "ParentBackdropItemId": "series-1",
+      "ParentBackdropImageTags": ["parent-backdrop-tag", "parent-backdrop-tag-2"],
+      "ParentLogoItemId": "series-1",
+      "ParentLogoImageTag": "parent-logo-tag",
+      "ParentPrimaryImageItemId": "season-6",
+      "ParentPrimaryImageTag": "parent-primary-tag",
+      "ParentThumbItemId": "season-6",
+      "ParentThumbImageTag": "parent-thumb-tag",
+      "SeriesPrimaryImageTag": "series-primary-tag",
+      "SeriesThumbImageTag": "series-thumb-tag",
+      "ScreenshotImageTags": ["screenshot-tag"],
+      "ImageBlurHashes": {
+        "Primary": {
+          "primary-tag": "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
+        },
+        "Backdrop": {
+          "parent-backdrop-tag": "L6Pj0^jE.AyE_3t7t7R**0o#DgR4"
+        }
+      },
+      "Studios": [
+        { "Id": "studio-1", "Name": "HBO" }
+      ],
+      "People": [
+        {
+          "Id": "person-1",
+          "Name": "Peter Dinklage",
+          "Role": "Tyrion Lannister",
+          "Type": "Actor",
+          "PrimaryImageTag": "person-1-tag",
+          "ImageBlurHashes": {
+            "Primary": { "person-1-tag": "LEHV6nWB2yk8pyo0adR*.7kCMdnj" }
+          }
+        },
+        {
+          "Id": "person-2",
+          "Name": "Miguel Sapochnik",
+          "Type": "Director"
+        }
+      ],
+      "Chapters": [
+        { "StartPositionTicks": 0, "Name": "Cold Open", "ImageTag": "chapter-0-tag" },
+        { "StartPositionTicks": 6000000000, "Name": "The Trial", "ImageTag": "chapter-1-tag" }
+      ],
+      "MediaStreams": [
+        { "Index": 0, "Type": "Video", "Codec": "h264", "Width": 1920, "Height": 1080 },
+        { "Index": 1, "Type": "Audio", "Codec": "aac", "Language": "eng", "DisplayTitle": "English (AAC 5.1)", "Channels": 6, "IsDefault": true }
+      ],
+      "Trickplay": {
+        "media-1": {
+          "320": {
+            "Width": 320,
+            "Height": 180,
+            "TileWidth": 10,
+            "TileHeight": 10,
+            "ThumbnailCount": 414,
+            "Interval": 10000,
+            "Bandwidth": 12345
+          }
+        }
+      },
+      "UserData": {
+        "Played": false,
+        "PlayedPercentage": 42.5,
+        "PlaybackPositionTicks": 17595000000,
+        "PlayCount": 0,
+        "IsFavorite": true
+      }
+    }
+  ],
+  "TotalRecordCount": 1,
+  "StartIndex": 0
+}

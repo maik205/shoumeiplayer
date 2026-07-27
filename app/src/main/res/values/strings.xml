@@ -1,0 +1,112 @@
+<resources>
+    <string name="app_name">Shoumei Player</string>
+    <!-- §5.5 - the single rationed eyebrow above the server field. -->
+    <string name="server_address">Server address</string>
+    <string name="connect_to_your_server">Connect to your server</string>
+    <string name="connect">Connect</string>
+    <string name="username">Username</string>
+    <string name="password">Password</string>
+    <string name="sign_in">Sign in</string>
+    <string name="sign_out">Sign out</string>
+    <string name="continue_watching">Continue watching</string>
+    <string name="next_up">Next up</string>
+    <string name="latest_in">Latest in %1$s</string>
+    <string name="my_media">My media</string>
+    <string name="play">Play</string>
+    <string name="resume">Resume</string>
+    <string name="search">Search</string>
+    <string name="settings">Settings</string>
+    <!-- §6 - the one slab under an inline error. -->
+    <string name="retry">Try again</string>
+    <string name="audio_track">Audio</string>
+    <string name="subtitle_track">Subtitles</string>
+    <string name="off">Off</string>
+    <string name="quick_connect_coming_soon">Quick Connect is not available yet</string>
+
+    <!-- Nav rail (M-B9). -->
+    <string name="nav_home">Home</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_libraries">Libraries</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Library chip row (M-B11). -->
+    <string name="filter_all">All</string>
+    <string name="filter_unwatched">Unwatched</string>
+    <string name="filter_watched">Watched</string>
+    <string name="filter_genre">Genre</string>
+    <string name="filter_sort">Sort</string>
+    <string name="sort_name">Name</string>
+    <string name="sort_date_added">Date added</string>
+    <string name="sort_release_date">Release date</string>
+
+    <!-- Search keyboard grid (M-B12). -->
+    <string name="key_space">Space</string>
+    <string name="key_delete">Delete</string>
+    <string name="key_clear">Clear</string>
+    <string name="suggested">Suggested</string>
+    <string name="type_to_search">Type to search</string>
+
+    <!-- Detail actions. -->
+    <string name="more_info">More info</string>
+
+    <!-- Common actions/labels shared across browse screens (F7). -->
+    <string name="cancel">Cancel</string>
+    <string name="on">On</string>
+    <string name="action_open_settings">Open settings</string>
+    <string name="action_clear_filter">Clear filter</string>
+    <string name="action_clear_search">Clear search</string>
+    <string name="empty_check_library_detail">Check that this account can see a library on the server.</string>
+
+    <!-- Home (M-B?). -->
+    <string name="home_empty_title">Nothing to watch yet</string>
+
+    <!-- Libraries. -->
+    <string name="libraries_empty_title">No libraries yet</string>
+
+    <!-- Search (M-B12). -->
+    <string name="search_keep_typing">Keep typing</string>
+    <string name="search_no_results_format">Nothing matched \"%1$s\"</string>
+
+    <!-- Library (M-B11). -->
+    <string name="library_empty_filtered">No items match this filter</string>
+    <string name="library_empty_unfiltered">Nothing in this library yet</string>
+
+    <!-- Settings (M-B13). -->
+    <string name="settings_playback">Playback</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_server">Server</string>
+    <string name="settings_about">About</string>
+    <string name="settings_preferred_quality">Preferred quality</string>
+    <string name="settings_subtitle_mode">Subtitle mode</string>
+    <string name="settings_subtitle_language">Subtitle language</string>
+    <string name="settings_audio_language">Audio language</string>
+    <string name="settings_play_default_audio">Play default audio track</string>
+    <string name="settings_autoplay_next">Next episode autoplay</string>
+    <string name="settings_remember_audio_selections">Remember audio selections</string>
+    <string name="settings_remember_subtitle_selections">Remember subtitle selections</string>
+    <string name="settings_focus_scale">Focus scale</string>
+    <string name="settings_clock_in_osd">Clock in OSD</string>
+    <string name="settings_open_source_notices">Open source notices</string>
+    <string name="settings_not_available">Not available</string>
+    <string name="settings_address_label">Address</string>
+    <string name="settings_signed_in_as">Signed in as</string>
+    <string name="settings_version_format">Version %1$s</string>
+    <string name="settings_application_label">Application</string>
+    <string name="settings_playback_engine_label">Playback engine</string>
+    <string name="settings_sign_out_confirm_generic">This clears the saved session on this device. The server address is kept.</string>
+    <string name="settings_sign_out_confirm_named">This clears %1$s\'s saved session on this device. The server address is kept.</string>
+
+    <!-- Settings — subtitle mode value labels. -->
+    <string name="settings_subtitle_mode_default">Default</string>
+    <string name="settings_subtitle_mode_always">Always</string>
+    <string name="settings_subtitle_mode_only_forced">Only forced</string>
+    <string name="settings_subtitle_mode_smart">Smart</string>
+
+    <!-- Settings — language value labels (codes stay unlocalized; only the display name is). -->
+    <string name="settings_language_system_default">System default</string>
+    <string name="settings_language_english">English</string>
+    <string name="settings_language_japanese">Japanese</string>
+    <string name="settings_language_spanish">Spanish</string>
+    <string name="settings_language_french">French</string>
+    <string name="settings_language_german">German</string>
+</resources>
