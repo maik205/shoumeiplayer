@@ -63,6 +63,12 @@ fun TelevisionPlayerScreen(
                     SharingStarted.Eagerly,
                     container.networkMonitor.snapshot.value.validated,
                 ),
+            networkTransport = container.networkMonitor.snapshot.map { it.transport }
+                .stateIn(
+                    container.applicationScope,
+                    SharingStarted.Eagerly,
+                    container.networkMonitor.snapshot.value.transport,
+                ),
             metricsSink = container.newPlaybackMetricsSink(),
             userDataMutator = object : PlaybackUserDataMutator {
                 override suspend fun setFavorite(itemId: String, favorite: Boolean): Boolean =

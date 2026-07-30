@@ -21,6 +21,8 @@ data class PlaybackMetricsEvent(
 
 interface PlaybackMetricsSink : AutoCloseable {
     fun record(event: PlaybackMetricsEvent)
+    fun recordNetwork(transport: String, validated: Boolean) = Unit
+    fun recordTracks(tracks: List<PlayerTrack>) = Unit
     override fun close() = Unit
 }
 

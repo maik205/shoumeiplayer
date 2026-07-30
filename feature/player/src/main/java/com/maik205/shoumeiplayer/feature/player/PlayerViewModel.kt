@@ -71,6 +71,7 @@ class PlayerViewModel(
     private val audioRouteLabel: StateFlow<String> = MutableStateFlow("System default"),
     private val effectiveHdrMode: StateFlow<String> = MutableStateFlow("Automatic"),
     private val networkAvailable: StateFlow<Boolean> = MutableStateFlow(true),
+    private val networkTransport: StateFlow<String> = MutableStateFlow("unknown"),
     private val metricsSink: PlaybackMetricsSink? = null,
     private val userDataMutator: PlaybackUserDataMutator? = null,
     private val backgroundAudio: Boolean = false,
@@ -275,6 +276,14 @@ class PlayerViewModel(
                     ),
                 )
             }
+        }
+        viewModelScope.launch {
+            combine(networkAvailable, networkTransport) { available, transport -> available to transport }
+                .distinctUntilChanged()
+                .collect { (available, transport) -> metricsSink?.recordNetwork(transport, available) }
+        }
+        viewModelScope.launch {
+            engine.tracks.distinctUntilChanged().collect { metricsSink?.recordTracks(it) }
         }
         viewModelScope.launch {
             networkAvailable.collect { available ->
