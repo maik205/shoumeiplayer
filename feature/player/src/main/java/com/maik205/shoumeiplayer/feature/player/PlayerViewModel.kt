@@ -17,6 +17,9 @@ import com.maik205.shoumeiplayer.player.PlaybackSpeed
 import com.maik205.shoumeiplayer.player.PlayerEngine
 import com.maik205.shoumeiplayer.player.PlayerState
 import com.maik205.shoumeiplayer.player.PlayerTrack
+import com.maik205.shoumeiplayer.player.PlaybackMetricsEvent
+import com.maik205.shoumeiplayer.player.PlaybackMetricsSink
+import com.maik205.shoumeiplayer.player.toPlaybackMetricsState
 import com.maik205.shoumeiplayer.player.TrackType
 import com.maik205.shoumeiplayer.player.VideoQuality
 import com.maik205.shoumeiplayer.util.Ticks
@@ -27,6 +30,7 @@ import kotlinx.coroutines.flow.FlowPreview
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
@@ -66,6 +70,7 @@ class PlayerViewModel(
     private val audioRouteLabel: StateFlow<String> = MutableStateFlow("System default"),
     private val effectiveHdrMode: StateFlow<String> = MutableStateFlow("Automatic"),
     private val networkAvailable: StateFlow<Boolean> = MutableStateFlow(true),
+    private val metricsSink: PlaybackMetricsSink? = null,
 ) : ViewModel() {
 
     private data class LocalState(
@@ -250,6 +255,20 @@ class PlayerViewModel(
 
     init {
         startInitialPlayback()
+        viewModelScope.launch {
+            engine.state.distinctUntilChanged().collect { state ->
+                metricsSink?.record(
+                    PlaybackMetricsEvent(
+                        itemId = currentItemId,
+                        state = state.toPlaybackMetricsState(),
+                        positionMs = engine.positionMs.value,
+                        durationMs = engine.durationMs.value,
+                        playMethod = localState.value.playMethod,
+                        errorCode = (state as? PlayerState.Error)?.message,
+                    ),
+                )
+            }
+        }
         viewModelScope.launch {
             networkAvailable.collect { available ->
                 if (!available) {
@@ -886,5 +905,6 @@ class PlayerViewModel(
     override fun onCleared() {
         finishPlayback()
         engine.stop()
+        metricsSink?.close()
     }
 }

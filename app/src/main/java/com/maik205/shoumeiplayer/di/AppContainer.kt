@@ -26,6 +26,7 @@ import com.maik205.shoumeiplayer.platform.media.AndroidAudioRoutePlayerEngine
 import com.maik205.shoumeiplayer.platform.media.AndroidFrameRatePlayerEngine
 import com.maik205.shoumeiplayer.platform.media.AndroidCaptionPreferencesPlayerEngine
 import com.maik205.shoumeiplayer.platform.media.AndroidHdrPolicyPlayerEngine
+import com.maik205.shoumeiplayer.platform.media.AndroidPlaybackMetricsSink
 import com.maik205.shoumeiplayer.platform.network.AndroidNetworkMonitor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +37,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.maik205.shoumeiplayer.player.PlaybackMetricsSink
 
 class AppContainer(
     private val context: Context,
@@ -51,6 +53,8 @@ class AppContainer(
     val sessionManager: SessionManager by lazy { SessionManager(sessionStore) }
     val settingsStore: SettingsStore by lazy { SettingsStore(context) }
     val networkMonitor by lazy { AndroidNetworkMonitor(context) }
+    fun newPlaybackMetricsSink(): PlaybackMetricsSink? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) AndroidPlaybackMetricsSink(context) else null
     val devicePlaybackCapabilities by lazy {
         devicePlaybackProfile.capabilities
     }

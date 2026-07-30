@@ -60,6 +60,7 @@ fun TelevisionPlayerScreen(
                     SharingStarted.Eagerly,
                     container.networkMonitor.snapshot.value.validated,
                 ),
+            metricsSink = container.newPlaybackMetricsSink(),
         )
     }
     val controller = remember(viewModel) { PlayerViewModelController(viewModel) }
