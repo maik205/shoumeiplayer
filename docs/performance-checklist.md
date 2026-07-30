@@ -12,7 +12,7 @@ This checklist tracks the non-Live-TV performance issues being implemented in th
 ## Compose and artwork
 
 - [x] #41 Bound search result payloads and render work.
-- [ ] #42 Add size-aware artwork decoding and TV prefetch limits.
+- [ ] #42 Add size-aware artwork decoding and TV prefetch limits (rail URL sizing implemented; viewport prefetch/concurrency remains).
 - [x] #43 Reuse Home rail focus requesters without rebuilding keyed lists.
 - [x] #7 Memoize derived search and browse collections (legacy path removed; active TV search has no repeated derived filter).
 - [x] #11 Reduce audio player blur and offscreen compositing cost.
