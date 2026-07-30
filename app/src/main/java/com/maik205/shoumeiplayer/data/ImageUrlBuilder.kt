@@ -3,11 +3,14 @@ package com.maik205.shoumeiplayer.data
 import com.maik205.shoumeiplayer.data.api.dto.BaseItemDto
 
 /** Builds Jellyfin image URLs against the currently stored server URL. */
-class ImageUrlBuilder(private val serverUrlProvider: () -> String?) {
+class ImageUrlBuilder(
+    private val serverUrlProvider: () -> String?,
+    private val accessTokenProvider: () -> String? = { null },
+) {
 
     /** Server-provided default artwork. Jellyfin serves a flat 404 when no splash image is set. */
     fun serverSplashscreen(): String? =
-        serverUrlProvider()?.let { "$it/Branding/Splashscreen" }
+        serverUrlProvider()?.let { withToken("$it/Branding/Splashscreen") }
 
     fun primary(itemId: String, tag: String?, maxWidth: Int = 400): String? =
         image(itemId, "Primary", tag, maxWidth)
@@ -28,7 +31,7 @@ class ImageUrlBuilder(private val serverUrlProvider: () -> String?) {
     fun userPrimary(userId: String, tag: String?): String? {
         val server = serverUrlProvider() ?: return null
         val base = "$server/UserImage?userId=$userId"
-        return if (tag != null) "$base&tag=$tag" else base
+        return withToken(if (tag != null) "$base&tag=$tag" else base)
     }
 
     /** `/Items/{id}/Images/Backdrop/{index}` — the indexed path form (§6 of the API surface). */
@@ -42,13 +45,13 @@ class ImageUrlBuilder(private val serverUrlProvider: () -> String?) {
     fun image(itemId: String, type: String, tag: String?, maxWidth: Int): String? {
         val server = serverUrlProvider() ?: return null
         val base = "$server/Items/$itemId/Images/$type?maxWidth=$maxWidth&quality=90"
-        return if (tag != null) "$base&tag=$tag" else base
+        return withToken(if (tag != null) "$base&tag=$tag" else base)
     }
 
     fun imageAtIndex(itemId: String, type: String, index: Int, tag: String?, maxWidth: Int): String? {
         val server = serverUrlProvider() ?: return null
         val base = "$server/Items/$itemId/Images/$type/$index?maxWidth=$maxWidth&quality=90"
-        return if (tag != null) "$base&tag=$tag" else base
+        return withToken(if (tag != null) "$base&tag=$tag" else base)
     }
 
     // --- DTO-aware fallback chains. Each returns the first link that has BOTH an id and a tag. ---
@@ -91,7 +94,29 @@ class ImageUrlBuilder(private val serverUrlProvider: () -> String?) {
             ?: item.parentPrimaryImageTag
                 ?.let { t -> item.parentPrimaryImageItemId?.let { primary(it, t, maxWidth) } }
 
-    fun logoWithParentFallback(item: BaseItemDto, maxWidth: Int = 480): String? =
-        item.imageTags["Logo"]?.let { logo(item.id, it, maxWidth) }
-            ?: item.parentLogoImageTag?.let { t -> item.parentLogoItemId?.let { logo(it, t, maxWidth) } }
+    /**
+     * Episodes use the series-owned logo URL when Jellyfin supplies one.
+     *
+     * Jellyfin can expose the inherited series logo in an episode's `ImageTags` as well as through
+     * `ParentLogoItemId`/`ParentLogoImageTag`. Addressing it through the episode ID produces a
+     * different Coil cache key for every episode even though the response is the same image.
+     * Using the declared parent owner keeps one stable URL, network fetch, and disk entry per
+     * series. Non-episode items continue to prefer their own logo.
+     */
+    fun logoWithParentFallback(item: BaseItemDto, maxWidth: Int = 480): String? {
+        val ownLogo = item.imageTags["Logo"]?.let { logo(item.id, it, maxWidth) }
+        val parentLogo = item.parentLogoImageTag
+            ?.let { tag -> item.parentLogoItemId?.let { logo(it, tag, maxWidth) } }
+
+        return if (item.type.equals("Episode", ignoreCase = true)) {
+            parentLogo ?: ownLogo
+        } else {
+            ownLogo ?: parentLogo
+        }
+    }
+
+    private fun withToken(url: String): String =
+        accessTokenProvider()?.takeIf(String::isNotBlank)?.let {
+            "$url${if ('?' in url) '&' else '?'}api_key=$it"
+        } ?: url
 }

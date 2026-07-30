@@ -5,6 +5,7 @@ import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -76,6 +77,52 @@ class AuthExpansionTest {
     }
 
     @Test
+    fun `account switcher includes hidden active user before public profiles`() = runTest {
+        val sessions = FakeJellyfin.newSessionStore()
+        sessions.setServerUrl("http://server")
+        sessions.saveAuth("active-token", "hidden-1", "Hidden User")
+        val client = FakeJellyfin.client(
+            routes = mapOf(
+                "/Users/Public" to fakeRoute(
+                    """[{"Id":"public-1","Name":"Public User","HasPassword":true}]""",
+                ),
+                "/Users/Me" to fakeRoute(
+                    """{"Id":"hidden-1","Name":"Hidden User","PrimaryImageTag":"hidden-face"}""",
+                ),
+            ),
+            sessions = sessions,
+        )
+
+        val users = (
+            AuthRepository(client, sessions).accountSwitcherUsers() as ApiResult.Success
+        ).data
+
+        assertEquals(listOf("hidden-1", "public-1"), users.map { it.id })
+        assertEquals("hidden-face", users.first().primaryImageTag)
+    }
+
+    @Test
+    fun `account switcher falls back to persisted active user while offline`() = runTest {
+        val sessions = FakeJellyfin.newSessionStore()
+        sessions.setServerUrl("http://server")
+        sessions.saveAuth("active-token", "active-1", "Active User")
+        val client = FakeJellyfin.client(
+            routes = mapOf(
+                "/Users/Public" to FakeRoute(HttpStatusCode.InternalServerError, ""),
+                "/Users/Me" to FakeRoute(HttpStatusCode.InternalServerError, ""),
+            ),
+            sessions = sessions,
+        )
+
+        val users = (
+            AuthRepository(client, sessions).accountSwitcherUsers() as ApiResult.Success
+        ).data
+
+        assertEquals("active-1", users.single().id)
+        assertEquals("Active User", users.single().name)
+    }
+
+    @Test
     fun `logout calls the server and clears local auth while retaining server selection`() = runTest {
         val sessions = FakeJellyfin.newSessionStore()
         sessions.setServerUrl("http://server")
@@ -96,7 +143,7 @@ class AuthExpansionTest {
     }
 
     @Test
-    fun `changing servers clears credentials but retains the stable device id`() = runTest {
+    fun `changing servers preserves the previous token but activates the new server`() = runTest {
         val sessions = FakeJellyfin.newSessionStore()
         sessions.setServerUrl("http://old-server")
         sessions.saveAuth("token", "user", "Alice")
@@ -114,5 +161,150 @@ class AuthExpansionTest {
         assertNull(sessions.current())
         assertEquals("http://new-server:8096", sessions.serverUrl.first())
         assertEquals(deviceId, sessions.deviceId())
+        val previous = sessions.rememberedServers.first().single { it.url == "http://old-server" }
+        assertEquals("token", previous.accessToken)
+    }
+
+    @Test
+    fun `quick connect replaces the session then revokes the old token`() = runTest {
+        val sessions = FakeJellyfin.newSessionStore()
+        sessions.setServerUrl("http://server")
+        sessions.saveAuth("old-token", "user-a", "Alice")
+        val recorder = RequestRecorder()
+        val client = FakeJellyfin.client(
+            routes = mapOf(
+                "/Users/AuthenticateWithQuickConnect" to fakeRoute(
+                    """
+                    {
+                      "User":{"Id":"user-a","Name":"Alice"},
+                      "AccessToken":"new-token",
+                      "ServerId":"server-1"
+                    }
+                    """.trimIndent(),
+                ),
+                "/Users/Me" to fakeRoute("""{"Id":"user-a","Name":"Alice"}"""),
+                "/Sessions/Logout" to FakeRoute(HttpStatusCode.NoContent, ""),
+            ),
+            sessions = sessions,
+            recorder = recorder,
+        )
+
+        val result = AuthRepository(client, sessions)
+            .replaceSessionWithQuickConnect("secret-1") as ApiResult.Success
+
+        assertTrue(result.data.tokenChanged)
+        assertTrue(result.data.oldTokenRevoked)
+        assertEquals("new-token", sessions.current()?.accessToken)
+        assertNull(sessions.pendingRevocationTokenOrNull())
+        assertEquals(
+            listOf(
+                "/Users/AuthenticateWithQuickConnect",
+                "/Users/Me",
+                "/Sessions/Logout",
+            ),
+            recorder.paths(),
+        )
+        assertTrue(recorder.authorizationAt(1).orEmpty().contains("""Token="new-token""""))
+        assertTrue(recorder.authorizationAt(2).orEmpty().contains("""Token="old-token""""))
+    }
+
+    @Test
+    fun `quick connect with the same token verifies without logging out`() = runTest {
+        val sessions = FakeJellyfin.newSessionStore()
+        sessions.setServerUrl("http://server")
+        sessions.saveAuth("same-token", "user-a", "Alice")
+        val recorder = RequestRecorder()
+        val client = FakeJellyfin.client(
+            routes = mapOf(
+                "/Users/AuthenticateWithQuickConnect" to fakeRoute(
+                    """
+                    {
+                      "User":{"Id":"user-a","Name":"Alice"},
+                      "AccessToken":"same-token",
+                      "ServerId":"server-1"
+                    }
+                    """.trimIndent(),
+                ),
+                "/Users/Me" to fakeRoute("""{"Id":"user-a","Name":"Alice"}"""),
+            ),
+            sessions = sessions,
+            recorder = recorder,
+        )
+
+        val result = AuthRepository(client, sessions)
+            .replaceSessionWithQuickConnect("secret-1") as ApiResult.Success
+
+        assertFalse(result.data.tokenChanged)
+        assertTrue(result.data.oldTokenRevoked)
+        assertEquals("same-token", sessions.current()?.accessToken)
+        assertEquals(
+            listOf("/Users/AuthenticateWithQuickConnect", "/Users/Me"),
+            recorder.paths(),
+        )
+    }
+
+    @Test
+    fun `failed replacement verification preserves the old session`() = runTest {
+        val sessions = FakeJellyfin.newSessionStore()
+        sessions.setServerUrl("http://server")
+        sessions.saveAuth("old-token", "user-a", "Alice")
+        val recorder = RequestRecorder()
+        val client = FakeJellyfin.client(
+            routes = mapOf(
+                "/Users/AuthenticateWithQuickConnect" to fakeRoute(
+                    """
+                    {
+                      "User":{"Id":"user-a","Name":"Alice"},
+                      "AccessToken":"unverified-token",
+                      "ServerId":"server-1"
+                    }
+                    """.trimIndent(),
+                ),
+                "/Users/Me" to FakeRoute(HttpStatusCode.Unauthorized, ""),
+            ),
+            sessions = sessions,
+            recorder = recorder,
+        )
+
+        val result = AuthRepository(client, sessions)
+            .replaceSessionWithQuickConnect("secret-1")
+
+        assertTrue(result is ApiResult.Failure)
+        assertEquals("old-token", sessions.current()?.accessToken)
+        assertNull(sessions.pendingRevocationTokenOrNull())
+        assertEquals(
+            listOf("/Users/AuthenticateWithQuickConnect", "/Users/Me"),
+            recorder.paths(),
+        )
+    }
+
+    @Test
+    fun `quick connect approved by another user preserves the old session`() = runTest {
+        val sessions = FakeJellyfin.newSessionStore()
+        sessions.setServerUrl("http://server")
+        sessions.saveAuth("old-token", "user-a", "Alice")
+        val recorder = RequestRecorder()
+        val client = FakeJellyfin.client(
+            routes = mapOf(
+                "/Users/AuthenticateWithQuickConnect" to fakeRoute(
+                    """
+                    {
+                      "User":{"Id":"user-b","Name":"Bob"},
+                      "AccessToken":"other-token",
+                      "ServerId":"server-1"
+                    }
+                    """.trimIndent(),
+                ),
+            ),
+            sessions = sessions,
+            recorder = recorder,
+        )
+
+        val result = AuthRepository(client, sessions)
+            .replaceSessionWithQuickConnect("secret-1")
+
+        assertTrue(result is ApiResult.Failure)
+        assertEquals("old-token", sessions.current()?.accessToken)
+        assertEquals(listOf("/Users/AuthenticateWithQuickConnect"), recorder.paths())
     }
 }

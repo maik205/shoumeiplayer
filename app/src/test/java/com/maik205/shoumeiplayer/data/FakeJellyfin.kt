@@ -86,6 +86,9 @@ class RequestRecorder {
     /** The HTTP method of the request at [index]. */
     fun methodAt(index: Int): String = recorded[index].method.value
 
+    /** Authorization header sent with the request at [index]. */
+    fun authorizationAt(index: Int): String? = recorded[index].headers[HttpHeaders.Authorization]
+
     /**
      * The serialized request body at [index], or "" when the request carried none. Ktor's
      * ContentNegotiation has already rendered `@Serializable` bodies to JSON by the time the engine

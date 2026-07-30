@@ -71,9 +71,12 @@ class JellyfinClient(
         }
     }
 
-    suspend fun authHeader(includeToken: Boolean = true): String {
+    suspend fun authHeader(
+        includeToken: Boolean = true,
+        tokenOverride: String? = null,
+    ): String {
         val deviceId = sessions.deviceId()
-        val token = if (includeToken) sessions.current()?.accessToken else null
+        val token = tokenOverride ?: if (includeToken) sessions.current()?.accessToken else null
         val base = """MediaBrowser Client="$appName", Device="Android TV", DeviceId="$deviceId", Version="$appVersion""""
         return if (token != null) """$base, Token="$token"""" else base
     }
@@ -157,6 +160,48 @@ class JellyfinClient(
         is ApiResult.Success -> ApiResult.Success(Unit)
     }
 
+    suspend inline fun <reified T> getWithToken(
+        path: String,
+        token: String,
+    ): ApiResult<T> = when (
+        val result = executeRaw(
+            method = HttpMethod.Get,
+            path = path,
+            params = emptyMap(),
+            baseUrlOverride = null,
+            requestBody = null,
+            includeToken = false,
+            invalidateSessionOnUnauthorized = false,
+            tokenOverride = token,
+        )
+    ) {
+        is ApiResult.Failure -> result
+        is ApiResult.Success -> try {
+            ApiResult.Success(result.data.body<T>())
+        } catch (e: Exception) {
+            ApiResult.Failure(ApiError.Serialization(e.message ?: "deserialization failed"))
+        }
+    }
+
+    suspend fun postEmptyWithToken(
+        path: String,
+        token: String,
+    ): ApiResult<Unit> = when (
+        val result = executeRaw(
+            method = HttpMethod.Post,
+            path = path,
+            params = emptyMap(),
+            baseUrlOverride = null,
+            requestBody = null,
+            includeToken = false,
+            invalidateSessionOnUnauthorized = false,
+            tokenOverride = token,
+        )
+    ) {
+        is ApiResult.Failure -> result
+        is ApiResult.Success -> ApiResult.Success(Unit)
+    }
+
     suspend inline fun <reified T> delete(
         path: String,
         params: Map<String, Any?> = emptyMap(),
@@ -210,6 +255,7 @@ class JellyfinClient(
         requestBody: Any?,
         includeToken: Boolean,
         invalidateSessionOnUnauthorized: Boolean,
+        tokenOverride: String? = null,
     ): ApiResult<HttpResponse> {
         val base = baseUrlOverride ?: sessions.serverUrlOrNull()
             ?: return ApiResult.Failure(ApiError.Network("No server configured"))
@@ -217,7 +263,7 @@ class JellyfinClient(
         return try {
             val response = httpClient.request(url) {
                 this.method = method
-                header(HttpHeaders.Authorization, authHeader(includeToken))
+                header(HttpHeaders.Authorization, authHeader(includeToken, tokenOverride))
                 if (requestBody != null) {
                     contentType(ContentType.Application.Json)
                     setBody(requestBody)

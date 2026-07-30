@@ -73,6 +73,7 @@ private object SettingsKeys {
     val BACKDROP_ROTATION_SECONDS = intPreferencesKey("backdrop_rotation_seconds")
     val WATCHED_INDICATORS = booleanPreferencesKey("watched_indicators")
     val REMEMBER_LAST_LIBRARY = booleanPreferencesKey("remember_last_library")
+    val CACHE_HOME_CONTENT = booleanPreferencesKey("cache_home_content")
 
     val SCREENSAVER_TIMEOUT_MINUTES = intPreferencesKey("screensaver_timeout_minutes")
     val SCREENSAVER_CONTENT = stringPreferencesKey("screensaver_content")
@@ -145,6 +146,7 @@ data class ClientSettings(
     val backdropRotationSeconds: Int = 20,
     val watchedIndicators: Boolean = true,
     val rememberLastLibrary: Boolean = true,
+    val cacheHomeContent: Boolean = true,
 
     val screensaverTimeoutMinutes: Int = 5,
     val screensaverContent: String = "All libraries",
@@ -260,6 +262,7 @@ private fun Preferences.toClientSettings(): ClientSettings = ClientSettings(
     backdropRotationSeconds = this[SettingsKeys.BACKDROP_ROTATION_SECONDS] ?: 20,
     watchedIndicators = this[SettingsKeys.WATCHED_INDICATORS] ?: true,
     rememberLastLibrary = this[SettingsKeys.REMEMBER_LAST_LIBRARY] ?: true,
+    cacheHomeContent = this[SettingsKeys.CACHE_HOME_CONTENT] ?: true,
     screensaverTimeoutMinutes = this[SettingsKeys.SCREENSAVER_TIMEOUT_MINUTES] ?: 5,
     screensaverContent = this[SettingsKeys.SCREENSAVER_CONTENT] ?: "All libraries",
     screensaverImageDurationSeconds = this[SettingsKeys.SCREENSAVER_IMAGE_DURATION_SECONDS] ?: 20,
@@ -324,6 +327,7 @@ private fun androidx.datastore.preferences.core.MutablePreferences.write(setting
     this[SettingsKeys.BACKDROP_ROTATION_SECONDS] = settings.backdropRotationSeconds
     this[SettingsKeys.WATCHED_INDICATORS] = settings.watchedIndicators
     this[SettingsKeys.REMEMBER_LAST_LIBRARY] = settings.rememberLastLibrary
+    this[SettingsKeys.CACHE_HOME_CONTENT] = settings.cacheHomeContent
     this[SettingsKeys.SCREENSAVER_TIMEOUT_MINUTES] = settings.screensaverTimeoutMinutes
     this[SettingsKeys.SCREENSAVER_CONTENT] = settings.screensaverContent
     this[SettingsKeys.SCREENSAVER_IMAGE_DURATION_SECONDS] = settings.screensaverImageDurationSeconds

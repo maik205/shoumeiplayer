@@ -269,22 +269,46 @@ class ImageUrlBuilderTest {
     }
 
     @Test
-    fun `logo chain prefers own logo then the parent logo`() {
-        val own = episode.copy(
+    fun `episode logo uses its series owner for a stable shared cache key`() {
+        val item = episode.copy(
             imageTags = mapOf("Logo" to "own"),
             parentLogoItemId = "series-1",
             parentLogoImageTag = "parent",
         )
         assertEquals(
-            "http://server/Items/ep-1/Images/Logo?maxWidth=480&quality=90&tag=own",
-            builder.logoWithParentFallback(own),
+            "http://server/Items/series-1/Images/Logo?maxWidth=480&quality=90&tag=parent",
+            builder.logoWithParentFallback(item),
         )
         assertEquals(
-            "http://server/Items/series-1/Images/Logo?maxWidth=480&quality=90&tag=parent",
-            builder.logoWithParentFallback(own.copy(imageTags = emptyMap())),
+            builder.logoWithParentFallback(item),
+            builder.logoWithParentFallback(item.copy(id = "ep-2")),
+        )
+        assertEquals(
+            "http://server/Items/ep-1/Images/Logo?maxWidth=480&quality=90&tag=own",
+            builder.logoWithParentFallback(
+                item.copy(parentLogoItemId = null, parentLogoImageTag = null),
+            ),
+        )
+    }
+
+    @Test
+    fun `logo chain keeps own logo priority for non episode items`() {
+        val item = episode.copy(
+            type = "Movie",
+            imageTags = mapOf("Logo" to "own"),
+            parentLogoItemId = "collection-1",
+            parentLogoImageTag = "parent",
+        )
+        assertEquals(
+            "http://server/Items/ep-1/Images/Logo?maxWidth=480&quality=90&tag=own",
+            builder.logoWithParentFallback(item),
+        )
+        assertEquals(
+            "http://server/Items/collection-1/Images/Logo?maxWidth=480&quality=90&tag=parent",
+            builder.logoWithParentFallback(item.copy(imageTags = emptyMap())),
         )
         assertNull(
-            builder.logoWithParentFallback(own.copy(imageTags = emptyMap(), parentLogoItemId = null)),
+            builder.logoWithParentFallback(item.copy(imageTags = emptyMap(), parentLogoItemId = null)),
         )
         assertNull(builder.logoWithParentFallback(episode))
     }

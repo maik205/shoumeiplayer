@@ -16,7 +16,16 @@ import com.maik205.shoumeiplayer.data.session.Session
 import com.maik205.shoumeiplayer.data.session.SessionStore
 import com.maik205.shoumeiplayer.data.session.normalizeServerUrl
 
+data class QuickConnectSessionReplacement(
+    val session: Session,
+    val tokenChanged: Boolean,
+    val oldTokenRevoked: Boolean,
+)
+
 class AuthRepository(private val client: JellyfinClient, private val sessionStore: SessionStore) {
+    val rememberedServers = sessionStore.rememberedServers
+    val activeServer = sessionStore.activeServer
+    suspend fun activeUserId(): String? = sessionStore.current()?.userId
 
     /**
      * Process-lifetime cache of the signed-in user. Populated either by [login] (the auth
@@ -27,7 +36,10 @@ class AuthRepository(private val client: JellyfinClient, private val sessionStor
     private var cachedUser: UserDto? = null
 
     suspend fun currentUser(): UserDto? {
-        cachedUser?.let { return it }
+        val sessionUserId = sessionStore.current()?.userId
+        cachedUser
+            ?.takeIf { sessionUserId == null || it.id == sessionUserId }
+            ?.let { return it }
         val user = (client.get<UserDto>("/Users/Me") as? ApiResult.Success)?.data ?: return null
         cachedUser = user
         return user
@@ -50,11 +62,12 @@ class AuthRepository(private val client: JellyfinClient, private val sessionStor
             invalidateSessionOnUnauthorized = false,
         )
         if (result is ApiResult.Success) {
-            if (sessionStore.serverUrlOrNull() != normalized) {
-                cachedUser = null
-                sessionStore.clearAuth()
-            }
-            sessionStore.setServerUrl(normalized)
+            if (sessionStore.serverUrlOrNull() != normalized) cachedUser = null
+            sessionStore.activateServer(
+                url = normalized,
+                serverId = result.data.id,
+                serverName = result.data.serverName,
+            )
         }
         return result
     }
@@ -68,6 +81,32 @@ class AuthRepository(private val client: JellyfinClient, private val sessionStor
         includeToken = false,
         invalidateSessionOnUnauthorized = false,
     )
+
+    /**
+     * Profiles suitable for the account switcher.
+     *
+     * Jellyfin deliberately omits hidden users from `/Users/Public`, including the user whose
+     * session is already active. Keep that public list for discoverable accounts, but always put
+     * the authenticated user first. The persisted session is a usable offline fallback when
+     * `/Users/Me` cannot be refreshed.
+     */
+    suspend fun accountSwitcherUsers(): ApiResult<List<UserDto>> {
+        val publicResult = publicUsers()
+        val session = sessionStore.current() ?: return publicResult
+        val activeUser = currentUser()
+            ?.takeIf { it.id == session.userId }
+            ?: UserDto(
+                id = session.userId,
+                name = session.userName,
+            )
+        val publicUsers = (publicResult as? ApiResult.Success)?.data.orEmpty()
+        return ApiResult.Success(
+            buildList {
+                add(activeUser)
+                addAll(publicUsers.filterNot { it.id == session.userId })
+            },
+        )
+    }
 
     suspend fun quickConnectEnabled(): ApiResult<Boolean> = client.get(
         "/QuickConnect/Enabled",
@@ -119,6 +158,81 @@ class AuthRepository(private val client: JellyfinClient, private val sessionStor
             is ApiResult.Failure -> result.asCredentialFailure()
             is ApiResult.Success -> persistAuthentication(result.data)
         }
+    }
+
+    /**
+     * Replace the active server session through an authorized Quick Connect challenge.
+     *
+     * The replacement token is verified before local persistence. Persistence records the old
+     * token as pending revocation in the same transaction, so a process death cannot lose the new
+     * working session or forget that cleanup is still owed.
+     */
+    suspend fun replaceSessionWithQuickConnect(
+        secret: String,
+    ): ApiResult<QuickConnectSessionReplacement> {
+        val previous = sessionStore.current()
+            ?: return ApiResult.Failure(ApiError.Unauthorized)
+        val authentication = client.post<AuthenticationResult>(
+            "/Users/AuthenticateWithQuickConnect",
+            body = QuickConnectDto(secret),
+            includeToken = false,
+            invalidateSessionOnUnauthorized = false,
+        )
+        val result = when (authentication) {
+            is ApiResult.Failure -> return authentication
+            is ApiResult.Success -> authentication.data
+        }
+        val replacementToken = result.accessToken
+            ?.takeIf(String::isNotBlank)
+            ?: return ApiResult.Failure(ApiError.Unknown("Quick Connect response missing token"))
+        val expectedUserId = result.user?.id
+            ?.takeIf(String::isNotBlank)
+            ?: return ApiResult.Failure(ApiError.Unknown("Quick Connect response missing user"))
+        if (expectedUserId != previous.userId) {
+            return ApiResult.Failure(
+                ApiError.Unknown("Quick Connect must be approved by the current user"),
+            )
+        }
+
+        val verifiedUser = when (
+            val verification = client.getWithToken<UserDto>("/Users/Me", replacementToken)
+        ) {
+            is ApiResult.Failure -> return verification
+            is ApiResult.Success -> verification.data
+        }
+        if (verifiedUser.id != expectedUserId) {
+            return ApiResult.Failure(ApiError.Unknown("Quick Connect token belongs to another user"))
+        }
+
+        val tokenChanged = replacementToken != previous.accessToken
+        sessionStore.replaceAuth(
+            accessToken = replacementToken,
+            userId = expectedUserId,
+            userName = verifiedUser.name.orEmpty(),
+            previousTokenToRevoke = previous.accessToken.takeIf { tokenChanged },
+        )
+        cachedUser = verifiedUser
+
+        val oldTokenRevoked = if (tokenChanged) {
+            revokePendingToken(previous.accessToken)
+        } else {
+            true
+        }
+        val session = sessionStore.current()
+            ?: return ApiResult.Failure(ApiError.Unknown("Replacement session was not persisted"))
+        return ApiResult.Success(
+            QuickConnectSessionReplacement(
+                session = session,
+                tokenChanged = tokenChanged,
+                oldTokenRevoked = oldTokenRevoked,
+            ),
+        )
+    }
+
+    /** Retry cleanup left pending by a process death or transient logout failure. */
+    suspend fun retryPendingTokenRevocation(): Boolean {
+        val token = sessionStore.pendingRevocationTokenOrNull() ?: return true
+        return revokePendingToken(token)
     }
 
     /** GET /Users/Me, bypassing the cache; refreshes it on success. */
@@ -196,6 +310,8 @@ class AuthRepository(private val client: JellyfinClient, private val sessionStor
 
     suspend fun clearServer() = forgetServer()
 
+    suspend fun hasActiveSession(): Boolean = sessionStore.current() != null
+
     private suspend fun persistAuthentication(result: AuthenticationResult): ApiResult<Session> {
         val accessToken = result.accessToken
         val userId = result.user?.id
@@ -224,4 +340,12 @@ class AuthRepository(private val client: JellyfinClient, private val sessionStor
         } else {
             this
         }
+
+    private suspend fun revokePendingToken(token: String): Boolean {
+        val result = client.postEmptyWithToken("/Sessions/Logout", token)
+        val revoked = result is ApiResult.Success ||
+            (result is ApiResult.Failure && result.error == ApiError.Unauthorized)
+        if (revoked) sessionStore.clearPendingRevocation(token)
+        return revoked
+    }
 }

@@ -1,5 +1,7 @@
 package com.maik205.shoumeiplayer.data.session
 
+import kotlinx.serialization.Serializable
+
 data class Session(
     val serverUrl: String,      // normalized, no trailing slash
     val accessToken: String,
@@ -7,6 +9,21 @@ data class Session(
     val userName: String,
     val deviceId: String,
 )
+
+@Serializable
+data class RememberedServer(
+    val id: String,
+    val name: String,
+    val url: String,
+    val accessToken: String? = null,
+    val userId: String? = null,
+    val userName: String? = null,
+    val pendingRevocationToken: String? = null,
+    val lastUsedAt: Long = 0L,
+) {
+    val hasSession: Boolean
+        get() = !accessToken.isNullOrBlank() && !userId.isNullOrBlank()
+}
 
 interface SessionProvider {
     suspend fun current(): Session?

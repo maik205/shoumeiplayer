@@ -4,8 +4,10 @@ import androidx.compose.runtime.Immutable
 import com.maik205.shoumeiplayer.data.ImageUrlBuilder
 import com.maik205.shoumeiplayer.data.api.dto.BaseItemDto
 import com.maik205.shoumeiplayer.util.Ticks
+import kotlinx.serialization.Serializable
 
 @Immutable
+@Serializable
 enum class ArtworkShape {
     Poster,
     Landscape,
@@ -14,6 +16,7 @@ enum class ArtworkShape {
 }
 
 @Immutable
+@Serializable
 data class MediaItemUi(
     val id: String,
     val title: String,
@@ -42,6 +45,7 @@ data class MediaItemUi(
 )
 
 @Immutable
+@Serializable
 data class MediaShelfUi(
     val id: String,
     val title: String,
@@ -49,6 +53,7 @@ data class MediaShelfUi(
 )
 
 @Immutable
+@Serializable
 data class LibraryDestinationUi(
     val id: String,
     val title: String,
@@ -56,6 +61,7 @@ data class LibraryDestinationUi(
 )
 
 @Immutable
+@Serializable
 data class HeroUi(
     val item: MediaItemUi,
     val eyebrow: String? = null,
