@@ -1,0 +1,1 @@
+A cinematic, remote-first Jellyfin player made for Android TV.

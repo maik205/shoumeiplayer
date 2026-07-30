@@ -1,0 +1,7 @@
+Shoumei Player is a native Android TV client for your personal Jellyfin media server.
+
+Designed for the living room, it provides remote-first navigation, cinematic browsing, library search, detailed movie and series pages, and native playback powered by libmpv.
+
+Browse your libraries, continue unfinished videos, choose audio and subtitle tracks, and report playback progress directly to your Jellyfin server.
+
+Shoumei Player does not provide, host, sell, or distribute media. A separately configured Jellyfin server and access to your own media library are required.
