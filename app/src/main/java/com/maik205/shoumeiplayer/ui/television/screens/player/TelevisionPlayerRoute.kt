@@ -48,6 +48,7 @@ fun TelevisionPlayerScreen(
             teardownScope = container.applicationScope,
             settingsStore = container.settingsStore,
             initialQualityLabel = initialQualityLabel,
+            audioRouteLabel = container.audioRouteLabel,
         )
     }
     val controller = remember(viewModel) { PlayerViewModelController(viewModel) }

@@ -101,6 +101,7 @@ data class PlayerUiState(
     val container: String? = null,
     val videoDescription: String? = null,
     val audioDescription: String? = null,
+    val activeAudioRoute: String = "System default",
     val displayDescription: String? = null,
 )
 

@@ -63,6 +63,7 @@ class PlayerViewModel(
     private val teardownScope: CoroutineScope,
     private val settingsStore: PlayerSettingsRepository? = null,
     private val initialQualityLabel: String? = null,
+    private val audioRouteLabel: StateFlow<String> = MutableStateFlow("System default"),
 ) : ViewModel() {
 
     private data class LocalState(
@@ -187,7 +188,8 @@ class PlayerViewModel(
         engine.durationMs,
         trackGroups,
         localState,
-    ) { play, engineDurationMs, tracks, local ->
+        audioRouteLabel,
+    ) { play, engineDurationMs, tracks, local, activeAudioRoute ->
         val duration = engineDurationMs ?: local.itemDurationMs
         PlayerUiState(
             loading = local.loading,
@@ -234,6 +236,7 @@ class PlayerViewModel(
             container = local.container,
             videoDescription = local.videoDescription,
             audioDescription = local.audioDescription,
+            activeAudioRoute = activeAudioRoute,
             displayDescription = local.displayDescription,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlayerUiState())
