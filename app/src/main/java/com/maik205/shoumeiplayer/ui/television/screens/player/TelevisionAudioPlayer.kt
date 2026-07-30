@@ -81,6 +81,7 @@ import com.maik205.shoumeiplayer.ui.screens.player.LyricLineUi
 import com.maik205.shoumeiplayer.ui.screens.player.PlayerUiState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
+import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import kotlinx.coroutines.launch
@@ -990,6 +991,12 @@ private fun AudioQueueColumn(
     onInteraction: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val coverFocusRequesters = remember(items.map(AudioQueueItemUi::itemId), firstItemFocus) {
+        List(items.size) { index ->
+            if (index == 0 && firstItemFocus != null) firstItemFocus else FocusRequester()
+        }
+    }
+    val coverRailState = rememberLazyListState()
     Column(modifier) {
         Row(
             modifier = Modifier.fillMaxWidth().height(19.dp),
@@ -1021,13 +1028,19 @@ private fun AudioQueueColumn(
         when {
             items.isEmpty() -> Text(emptyMessage, fontSize = 8.sp, color = TelevisionColors.PaperSoft)
             coverMode -> LazyRow(
+                state = coverRailState,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxSize().focusGroup(),
             ) {
                 itemsIndexed(items, key = { _, item -> item.itemId }) { index, item ->
                     AudioCoverItem(
                         item = item,
-                        focusRequester = if (index == 0) firstItemFocus else null,
+                        focusRequester = coverFocusRequesters.getOrNull(index),
+                        modifier = Modifier.televisionHorizontalWrap(
+                            index,
+                            coverFocusRequesters,
+                            coverRailState,
+                        ),
                         onClick = {
                             onInteraction()
                             onPlayItem(item.itemId)
@@ -1106,13 +1119,14 @@ private fun AudioCoverItem(
     item: AudioQueueItemUi,
     focusRequester: FocusRequester?,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     TelevisionFocusSurface(
         onClick = onClick,
         focusRequester = focusRequester,
         scaleTo = 1f,
         restingAlpha = 0.42f,
-        modifier = Modifier.width(89.dp).height(116.dp),
+        modifier = modifier.width(89.dp).height(116.dp),
     ) { focused ->
         Column {
             AsyncImage(

@@ -58,6 +58,15 @@ fun MediaRow(
     val listState = rememberLazyListState()
     var rowActive by remember { mutableStateOf(false) }
     var focusedIndex by remember { mutableIntStateOf(-1) }
+    val railFocusRequesters = remember(items.map(MediaCardUi::id), firstItemFocusRequester) {
+        List(items.size) { index ->
+            if (index == 0 && firstItemFocusRequester != null) {
+                firstItemFocusRequester
+            } else {
+                FocusRequester()
+            }
+        }
+    }
 
     LaunchedEffect(focusedIndex) {
         if (focusedIndex >= 0) {
@@ -92,7 +101,12 @@ fun MediaRow(
                 MediaCard(
                     item = item,
                     onClick = { onItemClick(item.id) },
-                    focusRequester = firstItemFocusRequester.takeIf { index == 0 },
+                    focusRequester = railFocusRequesters.getOrNull(index),
+                    modifier = Modifier.horizontalFocusWrap(
+                        index,
+                        railFocusRequesters,
+                        listState,
+                    ),
                     onFocusChanged = { focused ->
                         if (focused) {
                             focusedIndex = index

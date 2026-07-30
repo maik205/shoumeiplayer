@@ -5,9 +5,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maik205.shoumeiplayer.data.ApiResult
 import com.maik205.shoumeiplayer.data.ImageUrlBuilder
+import com.maik205.shoumeiplayer.data.cache.LibraryCacheStore
 import com.maik205.shoumeiplayer.data.repo.AuthRepository
 import com.maik205.shoumeiplayer.data.repo.LibraryRepository
 import com.maik205.shoumeiplayer.data.session.SessionStore
+import com.maik205.shoumeiplayer.data.session.SettingsStore
 import com.maik205.shoumeiplayer.ui.television.model.LibraryDestinationUi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +35,8 @@ data class TelevisionShellState(
 class TelevisionShellViewModel(
     private val sessionStore: SessionStore,
     private val libraryRepository: LibraryRepository,
+    private val libraryCacheStore: LibraryCacheStore,
+    private val settingsStore: SettingsStore,
     private val authRepository: AuthRepository,
     private val imageUrlBuilder: ImageUrlBuilder,
 ) : ViewModel() {
@@ -40,6 +44,7 @@ class TelevisionShellViewModel(
     val state: StateFlow<TelevisionShellState> = _state.asStateFlow()
 
     private var libraryLoad: Job? = null
+    private var libraryRestore: Job? = null
     private var profileLoad: Job? = null
 
     init {
@@ -47,16 +52,32 @@ class TelevisionShellViewModel(
             sessionStore.session.collectLatest { session ->
                 if (session == null) {
                     libraryLoad?.cancel()
+                    libraryRestore?.cancel()
                     profileLoad?.cancel()
                     _state.value = TelevisionShellState()
                 } else {
+                    libraryLoad?.cancel()
                     _state.update {
                         it.copy(
                             userName = session.userName,
                             avatarUrl = null,
                         )
                     }
-                    refreshLibraries()
+                    libraryRestore?.cancel()
+                    libraryRestore = viewModelScope.launch {
+                        if (settingsStore.current().cacheHomeContent) {
+                            libraryCacheStore.read(session.serverUrl, session.userId)
+                        } else {
+                            emptyList()
+                        }
+                            .takeIf { it.isNotEmpty() }
+                            ?.let { cached ->
+                                if (sessionStore.current()?.userId == session.userId) {
+                                    _state.update { it.copy(libraries = cached, loadingLibraries = true, error = null) }
+                                }
+                            }
+                        refreshLibraries()
+                    }
                     profileLoad?.cancel()
                     profileLoad = viewModelScope.launch {
                         val user = authRepository.currentUser()
@@ -79,30 +100,32 @@ class TelevisionShellViewModel(
     fun refreshLibraries() {
         if (libraryLoad?.isActive == true) return
         libraryLoad = viewModelScope.launch {
+            val requestSession = sessionStore.current() ?: return@launch
             _state.update { it.copy(loadingLibraries = true, error = null) }
             when (val result = libraryRepository.userViews()) {
-                is ApiResult.Failure -> _state.update {
-                    it.copy(
-                        loadingLibraries = false,
-                        error = result.error.displayMessage,
-                    )
+                is ApiResult.Failure -> {
+                    if (sessionStore.current()?.let { it.serverUrl == requestSession.serverUrl && it.userId == requestSession.userId } == true) {
+                        _state.update {
+                            it.copy(
+                                loadingLibraries = false,
+                                error = result.error.displayMessage,
+                            )
+                        }
+                    }
                 }
 
-                is ApiResult.Success -> _state.update {
-                    it.copy(
-                        loadingLibraries = false,
-                        libraries = result.data
-                            .filterNot { view ->
-                                view.collectionType.equals("photos", ignoreCase = true)
-                            }
-                            .map { view ->
-                                LibraryDestinationUi(
-                                    id = view.id,
-                                    title = view.name.orEmpty(),
-                                    collectionType = view.collectionType,
-                                )
-                            },
-                    )
+                is ApiResult.Success -> {
+                    val libraries = result.data
+                        .filterNot { view -> view.collectionType.equals("photos", ignoreCase = true) }
+                        .map { view ->
+                            LibraryDestinationUi(id = view.id, title = view.name.orEmpty(), collectionType = view.collectionType)
+                        }
+                    if (sessionStore.current()?.let { it.serverUrl == requestSession.serverUrl && it.userId == requestSession.userId } == true) {
+                        _state.update { it.copy(loadingLibraries = false, libraries = libraries) }
+                        if (settingsStore.current().cacheHomeContent) {
+                            libraryCacheStore.write(requestSession.serverUrl, requestSession.userId, libraries)
+                        }
+                    }
                 }
             }
         }

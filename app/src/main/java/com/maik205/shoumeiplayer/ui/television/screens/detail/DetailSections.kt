@@ -63,6 +63,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionMediaTile
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionProgressMark
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionRowHeader
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
+import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.ui.television.model.ArtworkShape
 import com.maik205.shoumeiplayer.ui.television.model.MediaItemUi
@@ -444,6 +445,19 @@ internal fun EpisodeRail(
 ) {
     val currentEpisodeIndex = episodes.indexOfFirst { it.id == currentEpisodeId }.coerceAtLeast(0)
     val entryEpisodeIndex = if (currentEpisodeId != null) currentEpisodeIndex else 0
+    val railFocusRequesters = remember(
+        episodes.map(MediaItemUi::id),
+        entryEpisodeIndex,
+        episodeFocusRequester,
+    ) {
+        List(episodes.size) { index ->
+            if (index == entryEpisodeIndex && episodeFocusRequester != null) {
+                episodeFocusRequester
+            } else {
+                FocusRequester()
+            }
+        }
+    }
     val rowState = rememberLazyListState(initialFirstVisibleItemIndex = currentEpisodeIndex)
     LaunchedEffect(selectedSeasonId, episodes.firstOrNull()?.id) {
         if (episodes.isNotEmpty()) rowState.scrollToItem(currentEpisodeIndex)
@@ -487,7 +501,7 @@ internal fun EpisodeRail(
             itemsIndexed(episodes, key = { _, episode -> episode.id }) { index, episode ->
                 TelevisionFocusSurface(
                     onClick = { onPlay(episode) },
-                    focusRequester = if (index == entryEpisodeIndex) episodeFocusRequester else null,
+                    focusRequester = railFocusRequesters.getOrNull(index),
                     restingAlpha = when {
                         episode.id == currentEpisodeId -> 1f
                         episode.watched -> 0.50f
@@ -497,6 +511,7 @@ internal fun EpisodeRail(
                     focusedTranslationY = (-2).dp,
                     modifier = Modifier
                         .width(210.dp)
+                        .televisionHorizontalWrap(index, railFocusRequesters, rowState)
                         .focusProperties {
                             episodeUpFocusRequester?.let { up = it }
                         }
@@ -885,6 +900,10 @@ internal fun DetailMediaRail(
     items: List<MediaItemUi>,
     onOpen: (MediaItemUi) -> Unit,
 ) {
+    val railFocusRequesters = remember(items.map(MediaItemUi::id)) {
+        List(items.size) { FocusRequester() }
+    }
+    val railState = rememberLazyListState()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -896,16 +915,23 @@ internal fun DetailMediaRail(
         )
         Spacer(Modifier.height(12.dp))
         LazyRow(
+            state = railState,
             modifier = Modifier
                 .focusGroup()
                 .focusRestorer(),
             contentPadding = PaddingValues(horizontal = TelevisionDimensions.SafeHorizontal),
             horizontalArrangement = Arrangement.spacedBy(TelevisionDimensions.TileGap),
         ) {
-            items(items, key = MediaItemUi::id) { item ->
+            itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
                 TelevisionMediaTile(
                     item = item,
                     onClick = { onOpen(item) },
+                    focusRequester = railFocusRequesters.getOrNull(index),
+                    modifier = Modifier.televisionHorizontalWrap(
+                        index,
+                        railFocusRequesters,
+                        railState,
+                    ),
                     shape = when (item.type) {
                         "Episode", "Video", "Recording" -> ArtworkShape.Landscape
                         else -> item.shape
@@ -921,6 +947,10 @@ internal fun PeopleRail(
     people: List<PersonUi>,
     onOpen: (PersonUi) -> Unit,
 ) {
+    val railFocusRequesters = remember(people.map(PersonUi::id)) {
+        List(people.size) { FocusRequester() }
+    }
+    val railState = rememberLazyListState()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -932,19 +962,22 @@ internal fun PeopleRail(
         )
         Spacer(Modifier.height(12.dp))
         LazyRow(
+            state = railState,
             modifier = Modifier
                 .focusGroup()
                 .focusRestorer(),
             contentPadding = PaddingValues(horizontal = TelevisionDimensions.SafeHorizontal),
             horizontalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            items(people, key = PersonUi::id) { person ->
+            itemsIndexed(people, key = { _, person -> person.id }) { index, person ->
                 TelevisionFocusSurface(
                     onClick = { onOpen(person) },
+                    focusRequester = railFocusRequesters.getOrNull(index),
                     restingAlpha = 0.68f,
                     scaleTo = TelevisionFocusScale.Poster,
                     modifier = Modifier
                         .width(132.dp)
+                        .televisionHorizontalWrap(index, railFocusRequesters, railState)
                         .televisionBringIntoViewOnFocus(),
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {

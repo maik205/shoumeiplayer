@@ -1,11 +1,13 @@
 package com.maik205.shoumeiplayer.ui.television.screens.onboarding
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -18,6 +20,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -48,6 +52,11 @@ import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -67,6 +76,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionBackground
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusScale
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
+import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
@@ -251,7 +261,15 @@ private fun ServerRow(
                     maxLines = 1,
                 )
                 Text(
-                    text = server.address.removePrefix("http://").removePrefix("https://"),
+                    text = when {
+                        server.active && server.hasSession && !server.userName.isNullOrBlank() ->
+                            stringResource(R.string.tv_current_signed_in_as, server.userName)
+                        server.active -> stringResource(R.string.tv_current_server)
+                        server.hasSession && !server.userName.isNullOrBlank() ->
+                            stringResource(R.string.tv_signed_in_as, server.userName)
+                        server.remembered -> stringResource(R.string.tv_remembered_server)
+                        else -> server.address.removePrefix("http://").removePrefix("https://")
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = TelevisionColors.PaperSoft,
                     maxLines = 1,
@@ -269,7 +287,15 @@ fun ProfilesScreen(
     onAnotherAccount: () -> Unit,
     onBack: () -> Unit,
 ) {
+    BackHandler(onBack = onBack)
+
     val firstFocus = remember { FocusRequester() }
+    val profileFocusRequesters = remember(state.profiles.map(ProfileUi::id), firstFocus) {
+        List(state.profiles.size) { index ->
+            if (index == 0) firstFocus else FocusRequester()
+        }
+    }
+    val profileRailState = rememberLazyListState()
     var initialProfileFocusAssigned by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(state.profiles) {
         if (state.profiles.isNotEmpty() && !initialProfileFocusAssigned) {
@@ -312,23 +338,32 @@ fun ProfilesScreen(
                     verticalArrangement = Arrangement.Center,
                 ) {
                     LazyRow(
+                        state = profileRailState,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(154.dp)
+                            .height(170.dp)
                             .focusGroup()
                             .focusRestorer(),
+                        contentPadding = PaddingValues(
+                            horizontal = 8.dp,
+                            vertical = 8.dp,
+                        ),
                         horizontalArrangement = Arrangement.spacedBy(28.dp),
                         verticalAlignment = Alignment.Top,
                     ) {
-                        items(state.profiles, key = ProfileUi::id) { profile ->
+                        itemsIndexed(
+                            state.profiles,
+                            key = { _, profile -> profile.id },
+                        ) { index, profile ->
                             ProfileTarget(
                                 profile = profile,
                                 onClick = { onProfileClick(profile) },
-                                focusRequester = if (profile == state.profiles.firstOrNull()) {
-                                    firstFocus
-                                } else {
-                                    null
-                                },
+                                focusRequester = profileFocusRequesters.getOrNull(index),
+                                modifier = Modifier.televisionHorizontalWrap(
+                                    index,
+                                    profileFocusRequesters,
+                                    profileRailState,
+                                ),
                             )
                         }
                     }
@@ -358,13 +393,14 @@ private fun ProfileTarget(
     profile: ProfileUi,
     onClick: () -> Unit,
     focusRequester: FocusRequester?,
+    modifier: Modifier = Modifier,
 ) {
     TelevisionFocusSurface(
         onClick = onClick,
         focusRequester = focusRequester,
         scaleTo = 1.055f,
         restingAlpha = 0.48f,
-        modifier = Modifier
+        modifier = modifier
             .width(124.dp)
             .televisionBringIntoViewOnFocus(),
     ) {
@@ -411,9 +447,17 @@ fun LoginScreen(
     onForgotPassword: () -> Unit,
     onBack: () -> Unit,
 ) {
+    BackHandler(onBack = onBack)
+
+    val backFocus = remember { FocusRequester() }
     val usernameFocus = remember { FocusRequester() }
     val passwordFocus = remember { FocusRequester() }
+    val forgotPasswordFocus = remember { FocusRequester() }
+    val quickConnectFocus = remember { FocusRequester() }
+    val signInFocus = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
+    val quickConnectFocusable = state.quickConnectAvailable && !state.quickConnectLoading
+    val signInFocusable = state.userName.isNotBlank() && !state.signingIn
 
     LaunchedEffect(Unit) {
         if (state.userName.isBlank()) usernameFocus.requestFocus() else passwordFocus.requestFocus()
@@ -426,12 +470,19 @@ fun LoginScreen(
                 icon = Icons.AutoMirrored.Filled.ArrowBack,
                 onClick = onBack,
                 expandedWidth = 112.dp,
+                focusRequester = backFocus,
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(
                         start = TelevisionDimensions.SafeHorizontal,
                         top = TelevisionDimensions.SafeTop,
-                    ),
+                    )
+                    .focusProperties {
+                        left = FocusRequester.Cancel
+                        up = FocusRequester.Cancel
+                        right = FocusRequester.Cancel
+                        down = usernameFocus
+                    },
             )
 
             Row(
@@ -466,6 +517,12 @@ fun LoginScreen(
                         onDone = { passwordFocus.requestFocus() },
                         focusRequester = usernameFocus,
                         imeAction = ImeAction.Next,
+                        modifier = Modifier.focusProperties {
+                            up = backFocus
+                            down = passwordFocus
+                        },
+                        upFocusRequester = backFocus,
+                        downFocusRequester = passwordFocus,
                     )
                     Spacer(Modifier.height(26.dp))
                     Text(stringResource(R.string.password), style = MaterialTheme.typography.titleSmall)
@@ -480,6 +537,12 @@ fun LoginScreen(
                         },
                         focusRequester = passwordFocus,
                         password = true,
+                        modifier = Modifier.focusProperties {
+                            up = usernameFocus
+                            down = forgotPasswordFocus
+                        },
+                        upFocusRequester = usernameFocus,
+                        downFocusRequester = forgotPasswordFocus,
                     )
 
                     Spacer(Modifier.height(16.dp))
@@ -488,6 +551,17 @@ fun LoginScreen(
                         icon = Icons.Default.LockReset,
                         onClick = onForgotPassword,
                         expandedWidth = 164.dp,
+                        focusRequester = forgotPasswordFocus,
+                        modifier = Modifier.focusProperties {
+                            left = FocusRequester.Cancel
+                            up = passwordFocus
+                            right = FocusRequester.Cancel
+                            down = when {
+                                quickConnectFocusable -> quickConnectFocus
+                                signInFocusable -> signInFocus
+                                else -> FocusRequester.Cancel
+                            }
+                        },
                     )
                     Spacer(Modifier.height(14.dp))
                     Row(
@@ -504,6 +578,13 @@ fun LoginScreen(
                                 enabled = !state.quickConnectLoading,
                                 selected = state.quickConnectCode != null,
                                 expandedWidth = if (state.quickConnectCode == null) 148.dp else 118.dp,
+                                focusRequester = quickConnectFocus,
+                                modifier = Modifier.focusProperties {
+                                    left = if (signInFocusable) signInFocus else FocusRequester.Cancel
+                                    up = forgotPasswordFocus
+                                    right = if (signInFocusable) signInFocus else FocusRequester.Cancel
+                                    down = FocusRequester.Cancel
+                                },
                             )
                             if (state.quickConnectLoading) {
                                 CircularProgressIndicator(
@@ -520,8 +601,23 @@ fun LoginScreen(
                             label = stringResource(R.string.sign_in),
                             icon = Icons.AutoMirrored.Filled.ArrowForward,
                             onClick = onSignIn,
-                            enabled = state.userName.isNotBlank() && !state.signingIn,
+                            enabled = signInFocusable,
                             expandedWidth = 104.dp,
+                            focusRequester = signInFocus,
+                            modifier = Modifier.focusProperties {
+                                left = if (quickConnectFocusable) {
+                                    quickConnectFocus
+                                } else {
+                                    FocusRequester.Cancel
+                                }
+                                up = forgotPasswordFocus
+                                right = if (quickConnectFocusable) {
+                                    quickConnectFocus
+                                } else {
+                                    FocusRequester.Cancel
+                                }
+                                down = FocusRequester.Cancel
+                            },
                         )
                     }
 
@@ -547,6 +643,8 @@ fun RecoveryScreen(
     onRequestReset: () -> Unit,
     onBack: () -> Unit,
 ) {
+    BackHandler(onBack = onBack)
+
     val usernameFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { usernameFocus.requestFocus() }
 
@@ -729,6 +827,8 @@ private fun NativeTvField(
     modifier: Modifier = Modifier,
     password: Boolean = false,
     imeAction: ImeAction = ImeAction.Done,
+    upFocusRequester: FocusRequester? = null,
+    downFocusRequester: FocusRequester? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
     BasicTextField(
@@ -737,6 +837,22 @@ private fun NativeTvField(
         modifier = modifier
             .height(44.dp)
             .focusRequester(focusRequester)
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) {
+                    return@onPreviewKeyEvent false
+                }
+                when (event.key) {
+                    Key.DirectionUp -> upFocusRequester?.let {
+                        it.requestFocus()
+                        true
+                    } ?: false
+                    Key.DirectionDown -> downFocusRequester?.let {
+                        it.requestFocus()
+                        true
+                    } ?: false
+                    else -> false
+                }
+            }
             .onFocusChanged { focused = it.isFocused }
             .focusProperties { canFocus = true }
             .basicMarquee(iterations = Int.MAX_VALUE),

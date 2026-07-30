@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -25,6 +27,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -69,17 +73,25 @@ fun ChipRow(
     modifier: Modifier = Modifier,
     startPadding: Dp = Dimens.OverscanHorizontal,
 ) {
+    val railFocusRequesters = remember(chips.map(ChipUi::id)) {
+        List(chips.size) { FocusRequester() }
+    }
+    val railState = rememberLazyListState()
     LazyRow(
+        state = railState,
         modifier = modifier.focusRestorer(),
         contentPadding = PaddingValues(start = startPadding, top = 8.dp, bottom = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        items(chips, key = { it.id }) { chip ->
+        itemsIndexed(chips, key = { _, chip -> chip.id }) { index, chip ->
             PillChip(
                 label = chip.label,
                 selected = chip.selected,
                 onClick = { onChipClick(chip) },
                 trailingCaret = chip.hasMenu,
+                modifier = Modifier
+                    .horizontalFocusWrap(index, railFocusRequesters, railState)
+                    .focusRequester(railFocusRequesters[index]),
             )
         }
     }

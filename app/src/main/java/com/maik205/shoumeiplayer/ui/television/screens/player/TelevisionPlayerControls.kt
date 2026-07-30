@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -64,6 +66,7 @@ import com.maik205.shoumeiplayer.ui.screens.player.ChapterMark
 import com.maik205.shoumeiplayer.ui.screens.player.PlayerUiState
 import com.maik205.shoumeiplayer.ui.screens.player.UpNextUi
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
+import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
@@ -1161,14 +1164,19 @@ private fun ExtrasMediaRow(
     items: List<MediaCardUi>,
     onOpen: (String) -> Unit,
 ) {
+    val railFocusRequesters = remember(items.map(MediaCardUi::id)) {
+        List(items.size) { FocusRequester() }
+    }
+    val railState = rememberLazyListState()
     Column {
         Text(title, style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
         LazyRow(
+            state = railState,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier.focusGroup(),
         ) {
-            items(items, key = MediaCardUi::id) { item ->
+            itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
                 PlayerArtworkTile(
                     title = item.title,
                     subtitle = item.subtitle,
@@ -1176,6 +1184,12 @@ private fun ExtrasMediaRow(
                     width = 236.dp,
                     height = 133.dp,
                     onClick = { onOpen(item.id) },
+                    focusRequester = railFocusRequesters.getOrNull(index),
+                    modifier = Modifier.televisionHorizontalWrap(
+                        index,
+                        railFocusRequesters,
+                        railState,
+                    ),
                 )
             }
         }
@@ -1187,15 +1201,26 @@ private fun CastRow(
     cast: List<CastMemberUi>,
     onOpen: (CastMemberUi) -> Unit,
 ) {
+    val railFocusRequesters = remember(cast.map(CastMemberUi::id)) {
+        List(cast.size) { FocusRequester() }
+    }
+    val railState = rememberLazyListState()
     Column {
         Text("Cast", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(18.dp), modifier = Modifier.focusGroup()) {
-            items(cast, key = CastMemberUi::id) { person ->
+        LazyRow(
+            state = railState,
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            modifier = Modifier.focusGroup(),
+        ) {
+            itemsIndexed(cast, key = { _, person -> person.id }) { index, person ->
                 TelevisionFocusSurface(
                     onClick = { onOpen(person) },
+                    focusRequester = railFocusRequesters.getOrNull(index),
                     scaleTo = 1f,
-                    modifier = Modifier.width(116.dp),
+                    modifier = Modifier
+                        .width(116.dp)
+                        .televisionHorizontalWrap(index, railFocusRequesters, railState),
                 ) { focused ->
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         AsyncImage(
@@ -1240,12 +1265,13 @@ internal fun PlayerArtworkTile(
     height: Dp,
     onClick: () -> Unit,
     focusRequester: FocusRequester? = null,
+    modifier: Modifier = Modifier,
 ) {
     TelevisionFocusSurface(
         onClick = onClick,
         focusRequester = focusRequester,
         scaleTo = 1f,
-        modifier = Modifier.width(width),
+        modifier = modifier.width(width),
     ) { focused ->
         Column {
             AsyncImage(

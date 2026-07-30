@@ -6,11 +6,21 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
@@ -26,6 +36,7 @@ import androidx.tv.material3.Surface
 import com.maik205.shoumeiplayer.ui.theme.LocalShoumeiMotion
 import com.maik205.shoumeiplayer.ui.theme.Tungsten
 import com.maik205.shoumeiplayer.ui.theme.focusTween
+import kotlinx.coroutines.launch
 
 /**
  * §4.2 — the focus scale per surface class. A grid tile at 1.08 collides with its neighbours, a
@@ -43,6 +54,31 @@ object FocusScale {
 
     /** Slab button. */
     const val Slab = 1.03f
+}
+
+@Composable
+fun Modifier.horizontalFocusWrap(
+    index: Int,
+    focusRequesters: List<FocusRequester>,
+    listState: LazyListState,
+): Modifier {
+    if (focusRequesters.size < 2 || index !in focusRequesters.indices) return this
+    val scope = rememberCoroutineScope()
+    return onPreviewKeyEvent { event ->
+        val target = when {
+            event.type != KeyEventType.KeyDown -> null
+            index == 0 && event.key == Key.DirectionLeft -> focusRequesters.lastIndex
+            index == focusRequesters.lastIndex && event.key == Key.DirectionRight -> 0
+            else -> null
+        } ?: return@onPreviewKeyEvent false
+
+        scope.launch {
+            listState.scrollToItem(target)
+            withFrameNanos { }
+            focusRequesters[target].requestFocus()
+        }
+        true
+    }
 }
 
 /** §4.2 (c) — the inner hairline that keeps the white rim readable against pale artwork. */

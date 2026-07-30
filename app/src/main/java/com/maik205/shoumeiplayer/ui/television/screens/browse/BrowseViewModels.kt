@@ -5,9 +5,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maik205.shoumeiplayer.data.ApiResult
 import com.maik205.shoumeiplayer.data.ImageUrlBuilder
+import com.maik205.shoumeiplayer.data.cache.LibraryCacheStore
 import com.maik205.shoumeiplayer.data.api.dto.BaseItemDto
 import com.maik205.shoumeiplayer.data.api.dto.QueryResult
 import com.maik205.shoumeiplayer.data.repo.LibraryRepository
+import com.maik205.shoumeiplayer.data.session.SessionStore
+import com.maik205.shoumeiplayer.data.session.SettingsStore
 import com.maik205.shoumeiplayer.ui.television.model.HeroUi
 import com.maik205.shoumeiplayer.ui.television.model.LibraryDestinationUi
 import com.maik205.shoumeiplayer.ui.television.model.MediaItemUi
@@ -38,12 +41,30 @@ data class TelevisionHomeState(
 class TelevisionHomeViewModel(
     private val repository: LibraryRepository,
     private val images: ImageUrlBuilder,
+    private val sessionStore: SessionStore,
+    private val settingsStore: SettingsStore,
+    private val libraryCacheStore: LibraryCacheStore,
 ) : ViewModel() {
     private val _state = MutableStateFlow(TelevisionHomeState())
     val state: StateFlow<TelevisionHomeState> = _state.asStateFlow()
 
     init {
-        refresh()
+        viewModelScope.launch {
+            val session = sessionStore.current()
+            if (settingsStore.current().cacheHomeContent && session != null) {
+                libraryCacheStore.readHome(session.serverUrl, session.userId)?.let { cached ->
+                    _state.value = TelevisionHomeState(
+                        loading = false,
+                        libraries = cached.libraries,
+                        shelves = cached.shelves,
+                        hero = cached.heroItemId
+                            ?.let { id -> cached.shelves.flatMap { it.items }.firstOrNull { it.id == id } }
+                            ?.let(::HeroUi),
+                    )
+                }
+            }
+            refresh()
+        }
     }
 
     fun refresh() {
@@ -135,7 +156,7 @@ class TelevisionHomeViewModel(
                     ?.let { id -> shelves.asSequence().flatMap { it.items.asSequence() }.firstOrNull { it.id == id } }
                     ?: shelves.firstNotNullOfOrNull { it.items.firstOrNull() }
 
-                _state.value = TelevisionHomeState(
+                val freshState = TelevisionHomeState(
                     loading = false,
                     refreshing = false,
                     libraries = visibleViews.map {
@@ -149,6 +170,17 @@ class TelevisionHomeViewModel(
                     hero = currentHero?.let(::HeroUi),
                     error = null,
                 )
+                _state.value = freshState
+                val session = sessionStore.current()
+                if (settingsStore.current().cacheHomeContent && session != null) {
+                    libraryCacheStore.writeHome(
+                        serverUrl = session.serverUrl,
+                        userId = session.userId,
+                        libraries = freshState.libraries,
+                        shelves = freshState.shelves,
+                        heroItemId = freshState.hero?.item?.id,
+                    )
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
@@ -254,6 +286,9 @@ data class TelevisionLibraryState(
 class TelevisionLibraryViewModel(
     private val repository: LibraryRepository,
     private val images: ImageUrlBuilder,
+    private val sessionStore: SessionStore,
+    private val settingsStore: SettingsStore,
+    private val libraryCacheStore: LibraryCacheStore,
     private val libraryId: String,
     title: String,
     private val collectionType: String?,
@@ -269,7 +304,30 @@ class TelevisionLibraryViewModel(
         .toString()
 
     init {
-        reload()
+        viewModelScope.launch {
+            val session = sessionStore.current()
+            if (settingsStore.current().cacheHomeContent && session != null) {
+                libraryCacheStore.readLibrary(
+                    session.serverUrl,
+                    session.userId,
+                    libraryId,
+                    _state.value.sort.api,
+                    _state.value.view.name,
+                )?.let { cached ->
+                    nextIndex = cached.items.size
+                    _state.update {
+                        it.copy(
+                            loading = false,
+                            items = cached.items,
+                            totalCount = cached.totalCount,
+                            exhausted = cached.exhausted,
+                            error = null,
+                        )
+                    }
+                }
+            }
+            reload()
+        }
     }
 
     fun reload(
@@ -278,15 +336,19 @@ class TelevisionLibraryViewModel(
     ) {
         viewModelScope.launch {
             nextIndex = 0
+            val previous = _state.value
+            val keepCachedItems = previous.items.isNotEmpty() &&
+                previous.sort == sort &&
+                previous.view == view
             _state.update {
                 it.copy(
-                    loading = true,
+                    loading = !keepCachedItems,
                     sort = sort,
                     view = view,
-                    items = emptyList(),
-                    totalCount = 0,
+                    items = if (keepCachedItems) it.items else emptyList(),
+                    totalCount = if (keepCachedItems) it.totalCount else 0,
                     error = null,
-                    exhausted = false,
+                    exhausted = if (keepCachedItems) it.exhausted else false,
                 )
             }
             val result = loadPage(startIndex = 0, sort = sort, view = view)
@@ -297,10 +359,24 @@ class TelevisionLibraryViewModel(
 
                 is ApiResult.Success -> {
                     nextIndex = result.data.items.size
+                    val freshItems = result.data.items.map { item -> item.toTelevisionUi(images) }
                     _state.update {
                         it.copy(
                             loading = false,
-                            items = result.data.items.map { item -> item.toTelevisionUi(images) },
+                            items = freshItems,
+                            totalCount = result.data.totalRecordCount,
+                            exhausted = result.data.items.size < PAGE_SIZE,
+                        )
+                    }
+                    val session = sessionStore.current()
+                    if (settingsStore.current().cacheHomeContent && session != null) {
+                        libraryCacheStore.writeLibrary(
+                            serverUrl = session.serverUrl,
+                            userId = session.userId,
+                            libraryId = libraryId,
+                            sort = sort.api,
+                            view = view.name,
+                            items = freshItems,
                             totalCount = result.data.totalRecordCount,
                             exhausted = result.data.items.size < PAGE_SIZE,
                         )

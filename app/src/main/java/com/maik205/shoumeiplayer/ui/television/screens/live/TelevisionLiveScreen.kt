@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -45,13 +46,17 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionEmptyState
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionAppTopNavigation
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionErrorState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusScale
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingState
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingShape
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
+import com.maik205.shoumeiplayer.ui.television.components.televisionLibraryNavigationKey
+import com.maik205.shoumeiplayer.ui.television.model.LibraryDestinationUi
 import com.maik205.shoumeiplayer.ui.television.model.MediaItemUi
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
@@ -73,8 +78,22 @@ fun TelevisionLiveScreen(
     onFocusProgram: (LiveProgramUi?) -> Unit,
     onOpenProgram: (MediaItemUi) -> Unit,
     onPlay: (MediaItemUi) -> Unit,
+    libraries: List<LibraryDestinationUi>,
+    userName: String,
+    avatarUrl: String?,
+    onNavigateHome: () -> Unit,
+    onNavigateSearch: () -> Unit,
+    onNavigateLibrary: (LibraryDestinationUi) -> Unit,
+    onNavigateSettings: () -> Unit,
+    onNavigateProfile: () -> Unit,
+    navigationState: LazyListState,
 ) {
     var guideFocused by remember { mutableStateOf(false) }
+    val topNavigationFocus = remember { FocusRequester() }
+    val heroFocus = remember { FocusRequester() }
+    val selectedNavigationKey = libraries
+        .firstOrNull { it.collectionType.equals("livetv", ignoreCase = true) }
+        ?.let { televisionLibraryNavigationKey(it.id) }
     val heroHeight by animateDpAsState(
         targetValue = if (guideFocused) 118.dp else 250.dp,
         animationSpec = tween(170),
@@ -102,10 +121,12 @@ fun TelevisionLiveScreen(
                     }
                 },
                 onHeroFocused = { guideFocused = false },
+                focusRequester = heroFocus,
             )
             when {
                 state.loading -> TelevisionLoadingState(
                     label = "Loading guide",
+                    shape = TelevisionLoadingShape.Guide,
                     modifier = Modifier.padding(horizontal = TelevisionDimensions.SafeHorizontal),
                 )
                 state.error != null && state.channels.isEmpty() -> TelevisionErrorState(
@@ -128,6 +149,21 @@ fun TelevisionLiveScreen(
                 )
             }
         }
+
+        TelevisionAppTopNavigation(
+            libraries = libraries,
+            selectedKey = selectedNavigationKey,
+            userName = userName,
+            avatarUrl = avatarUrl,
+            onNavigateHome = onNavigateHome,
+            onNavigateSearch = onNavigateSearch,
+            onNavigateLibrary = onNavigateLibrary,
+            onNavigateSettings = onNavigateSettings,
+            onNavigateProfile = onNavigateProfile,
+            contentFocusRequester = heroFocus,
+            selectedFocusRequester = topNavigationFocus,
+            navigationState = navigationState,
+        )
     }
 }
 
@@ -140,6 +176,7 @@ private fun LiveHero(
     onRefresh: () -> Unit,
     onPlay: () -> Unit,
     onHeroFocused: () -> Unit,
+    focusRequester: FocusRequester,
 ) {
     Box(
         modifier = Modifier
@@ -164,7 +201,7 @@ private fun LiveHero(
                 .padding(
                     start = TelevisionDimensions.SafeHorizontal,
                     end = TelevisionDimensions.SafeHorizontal,
-                    top = TelevisionDimensions.SafeTop,
+                    top = 46.dp,
                 ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -172,6 +209,7 @@ private fun LiveHero(
                 label = "Back",
                 icon = Icons.AutoMirrored.Filled.ArrowBack,
                 onClick = onBack,
+                focusRequester = focusRequester.takeIf { program == null },
                 expandedWidth = 92.dp,
                 onFocusChanged = { if (it) onHeroFocused() },
             )
@@ -236,6 +274,7 @@ private fun LiveHero(
                     label = "Watch",
                     icon = Icons.Default.PlayArrow,
                     onClick = onPlay,
+                    focusRequester = focusRequester,
                     selected = true,
                     expandedWidth = 98.dp,
                     onFocusChanged = { if (it) onHeroFocused() },

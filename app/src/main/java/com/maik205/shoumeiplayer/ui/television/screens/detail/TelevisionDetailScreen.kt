@@ -51,6 +51,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionEmptyState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionErrorState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingState
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingShape
 import com.maik205.shoumeiplayer.ui.television.model.MediaItemUi
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
@@ -116,6 +117,7 @@ fun TelevisionDetailScreen(
     TelevisionBackground(imageUrl = hero?.backdropUrl) {
         when {
             state.loading -> TelevisionLoadingState(
+                shape = TelevisionLoadingShape.Detail,
                 modifier = Modifier.padding(
                     start = TelevisionDimensions.SafeHorizontal,
                     top = 210.dp,

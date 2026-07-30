@@ -3,17 +3,25 @@ package com.maik205.shoumeiplayer.ui.television.components
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -27,6 +35,7 @@ import androidx.tv.material3.Glow
 import androidx.tv.material3.Surface
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
+import kotlinx.coroutines.launch
 
 object TelevisionFocusScale {
     const val Navigation = 1.06f
@@ -34,6 +43,35 @@ object TelevisionFocusScale {
     const val Landscape = 1.055f
     const val Poster = 1.055f
     const val Square = 1.055f
+}
+
+/**
+ * Keeps horizontal D-pad navigation inside its rail. Compose's spatial fallback can otherwise
+ * leave the row at either edge and select an unrelated nearby control.
+ */
+@Composable
+fun Modifier.televisionHorizontalWrap(
+    index: Int,
+    focusRequesters: List<FocusRequester>,
+    listState: LazyListState,
+): Modifier {
+    if (focusRequesters.size < 2 || index !in focusRequesters.indices) return this
+    val scope = rememberCoroutineScope()
+    return onPreviewKeyEvent { event ->
+        val target = when {
+            event.type != KeyEventType.KeyDown -> null
+            index == 0 && event.key == Key.DirectionLeft -> focusRequesters.lastIndex
+            index == focusRequesters.lastIndex && event.key == Key.DirectionRight -> 0
+            else -> null
+        } ?: return@onPreviewKeyEvent false
+
+        scope.launch {
+            listState.scrollToItem(target)
+            withFrameNanos { }
+            focusRequesters[target].requestFocus()
+        }
+        true
+    }
 }
 
 /**

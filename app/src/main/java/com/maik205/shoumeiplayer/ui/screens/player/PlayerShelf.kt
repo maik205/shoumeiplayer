@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -46,6 +48,7 @@ import com.maik205.shoumeiplayer.ui.components.MediaCardUi
 import com.maik205.shoumeiplayer.ui.components.PosterImage
 import com.maik205.shoumeiplayer.ui.components.RowGlowBleed
 import com.maik205.shoumeiplayer.ui.components.RowHeader
+import com.maik205.shoumeiplayer.ui.components.horizontalFocusWrap
 import com.maik205.shoumeiplayer.ui.theme.Alpha
 import com.maik205.shoumeiplayer.ui.theme.Dimens
 import com.maik205.shoumeiplayer.ui.theme.Dur
@@ -101,6 +104,14 @@ internal fun PlayerShelf(
     castRowFocus: FocusRequester? = null,
     onFocusMoved: (FocusTarget) -> Unit = {},
 ) {
+    val similarFocusRequesters = remember(similar.map(MediaCardUi::id)) {
+        List(similar.size) { FocusRequester() }
+    }
+    val castFocusRequesters = remember(cast.map(CastMemberUi::id)) {
+        List(cast.size) { FocusRequester() }
+    }
+    val similarRailState = rememberLazyListState()
+    val castRailState = rememberLazyListState()
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(tween(Dur.OsdIn, easing = Ease.Decel)) +
@@ -125,10 +136,21 @@ internal fun PlayerShelf(
                 empty = similar.isEmpty(),
                 emptyLabel = if (loading) "Looking for something similar" else "Nothing similar here",
                 rowFocus = similarRowFocus,
+                listState = similarRailState,
                 onFocused = { onFocusMoved(FocusTarget.MoreLikeThisRow) },
             ) {
-                items(similar, key = { it.id }) { item ->
-                    ShelfCard(item = item, onClick = { onSimilarClick(item) })
+                itemsIndexed(similar, key = { _, item -> item.id }) { index, item ->
+                    ShelfCard(
+                        item = item,
+                        onClick = { onSimilarClick(item) },
+                        modifier = Modifier
+                            .horizontalFocusWrap(
+                                index,
+                                similarFocusRequesters,
+                                similarRailState,
+                            )
+                            .focusRequester(similarFocusRequesters[index]),
+                    )
                 }
             }
             ShelfRow(
@@ -136,10 +158,17 @@ internal fun PlayerShelf(
                 empty = cast.isEmpty(),
                 emptyLabel = "No cast listed",
                 rowFocus = castRowFocus,
+                listState = castRailState,
                 onFocused = { onFocusMoved(FocusTarget.CastRow) },
             ) {
-                items(cast, key = { it.id }) { person ->
-                    CastPortrait(person = person, onClick = { onCastClick(person) })
+                itemsIndexed(cast, key = { _, person -> person.id }) { index, person ->
+                    CastPortrait(
+                        person = person,
+                        onClick = { onCastClick(person) },
+                        modifier = Modifier
+                            .horizontalFocusWrap(index, castFocusRequesters, castRailState)
+                            .focusRequester(castFocusRequesters[index]),
+                    )
                 }
             }
         }
@@ -152,6 +181,7 @@ private fun ShelfRow(
     empty: Boolean,
     emptyLabel: String,
     rowFocus: FocusRequester?,
+    listState: androidx.compose.foundation.lazy.LazyListState,
     onFocused: () -> Unit,
     content: LazyListScope.() -> Unit,
 ) {
@@ -179,6 +209,7 @@ private fun ShelfRow(
         } else {
             Spacer(modifier = Modifier.height((Dimens.RowTitleGap - RowGlowBleed).coerceAtLeast(0.dp)))
             LazyRow(
+                state = listState,
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRestorer()
@@ -205,7 +236,11 @@ private fun ShelfRow(
  * the fixed label block so the row never reflows — is the shared treatment.
  */
 @Composable
-private fun ShelfCard(item: MediaCardUi, onClick: () -> Unit) {
+private fun ShelfCard(
+    item: MediaCardUi,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     var focused by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.width(ShelfCardWidth)) {
@@ -213,7 +248,7 @@ private fun ShelfCard(item: MediaCardUi, onClick: () -> Unit) {
             onClick = onClick,
             focused = focused,
             onFocusChanged = { focused = it },
-            modifier = Modifier.width(ShelfCardWidth),
+            modifier = modifier.width(ShelfCardWidth),
             scaleTo = FocusScale.Wide,
             shape = RoundedCornerShape(ShelfCardRadius),
             innerHairlineShape = RoundedCornerShape(ShelfCardRadius - 2.dp),
@@ -247,7 +282,11 @@ private fun ShelfCard(item: MediaCardUi, onClick: () -> Unit) {
  * query, not something you can press play on.
  */
 @Composable
-private fun CastPortrait(person: CastMemberUi, onClick: () -> Unit) {
+private fun CastPortrait(
+    person: CastMemberUi,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     var focused by remember { mutableStateOf(false) }
 
     Column(
@@ -258,7 +297,7 @@ private fun CastPortrait(person: CastMemberUi, onClick: () -> Unit) {
             onClick = onClick,
             focused = focused,
             onFocusChanged = { focused = it },
-            modifier = Modifier.size(PortraitSize),
+            modifier = modifier.size(PortraitSize),
             scaleTo = FocusScale.Poster,
             shape = CircleShape,
             innerHairlineShape = CircleShape,

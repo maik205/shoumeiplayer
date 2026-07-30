@@ -12,6 +12,10 @@
     <!-- Television onboarding. -->
     <string name="tv_choose_media_server">Choose your\nmedia server</string>
     <string name="tv_available_servers">Available servers</string>
+    <string name="tv_signed_in_as">Signed in as %1$s</string>
+    <string name="tv_current_signed_in_as">Current · signed in as %1$s</string>
+    <string name="tv_current_server">Current server</string>
+    <string name="tv_remembered_server">Remembered server</string>
     <string name="tv_refresh">Refresh</string>
     <string name="tv_looking_nearby">Looking nearby…</string>
     <string name="tv_server">Server</string>

@@ -8,7 +8,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
@@ -25,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -33,6 +33,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -84,6 +85,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -98,6 +100,8 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionErrorState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingState
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingShape
+import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionMediaTile
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionRowHeader
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
@@ -179,9 +183,11 @@ fun TelevisionHomeScreen(
     onNavigateLibrary: (LibraryDestinationUi) -> Unit,
     onNavigateSettings: () -> Unit,
     onNavigateProfile: () -> Unit,
+    navigationState: LazyListState,
 ) {
     val hero = state.hero
     val playFocus = remember { FocusRequester() }
+    val fallbackContentFocus = remember { FocusRequester() }
     val firstRailFocus = remember { FocusRequester() }
     val topNavigationFocus = remember { FocusRequester() }
     val listState = rememberLazyListState()
@@ -229,6 +235,7 @@ fun TelevisionHomeScreen(
                 if (state.loading) {
                     item(key = "loading") {
                         TelevisionLoadingState(
+                            shape = TelevisionLoadingShape.Home,
                             modifier = Modifier.padding(
                                 start = TelevisionDimensions.SafeHorizontal,
                                 top = 17.dp,
@@ -245,6 +252,8 @@ fun TelevisionHomeScreen(
                                 start = TelevisionDimensions.SafeHorizontal,
                                 top = 17.dp,
                             ),
+                            focusRequester = fallbackContentFocus,
+                            requestInitialFocus = false,
                         )
                     }
                 } else if (state.shelves.isEmpty()) {
@@ -315,27 +324,33 @@ fun TelevisionHomeScreen(
                     shrinkTowards = Alignment.Top,
                     animationSpec = tween(170),
                 ) + fadeOut(tween(120)),
-                modifier = Modifier.align(Alignment.TopStart),
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .zIndex(1f),
             ) {
                 CompactHomeHero(hero = current)
             }
         }
 
-        if (!browsing) {
-            AppTopNavigation(
-                libraries = state.libraries,
-                selectedKey = "home",
-                userName = userName,
-                avatarUrl = avatarUrl,
-                onNavigateHome = onNavigateHome,
-                onNavigateSearch = onNavigateSearch,
-                onNavigateLibrary = onNavigateLibrary,
-                onNavigateSettings = onNavigateSettings,
-                onNavigateProfile = onNavigateProfile,
-                contentFocusRequester = playFocus,
-                selectedFocusRequester = topNavigationFocus,
-            )
-        }
+        AppTopNavigation(
+            libraries = state.libraries,
+            selectedKey = "home",
+            userName = userName,
+            avatarUrl = avatarUrl,
+            onNavigateHome = onNavigateHome,
+            onNavigateSearch = onNavigateSearch,
+            onNavigateLibrary = onNavigateLibrary,
+            onNavigateSettings = onNavigateSettings,
+            onNavigateProfile = onNavigateProfile,
+            contentFocusRequester = when {
+                hero != null && !browsing -> playFocus
+                state.error != null && state.shelves.isEmpty() -> fallbackContentFocus
+                else -> null
+            },
+            selectedFocusRequester = topNavigationFocus,
+            navigationState = navigationState,
+            onNavigationFocused = { focusedRail = -1 },
+        )
     }
 }
 
@@ -411,31 +426,32 @@ private fun HomeHero(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            HeroActionButton(
+            TelevisionFocusRevealButton(
                 label = if (playable) hero.actionLabel else "Details",
                 icon = if (playable) Icons.Default.PlayArrow else Icons.Default.Info,
                 onClick = if (playable) onPlay else onDetails,
                 focusRequester = focusRequester,
-                primary = true,
-                width = if (playable) 66.dp else 72.dp,
+                expandedWidth = if (playable) 66.dp else 72.dp,
                 onFocusChanged = { if (it) onHeroFocused() },
                 modifier = firstRailFocusModifier,
             )
             if (playable) {
-                HeroActionButton(
+                TelevisionFocusRevealButton(
                     label = "Details",
                     icon = Icons.Default.Info,
                     onClick = onDetails,
-                    width = 68.dp,
+                    expandedWidth = 68.dp,
                     onFocusChanged = { if (it) onHeroFocused() },
                     modifier = firstRailFocusModifier,
                 )
             }
-            HeroActionButton(
+            TelevisionFocusRevealButton(
                 label = if (hero.item.favorite) "In my list" else "My list",
                 icon = if (hero.item.favorite) Icons.Default.Check else Icons.Default.Add,
                 onClick = onToggleFavorite,
-                width = 70.dp,
+                selected = hero.item.favorite,
+                expandWhenSelected = false,
+                expandedWidth = 70.dp,
                 onFocusChanged = { if (it) onHeroFocused() },
                 modifier = firstRailFocusModifier,
             )
@@ -444,63 +460,12 @@ private fun HomeHero(
 }
 
 @Composable
-private fun HeroActionButton(
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    onClick: () -> Unit,
-    width: androidx.compose.ui.unit.Dp,
+private fun CompactHomeHero(
+    hero: HeroUi,
     modifier: Modifier = Modifier,
-    primary: Boolean = false,
-    focusRequester: FocusRequester? = null,
-    onFocusChanged: (Boolean) -> Unit = {},
 ) {
-    val shape = RoundedCornerShape(7.dp)
-    TelevisionFocusSurface(
-        onClick = onClick,
-        focusRequester = focusRequester,
-        scaleTo = com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusScale.Action,
-        restingAlpha = if (primary) 1f else 0.62f,
-        onFocusChanged = onFocusChanged,
-        modifier = modifier
-            .width(width)
-            .height(26.dp),
-    ) { focused ->
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(shape)
-                .background(if (primary) TelevisionColors.Paper else androidx.compose.ui.graphics.Color.Transparent)
-                .then(
-                    if (focused && primary) {
-                        Modifier.border(1.dp, TelevisionColors.Black, shape)
-                    } else {
-                        Modifier
-                    },
-                ),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(12.dp),
-                tint = if (primary) TelevisionColors.Black else TelevisionColors.Paper,
-            )
-            Spacer(Modifier.width(4.5.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                color = if (primary) TelevisionColors.Black else TelevisionColors.Paper,
-                maxLines = 1,
-            )
-        }
-    }
-}
-
-@Composable
-private fun CompactHomeHero(hero: HeroUi) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(66.dp)
             .background(
@@ -565,6 +530,16 @@ private fun HomeShelf(
     onFocused: (MediaItemUi) -> Unit,
     onClick: (MediaItemUi) -> Unit,
 ) {
+    val railFocusRequesters = remember(shelf.items.map(MediaItemUi::id), firstItemFocusRequester) {
+        List(shelf.items.size) { index ->
+            if (index == 0 && firstItemFocusRequester != null) {
+                firstItemFocusRequester
+            } else {
+                FocusRequester()
+            }
+        }
+    }
+    val railState = rememberLazyListState()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -576,6 +551,7 @@ private fun HomeShelf(
         )
         Spacer(Modifier.height(TelevisionDimensions.HeaderGap))
         LazyRow(
+            state = railState,
             modifier = Modifier
                 .fillMaxWidth()
                 .focusGroup()
@@ -592,13 +568,17 @@ private fun HomeShelf(
                     item = item,
                     onClick = { onClick(item) },
                     onFocused = onFocused,
-                    focusRequester = if (itemIndex == 0) firstItemFocusRequester else null,
+                    focusRequester = railFocusRequesters.getOrNull(itemIndex),
                     bringIntoViewOnFocus = !(firstRail && itemIndex == 0),
-                    modifier = if (firstRail) {
-                        Modifier.focusProperties { up = heroFocusRequester }
-                    } else {
-                        Modifier
-                    },
+                    modifier = Modifier
+                        .televisionHorizontalWrap(itemIndex, railFocusRequesters, railState)
+                        .then(
+                            if (firstRail) {
+                                Modifier.focusProperties { up = heroFocusRequester }
+                            } else {
+                                Modifier
+                            },
+                        ),
                 )
             }
         }
@@ -622,6 +602,7 @@ fun TelevisionLibraryScreen(
     onNavigateLibrary: (LibraryDestinationUi) -> Unit,
     onNavigateSettings: () -> Unit,
     onNavigateProfile: () -> Unit,
+    navigationState: LazyListState,
 ) {
     val isMusic = state.collectionType.equals("music", ignoreCase = true)
     val focused = remember(state.items, isMusic) {
@@ -695,6 +676,7 @@ fun TelevisionLibraryScreen(
             onNavigateProfile = onNavigateProfile,
             contentFocusRequester = entryFocus,
             selectedFocusRequester = topNavigationFocus,
+            navigationState = navigationState,
         )
     }
 }
@@ -846,7 +828,10 @@ private fun StandardLibraryContent(
                     key = "library-loading",
                     span = { GridItemSpan(maxLineSpan) },
                 ) {
-                    TelevisionLoadingState(modifier = Modifier.padding(top = 12.dp))
+                    TelevisionLoadingState(
+                        shape = TelevisionLoadingShape.Grid,
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
                 }
 
                 state.error != null && state.items.isEmpty() -> item(
@@ -1212,6 +1197,16 @@ private fun MusicShelf(
     onOpenItem: (MediaItemUi) -> Unit,
 ) {
     var focusedItemId by remember(title) { mutableStateOf<String?>(null) }
+    val railFocusRequesters = remember(items.map(MediaItemUi::id), firstItemFocusRequester) {
+        List(items.size) { index ->
+            if (index == 0 && firstItemFocusRequester != null) {
+                firstItemFocusRequester
+            } else {
+                FocusRequester()
+            }
+        }
+    }
+    val railState = rememberLazyListState()
 
     Column(
         modifier = Modifier.padding(
@@ -1230,6 +1225,7 @@ private fun MusicShelf(
         )
         Spacer(Modifier.height(12.dp))
         LazyRow(
+            state = railState,
             modifier = Modifier
                 .fillMaxWidth()
                 .focusGroup()
@@ -1241,7 +1237,7 @@ private fun MusicShelf(
             ),
             horizontalArrangement = Arrangement.spacedBy(14.5.dp),
         ) {
-            items(items, key = MediaItemUi::id) { item ->
+            itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
                 TelevisionMediaTile(
                     item = item,
                     shape = ArtworkShape.Square,
@@ -1269,16 +1265,16 @@ private fun MusicShelf(
                         fontSize = 8.sp,
                         lineHeight = 10.sp,
                     ),
-                    focusRequester = if (item == items.firstOrNull()) {
-                        firstItemFocusRequester
-                    } else {
-                        null
-                    },
-                    modifier = if (item == items.firstOrNull() && upFocusRequester != null) {
-                        Modifier.focusProperties { up = upFocusRequester }
-                    } else {
-                        Modifier
-                    },
+                    focusRequester = railFocusRequesters.getOrNull(index),
+                    modifier = Modifier
+                        .televisionHorizontalWrap(index, railFocusRequesters, railState)
+                        .then(
+                            if (index == 0 && upFocusRequester != null) {
+                                Modifier.focusProperties { up = upFocusRequester }
+                            } else {
+                                Modifier
+                            },
+                        ),
                     onFocusChanged = { focused ->
                         if (focused) {
                             focusedItemId = item.id
@@ -1326,18 +1322,20 @@ fun TelevisionSearchScreen(
     onRetry: () -> Unit,
     onOpenItem: (MediaItemUi) -> Unit,
     onBack: () -> Unit,
+    libraries: List<LibraryDestinationUi>,
+    userName: String,
+    avatarUrl: String?,
+    onNavigateHome: () -> Unit,
+    onNavigateLibrary: (LibraryDestinationUi) -> Unit,
+    onNavigateSettings: () -> Unit,
+    onNavigateProfile: () -> Unit,
+    navigationState: LazyListState,
 ) {
     val fieldFocus = remember { FocusRequester() }
+    val topNavigationFocus = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     var focused by remember { mutableStateOf(false) }
-    var initialSearchFocusAssigned by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        if (!initialSearchFocusAssigned) {
-            fieldFocus.requestFocus()
-            initialSearchFocusAssigned = true
-        }
-    }
 
     Box(
         modifier = Modifier
@@ -1360,7 +1358,10 @@ fun TelevisionSearchScreen(
         ) {
             when {
                 searching -> item(span = { GridItemSpan(maxLineSpan) }) {
-                    TelevisionLoadingState(label = "Searching")
+                    TelevisionLoadingState(
+                        label = "Searching",
+                        shape = TelevisionLoadingShape.Search,
+                    )
                 }
                 error != null -> item(span = { GridItemSpan(maxLineSpan) }) {
                     TelevisionErrorState(
@@ -1393,7 +1394,7 @@ fun TelevisionSearchScreen(
                 .padding(
                     start = TelevisionDimensions.SafeHorizontal,
                     end = TelevisionDimensions.SafeHorizontal,
-                    top = TelevisionDimensions.SafeTop,
+                    top = 46.dp,
                 ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -1445,6 +1446,21 @@ fun TelevisionSearchScreen(
                 },
             )
         }
+
+        AppTopNavigation(
+            libraries = libraries,
+            selectedKey = "search",
+            userName = userName,
+            avatarUrl = avatarUrl,
+            onNavigateHome = onNavigateHome,
+            onNavigateSearch = {},
+            onNavigateLibrary = onNavigateLibrary,
+            onNavigateSettings = onNavigateSettings,
+            onNavigateProfile = onNavigateProfile,
+            contentFocusRequester = fieldFocus,
+            selectedFocusRequester = topNavigationFocus,
+            navigationState = navigationState,
+        )
     }
 }
 
@@ -1461,6 +1477,8 @@ private fun AppTopNavigation(
     onNavigateProfile: () -> Unit,
     contentFocusRequester: FocusRequester? = null,
     selectedFocusRequester: FocusRequester? = null,
+    navigationState: LazyListState? = null,
+    onNavigationFocused: () -> Unit = {},
 ) {
     TelevisionAppTopNavigation(
         libraries = libraries,
@@ -1474,6 +1492,8 @@ private fun AppTopNavigation(
         onNavigateProfile = onNavigateProfile,
         contentFocusRequester = contentFocusRequester,
         selectedFocusRequester = selectedFocusRequester,
+        navigationState = navigationState,
+        onNavigationFocused = onNavigationFocused,
     )
 }
 

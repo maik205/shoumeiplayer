@@ -19,8 +19,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -29,6 +32,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhotoLibrary
@@ -59,11 +63,13 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.maik205.shoumeiplayer.BuildConfig
 import com.maik205.shoumeiplayer.data.session.ClientSettings
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionAppTopNavigation
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusScale
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
+import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.model.LibraryDestinationUi
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
@@ -81,6 +87,7 @@ private enum class SettingsSection(
     Screensaver("Screensaver", Icons.Default.PhotoLibrary),
     Server("Server", Icons.Default.Dns),
     Account("Account", Icons.Default.Person),
+    About("About", Icons.Default.Info),
 }
 
 private enum class SettingControl {
@@ -114,14 +121,17 @@ fun TelevisionSettingsScreen(
     onUpdate: ((ClientSettings) -> ClientSettings) -> Unit,
     onSignOut: () -> Unit,
     onChangeServer: () -> Unit,
+    onForgetServer: () -> Unit,
     onSwitchProfile: () -> Unit,
     onTestConnection: () -> Unit,
     onRefreshLibraries: () -> Unit,
     onQuickConnect: () -> Unit,
+    onClearArtworkCache: () -> Unit,
     onNavigateHome: () -> Unit,
     onNavigateSearch: () -> Unit,
     onNavigateLibrary: (LibraryDestinationUi) -> Unit,
     onNavigateProfile: () -> Unit,
+    navigationState: LazyListState,
 ) {
     var section by remember { mutableStateOf(SettingsSection.Playback) }
     var activeChoice by remember { mutableStateOf<SettingRowModel?>(null) }
@@ -130,6 +140,8 @@ fun TelevisionSettingsScreen(
     val sectionFocus = remember {
         SettingsSection.entries.associateWith { FocusRequester() }
     }
+    val sectionRailFocus = SettingsSection.entries.map(sectionFocus::getValue)
+    val sectionRailState = rememberLazyListState()
 
     LaunchedEffect(activeChoice) {
         if (activeChoice == null) {
@@ -176,6 +188,7 @@ fun TelevisionSettingsScreen(
             )
             Spacer(Modifier.height(12.dp))
             LazyRow(
+                state = sectionRailState,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(34.dp)
@@ -184,7 +197,10 @@ fun TelevisionSettingsScreen(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 contentPadding = PaddingValues(horizontal = 2.dp),
             ) {
-                items(SettingsSection.entries, key = SettingsSection::name) { destination ->
+                itemsIndexed(
+                    SettingsSection.entries,
+                    key = { _, destination -> destination.name },
+                ) { index, destination ->
                     TelevisionFocusSurface(
                         onClick = { section = destination },
                         restingAlpha = if (section == destination) 0.82f else 0.4f,
@@ -197,6 +213,7 @@ fun TelevisionSettingsScreen(
                         },
                         modifier = Modifier
                             .height(30.dp)
+                            .televisionHorizontalWrap(index, sectionRailFocus, sectionRailState)
                             .focusProperties { up = settingsTopFocus }
                             .televisionBringIntoViewOnFocus(),
                     ) {
@@ -226,10 +243,12 @@ fun TelevisionSettingsScreen(
                 onUpdate = onUpdate,
                 onSignOut = onSignOut,
                 onChangeServer = onChangeServer,
+                onForgetServer = onForgetServer,
                 onSwitchProfile = onSwitchProfile,
                 onTestConnection = onTestConnection,
                 onRefreshLibraries = onRefreshLibraries,
                 onQuickConnect = onQuickConnect,
+                onClearArtworkCache = onClearArtworkCache,
                 selectedSectionFocus = sectionFocus.getValue(section),
                 onOpenChoice = { row, returnFocus ->
                     choiceReturnFocus = returnFocus
@@ -260,6 +279,7 @@ fun TelevisionSettingsScreen(
             onNavigateProfile = onNavigateProfile,
             settingsFocusRequester = settingsTopFocus,
             contentFocusRequester = sectionFocus.getValue(section),
+            navigationState = navigationState,
         )
 
         activeChoice?.let { row ->
@@ -287,10 +307,12 @@ private fun SettingsSectionContent(
     onUpdate: ((ClientSettings) -> ClientSettings) -> Unit,
     onSignOut: () -> Unit,
     onChangeServer: () -> Unit,
+    onForgetServer: () -> Unit,
     onSwitchProfile: () -> Unit,
     onTestConnection: () -> Unit,
     onRefreshLibraries: () -> Unit,
     onQuickConnect: () -> Unit,
+    onClearArtworkCache: () -> Unit,
     selectedSectionFocus: FocusRequester,
     onOpenChoice: (SettingRowModel, FocusRequester) -> Unit,
     onMoveSection: (Int) -> Unit,
@@ -302,10 +324,12 @@ private fun SettingsSectionContent(
         update = onUpdate,
         onSignOut = onSignOut,
         onChangeServer = onChangeServer,
+        onForgetServer = onForgetServer,
         onSwitchProfile = onSwitchProfile,
         onTestConnection = onTestConnection,
         onRefreshLibraries = onRefreshLibraries,
         onQuickConnect = onQuickConnect,
+        onClearArtworkCache = onClearArtworkCache,
     )
     var focusedKey by remember(section) { mutableStateOf<String?>(null) }
     val rowFocus = remember(section) {
@@ -643,10 +667,12 @@ private fun settingsRows(
     update: ((ClientSettings) -> ClientSettings) -> Unit,
     onSignOut: () -> Unit,
     onChangeServer: () -> Unit,
+    onForgetServer: () -> Unit,
     onSwitchProfile: () -> Unit,
     onTestConnection: () -> Unit,
     onRefreshLibraries: () -> Unit,
     onQuickConnect: () -> Unit,
+    onClearArtworkCache: () -> Unit,
 ): List<SettingRowModel> {
     val settings = state.settings
     return when (section) {
@@ -689,7 +715,7 @@ private fun settingsRows(
         )
 
         SettingsSection.Video -> listOf(
-            valueRow("player-core", "Player core", "mpv 0.41.0"),
+            valueRow("player-core", "Player core", "mpv ${BuildConfig.MPV_VERSION}"),
             choiceRow(
                 key = "rendering-profile",
                 label = "Rendering profile",
@@ -855,6 +881,9 @@ private fun settingsRows(
             toggleRow("last-library", "Remember last library", settings.rememberLastLibrary) {
                 update { it.copy(rememberLastLibrary = !it.rememberLastLibrary) }
             },
+            toggleRow("cache-home", "Cache home content", settings.cacheHomeContent) {
+                update { it.copy(cacheHomeContent = !it.cacheHomeContent) }
+            },
         )
 
         SettingsSection.Network -> listOf(
@@ -913,6 +942,17 @@ private fun settingsRows(
             toggleRow("tls", "Verify TLS certificates", settings.verifyTlsCertificates) {
                 update { it.copy(verifyTlsCertificates = !it.verifyTlsCertificates) }
             },
+            valueRow("artwork-cache-limit", "Artwork cache", "Automatic · up to 250 MiB"),
+            actionRow(
+                "clear-artwork-cache",
+                "Clear artwork cache",
+                if (state.clearingArtworkCache) {
+                    "Clearing…"
+                } else {
+                    "Clear · ${state.artworkCacheSize}"
+                },
+                onClearArtworkCache,
+            ),
         )
 
         SettingsSection.Screensaver -> listOf(
@@ -982,6 +1022,7 @@ private fun settingsRows(
             ),
             actionRow("refresh-libraries", "Refresh libraries", "Refresh", onRefreshLibraries),
             actionRow("change-server", "Change server", "Choose", onChangeServer),
+            actionRow("forget-server", "Forget this server", "Forget", onForgetServer),
         )
 
         SettingsSection.Account -> listOf(
@@ -997,15 +1038,48 @@ private fun settingsRows(
             valueRow("login-method", "Login method", "Password"),
             actionRow(
                 key = "quick-connect",
-                label = "Quick Connect",
+                label = "Replace session",
                 value = when {
                     state.quickConnectLoading -> "Generating…"
                     state.quickConnectCode != null -> state.quickConnectCode
-                    else -> "Generate"
+                    else -> "Quick Connect"
                 },
                 onClick = onQuickConnect,
             ),
             actionRow("sign-out", "Sign out", "Sign out", onSignOut),
+        )
+
+        SettingsSection.About -> listOf(
+            valueRow(
+                key = "application",
+                label = "Application",
+                value = "Shoumei Player",
+            ),
+            valueRow(
+                key = "application-version",
+                label = "Version",
+                value = BuildConfig.VERSION_NAME,
+            ),
+            valueRow(
+                key = "application-build",
+                label = "Build",
+                value = BuildConfig.VERSION_CODE.toString(),
+            ),
+            valueRow(
+                key = "release-tag",
+                label = "Release tag",
+                value = BuildConfig.RELEASE_TAG.ifBlank { "Development build" },
+            ),
+            valueRow(
+                key = "mpv-tag",
+                label = "mpv source tag",
+                value = "v${BuildConfig.MPV_VERSION}",
+            ),
+            valueRow(
+                key = "platform",
+                label = "Platform",
+                value = "Android TV",
+            ),
         )
     }
 }

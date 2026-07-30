@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -64,6 +65,7 @@ import com.maik205.shoumeiplayer.ui.components.RowHeader
 import com.maik205.shoumeiplayer.ui.components.SkeletonDetail
 import com.maik205.shoumeiplayer.ui.components.rememberBlurHashPainter
 import com.maik205.shoumeiplayer.ui.components.shoumeiFocus
+import com.maik205.shoumeiplayer.ui.components.horizontalFocusWrap
 import com.maik205.shoumeiplayer.ui.navigation.containerViewModel
 import com.maik205.shoumeiplayer.ui.screens.library.CheckMark
 import com.maik205.shoumeiplayer.ui.screens.library.TextChip
@@ -586,6 +588,10 @@ private fun EpisodeRow(
     modifier: Modifier = Modifier,
 ) {
     var rowFocused by remember { mutableStateOf(false) }
+    val railFocusRequesters = remember(episodes.map(EpisodeUi::id)) {
+        List(episodes.size) { FocusRequester() }
+    }
+    val railState = rememberLazyListState()
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -595,6 +601,7 @@ private fun EpisodeRow(
         RowHeader("Episodes", active = rowFocused)
         Spacer(modifier = Modifier.height(Dimens.RowTitleGap))
         LazyRow(
+            state = railState,
             modifier = Modifier.focusRestorer(),
             // §4.1 clipping hazard: overscan + 12dp of cross-axis breathing room for the scale.
             contentPadding = PaddingValues(
@@ -605,8 +612,14 @@ private fun EpisodeRow(
             ),
             horizontalArrangement = Arrangement.spacedBy(Dimens.ItemSpacing),
         ) {
-            itemsIndexed(episodes, key = { _, e -> e.id }) { _, episode ->
-                EpisodeCard(episode = episode, onClick = { onEpisodeClick(episode.id) })
+            itemsIndexed(episodes, key = { _, e -> e.id }) { index, episode ->
+                EpisodeCard(
+                    episode = episode,
+                    onClick = { onEpisodeClick(episode.id) },
+                    modifier = Modifier
+                        .horizontalFocusWrap(index, railFocusRequesters, railState)
+                        .focusRequester(railFocusRequesters[index]),
+                )
             }
         }
     }
@@ -751,6 +764,10 @@ private val CastLabelHeight: Dp = 44.dp
 @Composable
 private fun CastRow(cast: List<CastUi>, modifier: Modifier = Modifier) {
     var rowFocused by remember { mutableStateOf(false) }
+    val railFocusRequesters = remember(cast.map(CastUi::id)) {
+        List(cast.size) { FocusRequester() }
+    }
+    val railState = rememberLazyListState()
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -759,6 +776,7 @@ private fun CastRow(cast: List<CastUi>, modifier: Modifier = Modifier) {
         RowHeader("Cast", active = rowFocused)
         Spacer(modifier = Modifier.height(Dimens.RowTitleGap))
         LazyRow(
+            state = railState,
             modifier = Modifier.focusRestorer(),
             // §4.1 clipping hazard: overscan + cross-axis breathing room for the focus scale.
             contentPadding = PaddingValues(
@@ -769,8 +787,13 @@ private fun CastRow(cast: List<CastUi>, modifier: Modifier = Modifier) {
             ),
             horizontalArrangement = Arrangement.spacedBy(Dimens.ItemSpacing),
         ) {
-            itemsIndexed(cast, key = { index, person -> "${person.id}#$index" }) { _, person ->
-                CastTile(person = person)
+            itemsIndexed(cast, key = { index, person -> "${person.id}#$index" }) { index, person ->
+                CastTile(
+                    person = person,
+                    modifier = Modifier
+                        .horizontalFocusWrap(index, railFocusRequesters, railState)
+                        .focusRequester(railFocusRequesters[index]),
+                )
             }
         }
     }

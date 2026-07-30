@@ -12,9 +12,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
@@ -30,18 +35,27 @@ import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -50,6 +64,7 @@ import com.maik205.shoumeiplayer.ui.television.model.LibraryDestinationUi
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Immutable
 data class TelevisionNavigationItem(
@@ -82,6 +97,8 @@ fun TelevisionAppTopNavigation(
     settingsFocusRequester: FocusRequester? = null,
     contentFocusRequester: FocusRequester? = null,
     selectedFocusRequester: FocusRequester? = null,
+    navigationState: LazyListState? = null,
+    onNavigationFocused: () -> Unit = {},
 ) {
     TelevisionTopNavigation(
         primaryDestinations = TelevisionPrimaryNavigation,
@@ -104,6 +121,8 @@ fun TelevisionAppTopNavigation(
         settingsFocusRequester = settingsFocusRequester,
         contentFocusRequester = contentFocusRequester,
         selectedFocusRequester = selectedFocusRequester,
+        navigationState = navigationState,
+        onNavigationFocused = onNavigationFocused,
         avatarUrl = avatarUrl,
         avatarLabel = userName.ifBlank { "Profile" },
         avatarInitials = userName.take(2).uppercase(),
@@ -129,12 +148,15 @@ fun TelevisionTopNavigation(
     settingsFocusRequester: FocusRequester? = null,
     contentFocusRequester: FocusRequester? = null,
     selectedFocusRequester: FocusRequester? = null,
+    navigationState: LazyListState? = null,
+    onNavigationFocused: () -> Unit = {},
 ) {
     // Restored focus is not a new tab choice. Only user-library tabs invoke navigation on focus,
     // and only after the user has rested there briefly.
     var previousFocusedKey by remember { mutableStateOf<String?>(null) }
     var focusedKey by remember { mutableStateOf<String?>(null) }
     var pendingLibraryKey by remember { mutableStateOf<String?>(null) }
+    var restoredSelectedKey by remember { mutableStateOf<String?>(null) }
     fun onNavigationFocusChanged(key: String, library: Boolean, focused: Boolean) {
         if (!focused) {
             if (focusedKey == key) {
@@ -147,6 +169,7 @@ fun TelevisionTopNavigation(
         val previousKey = previousFocusedKey
         previousFocusedKey = key
         focusedKey = key
+        onNavigationFocused()
         pendingLibraryKey = key.takeIf {
             library && previousKey != null && previousKey != key && selectedKey != key
         }
@@ -161,13 +184,36 @@ fun TelevisionTopNavigation(
     fun focusRequesterFor(key: String): FocusRequester =
         selectedFocusRequester?.takeIf { key == selectedKey }
             ?: focusRequesters.getOrPut(key) { FocusRequester() }
+    val profileFocusRequester = focusRequesterFor("profile")
+    val navigationFocusRequesters =
+        primaryDestinations.map { focusRequesterFor(it.key) } +
+            libraryDestinations.map { focusRequesterFor(televisionLibraryNavigationKey(it.id)) } +
+            resolvedSettingsFocusRequester +
+            profileFocusRequester
+    val lazyNavigationItemCount = primaryDestinations.size + libraryDestinations.size
+    val navigationRailState = navigationState ?: rememberLazyListState()
+    val activeKeys = remember(primaryDestinations, libraryDestinations) {
+        buildSet {
+            primaryDestinations.forEach { add(it.key) }
+            libraryDestinations.forEach { add(televisionLibraryNavigationKey(it.id)) }
+            add("settings")
+            add("profile")
+        }
+    }
+    SideEffect {
+        focusRequesters.keys.retainAll(activeKeys)
+    }
+    val selectedDestinationAvailable = selectedKey != null && selectedKey in activeKeys
 
-    // After a tab changes, restore the remote to that tab in the navbar. Route composition must
-    // not send it down to the new screen's first content target.
-    LaunchedEffect(selectedKey, libraryDestinations) {
-        selectedKey?.let { key ->
+    // Restore once when a destination first appears. Library refreshes must not steal focus from
+    // content, and a removed library must never leave us requesting an unattached focus target.
+    LaunchedEffect(selectedKey, selectedDestinationAvailable) {
+        selectedKey?.takeIf {
+            selectedDestinationAvailable && restoredSelectedKey != it
+        }?.let { key ->
             (selectedFocusRequester?.takeIf { key == selectedKey } ?: focusRequesters[key])
                 ?.requestFocus()
+            restoredSelectedKey = key
         }
     }
     LaunchedEffect(pendingLibraryKey) {
@@ -187,6 +233,7 @@ fun TelevisionTopNavigation(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         LazyRow(
+            state = navigationRailState,
             modifier = Modifier
                 .weight(1f)
                 .height(TelevisionDimensions.NavigationHeight)
@@ -194,17 +241,27 @@ fun TelevisionTopNavigation(
             horizontalArrangement = Arrangement.spacedBy(TelevisionDimensions.NavigationGap),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            items(primaryDestinations, key = { it.key }) { destination ->
+            itemsIndexed(
+                primaryDestinations,
+                key = { _, destination -> destination.key },
+            ) { index, destination ->
                 TelevisionTopNavigationItem(
                     label = destination.label,
                     icon = destination.icon,
                     selected = selectedKey == destination.key,
+                    pending = false,
                     onClick = { onDestinationClick(destination.key) },
                     onFocusChanged = { focused ->
                         onNavigationFocusChanged(destination.key, library = false, focused = focused)
                     },
                     focusRequester = focusRequesterFor(destination.key),
                     modifier = Modifier
+                        .televisionNavigationRing(
+                            index,
+                            navigationFocusRequesters,
+                            lazyNavigationItemCount,
+                            navigationRailState,
+                        )
                         .then(
                             contentFocusRequester?.let { target ->
                                 Modifier.focusProperties { down = target }
@@ -213,18 +270,29 @@ fun TelevisionTopNavigation(
                         .televisionBringIntoViewOnFocus(),
                 )
             }
-            items(libraryDestinations, key = { it.id }) { library ->
+            itemsIndexed(
+                libraryDestinations,
+                key = { _, library -> library.id },
+            ) { libraryIndex, library ->
                 val key = televisionLibraryNavigationKey(library.id)
+                val railIndex = primaryDestinations.size + libraryIndex
                 TelevisionTopNavigationItem(
                     label = library.title,
                     icon = libraryNavigationIcon(library.collectionType),
                     selected = selectedKey == key,
+                    pending = pendingLibraryKey == key,
                     onClick = { onDestinationClick(key) },
                     onFocusChanged = { focused ->
                         onNavigationFocusChanged(key, library = true, focused = focused)
                     },
                     focusRequester = focusRequesterFor(key),
                     modifier = Modifier
+                        .televisionNavigationRing(
+                            railIndex,
+                            navigationFocusRequesters,
+                            lazyNavigationItemCount,
+                            navigationRailState,
+                        )
                         .then(
                             contentFocusRequester?.let { target ->
                                 Modifier.focusProperties { down = target }
@@ -246,9 +314,18 @@ fun TelevisionTopNavigation(
             onFocusChanged = { focused ->
                 onNavigationFocusChanged("settings", library = false, focused = focused)
             },
-            modifier = contentFocusRequester?.let { target ->
-                Modifier.focusProperties { down = target }
-            } ?: Modifier,
+            modifier = Modifier
+                .televisionNavigationRing(
+                    lazyNavigationItemCount,
+                    navigationFocusRequesters,
+                    lazyNavigationItemCount,
+                    navigationRailState,
+                )
+                .then(
+                    contentFocusRequester?.let { target ->
+                        Modifier.focusProperties { down = target }
+                    } ?: Modifier,
+                ),
         )
         Spacer(Modifier.width(6.dp))
         TelevisionAvatarButton(
@@ -256,8 +333,17 @@ fun TelevisionTopNavigation(
             label = avatarLabel,
             initials = avatarInitials,
             onClick = onAvatarClick,
-            onFocused = { onNavigationFocusChanged("profile", library = false, focused = true) },
+            focusRequester = profileFocusRequester,
+            onFocusChanged = { focused ->
+                onNavigationFocusChanged("profile", library = false, focused = focused)
+            },
             contentFocusRequester = contentFocusRequester,
+            modifier = Modifier.televisionNavigationRing(
+                lazyNavigationItemCount + 1,
+                navigationFocusRequesters,
+                lazyNavigationItemCount,
+                navigationRailState,
+            ),
         )
     }
 }
@@ -267,6 +353,7 @@ private fun TelevisionTopNavigationItem(
     label: String,
     icon: ImageVector,
     selected: Boolean,
+    pending: Boolean,
     onClick: () -> Unit,
     onFocusChanged: (Boolean) -> Unit,
     focusRequester: FocusRequester,
@@ -279,11 +366,19 @@ private fun TelevisionTopNavigationItem(
         scaleTo = TelevisionFocusScale.Navigation,
         restingAlpha = if (selected) 1f else 0.52f,
         onFocusChanged = onFocusChanged,
-    ) {
+    ) { focused ->
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Row(
                 modifier = Modifier
                     .height(22.dp)
+                    .clip(RoundedCornerShape(TelevisionDimensions.FocusRadius))
+                    .background(
+                        if (focused) {
+                            TelevisionColors.Paper.copy(alpha = 0.12f)
+                        } else {
+                            androidx.compose.ui.graphics.Color.Transparent
+                        },
+                    )
                     .padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -297,15 +392,23 @@ private fun TelevisionTopNavigationItem(
                     text = label,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
+                    modifier = Modifier.widthIn(max = 104.dp),
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
-            if (selected) {
+            if (selected || pending) {
                 Box(
                     modifier = Modifier
-                        .width(16.dp)
+                        .width(if (selected) 16.dp else 8.dp)
                         .height(1.dp)
-                        .background(TelevisionColors.Paper),
+                        .background(
+                            if (selected) {
+                                TelevisionColors.Paper
+                            } else {
+                                TelevisionColors.PaperMuted
+                            },
+                        ),
                 )
             }
         }
@@ -331,12 +434,15 @@ private fun TelevisionAvatarButton(
     label: String,
     initials: String,
     onClick: () -> Unit,
-    onFocused: () -> Unit,
+    focusRequester: FocusRequester,
+    onFocusChanged: (Boolean) -> Unit,
     contentFocusRequester: FocusRequester? = null,
+    modifier: Modifier = Modifier,
 ) {
     TelevisionFocusSurface(
         onClick = onClick,
-        modifier = Modifier
+        focusRequester = focusRequester,
+        modifier = modifier
             .size(22.dp)
             .then(
                 contentFocusRequester?.let { target ->
@@ -345,7 +451,7 @@ private fun TelevisionAvatarButton(
             ),
         scaleTo = TelevisionFocusScale.Navigation,
         restingAlpha = 0.72f,
-        onFocusChanged = { focused -> if (focused) onFocused() },
+        onFocusChanged = onFocusChanged,
     ) {
         if (imageUrl != null) {
             AsyncImage(
@@ -371,5 +477,39 @@ private fun TelevisionAvatarButton(
                 )
             }
         }
+    }
+}
+
+/**
+ * Treats the scrollable destinations and the fixed Settings/Profile controls as one logical ring.
+ * Lazy targets are brought into composition before focus moves; fixed targets are always attached.
+ */
+@Composable
+private fun Modifier.televisionNavigationRing(
+    index: Int,
+    focusRequesters: List<FocusRequester>,
+    lazyItemCount: Int,
+    listState: LazyListState,
+): Modifier {
+    if (focusRequesters.size < 2 || index !in focusRequesters.indices) return this
+    val scope = rememberCoroutineScope()
+    return onPreviewKeyEvent { event ->
+        if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+        val target = when (event.key) {
+            Key.DirectionLeft -> if (index == 0) focusRequesters.lastIndex else index - 1
+            Key.DirectionRight -> if (index == focusRequesters.lastIndex) 0 else index + 1
+            else -> return@onPreviewKeyEvent false
+        }
+
+        scope.launch {
+            val lazyTargetIsVisible = target < lazyItemCount &&
+                listState.layoutInfo.visibleItemsInfo.any { it.index == target }
+            if (target < lazyItemCount && !lazyTargetIsVisible) {
+                listState.scrollToItem(target)
+                withFrameNanos { }
+            }
+            focusRequesters[target].requestFocus()
+        }
+        true
     }
 }

@@ -8,6 +8,8 @@ import com.maik205.shoumeiplayer.data.ApiResult
 import com.maik205.shoumeiplayer.data.ImageUrlBuilder
 import com.maik205.shoumeiplayer.data.repo.AuthRepository
 import com.maik205.shoumeiplayer.data.repo.JellyfinDiscoveryRepository
+import com.maik205.shoumeiplayer.data.session.RememberedServer
+import com.maik205.shoumeiplayer.data.session.normalizeServerUrl
 import com.maik205.shoumeiplayer.ui.i18n.UiText
 import com.maik205.shoumeiplayer.ui.i18n.asDynamicUiText
 import kotlinx.coroutines.Job
@@ -18,12 +20,13 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 sealed interface ConnectEvent {
-    data object Connected : ConnectEvent
+    data class Connected(val resumeSession: Boolean) : ConnectEvent
 }
 
 class ConnectViewModel(
@@ -36,7 +39,20 @@ class ConnectViewModel(
     private val _events = MutableSharedFlow<ConnectEvent>()
     val events: SharedFlow<ConnectEvent> = _events.asSharedFlow()
 
+    private var discoveredServers: List<ServerChoiceUi> = emptyList()
+    private var rememberedServers: List<RememberedServer> = emptyList()
+    private var activeServerId: String? = null
+
     init {
+        viewModelScope.launch {
+            combine(auth.rememberedServers, auth.activeServer) { remembered, active ->
+                remembered to active?.id
+            }.collect { (remembered, activeId) ->
+                rememberedServers = remembered
+                activeServerId = activeId
+                publishServers()
+            }
+        }
         refresh()
     }
 
@@ -56,7 +72,7 @@ class ConnectViewModel(
         if (_state.value.discovering && _state.value.servers.isNotEmpty()) return
         viewModelScope.launch {
             _state.update { it.copy(discovering = true, error = null) }
-            val servers = runCatching { discovery.discover() }
+            discoveredServers = runCatching { discovery.discover() }
                 .getOrDefault(emptyList())
                 .map {
                     ServerChoiceUi(
@@ -65,7 +81,7 @@ class ConnectViewModel(
                         address = it.address,
                     )
                 }
-            _state.update { it.copy(discovering = false, servers = servers) }
+            publishServers(discovering = false)
         }
     }
 
@@ -97,7 +113,11 @@ class ConnectViewModel(
                 when (val result = auth.validateServer(address)) {
                     is ApiResult.Success -> {
                         _state.update { it.copy(connecting = false) }
-                        _events.emit(ConnectEvent.Connected)
+                        _events.emit(
+                            ConnectEvent.Connected(
+                                resumeSession = auth.hasActiveSession(),
+                            ),
+                        )
                         return@launch
                     }
 
@@ -112,6 +132,31 @@ class ConnectViewModel(
                     )
                 }
             }
+        }
+    }
+
+    private fun publishServers(discovering: Boolean = _state.value.discovering) {
+        val remembered = rememberedServers.map { server ->
+            ServerChoiceUi(
+                id = server.id,
+                name = server.name,
+                address = server.url,
+                remembered = true,
+                active = server.id == activeServerId,
+                hasSession = server.hasSession,
+                userName = server.userName,
+            )
+        }
+        val knownIds = remembered.mapTo(mutableSetOf()) { it.id }
+        val knownUrls = remembered.mapTo(mutableSetOf()) { normalizeServerUrl(it.address) }
+        val nearbyOnly = discoveredServers.filterNot {
+            it.id in knownIds || normalizeServerUrl(it.address) in knownUrls
+        }
+        _state.update {
+            it.copy(
+                discovering = discovering,
+                servers = remembered + nearbyOnly,
+            )
         }
     }
 }
@@ -138,7 +183,8 @@ class ProfilesViewModel(
     fun reload() {
         viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null) }
-            when (val result = auth.publicUsers()) {
+            val activeUserId = auth.activeUserId()
+            when (val result = auth.accountSwitcherUsers()) {
                 is ApiResult.Failure -> _state.update {
                     it.copy(loading = false, error = result.error.displayMessage.asDynamicUiText())
                 }
@@ -154,6 +200,7 @@ class ProfilesViewModel(
                                     images.userPrimary(user.id, tag)
                                 },
                                 hasPassword = user.hasPassword || user.hasConfiguredPassword,
+                                active = user.id == activeUserId,
                             )
                         },
                     )
@@ -163,6 +210,10 @@ class ProfilesViewModel(
     }
 
     fun choose(profile: ProfileUi) {
+        if (profile.active) {
+            viewModelScope.launch { _events.emit(ProfilesEvent.Home) }
+            return
+        }
         if (profile.hasPassword) {
             viewModelScope.launch { _events.emit(ProfilesEvent.Login(profile.name)) }
             return

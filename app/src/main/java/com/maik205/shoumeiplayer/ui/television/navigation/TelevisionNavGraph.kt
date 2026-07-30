@@ -1,5 +1,6 @@
 package com.maik205.shoumeiplayer.ui.television.navigation
 
+import android.widget.Toast
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
@@ -9,10 +10,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -23,8 +26,10 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.di.AuthEvents
+import com.maik205.shoumeiplayer.di.LocalAppContainer
 import com.maik205.shoumeiplayer.ui.navigation.containerViewModel
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingState
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingShape
 import com.maik205.shoumeiplayer.ui.television.model.LibraryDestinationUi
 import com.maik205.shoumeiplayer.ui.television.model.MediaItemUi
 import com.maik205.shoumeiplayer.ui.television.screens.browse.TelevisionHomeScreen
@@ -59,11 +64,20 @@ private val TelevisionEnter: EnterTransition = fadeIn(tween(100))
 private val TelevisionExit: ExitTransition = fadeOut(tween(80))
 
 @Composable
-fun TelevisionNavGraph() {
+fun TelevisionNavGraph(
+    onReady: () -> Unit = {},
+) {
+    val container = LocalAppContainer.current
     val rootViewModel = containerViewModel { container ->
         TelevisionRootViewModel(container.sessionStore)
     }
     val root by rootViewModel.start.collectAsStateWithLifecycle()
+
+    LaunchedEffect(root) {
+        if (root != TelevisionStart.Loading) {
+            onReady()
+        }
+    }
 
     if (root == TelevisionStart.Loading) {
         Box(
@@ -73,6 +87,7 @@ fun TelevisionNavGraph() {
         ) {
             TelevisionLoadingState(
                 label = stringResource(R.string.tv_opening_shoumei),
+                shape = TelevisionLoadingShape.Startup,
                 modifier = Modifier.padding(start = 54.dp, top = 210.dp),
             )
         }
@@ -84,11 +99,14 @@ fun TelevisionNavGraph() {
         TelevisionShellViewModel(
             sessionStore = container.sessionStore,
             libraryRepository = container.libraryRepository,
+            libraryCacheStore = container.libraryCacheStore,
+            settingsStore = container.settingsStore,
             authRepository = container.authRepository,
             imageUrlBuilder = container.imageUrlBuilder,
         )
     }
     val shell by shellViewModel.state.collectAsStateWithLifecycle()
+    val topNavigationState = rememberLazyListState()
     val startRoute: Any = when (root) {
         TelevisionStart.Connect -> ConnectRoute
         TelevisionStart.Profiles -> ProfilesRoute
@@ -119,9 +137,15 @@ fun TelevisionNavGraph() {
             val state by viewModel.state.collectAsStateWithLifecycle()
             LaunchedEffect(viewModel) {
                 viewModel.events.collect { event ->
-                    if (event == ConnectEvent.Connected) {
-                        navController.navigate(ProfilesRoute) {
-                            popUpTo(ConnectRoute) { inclusive = true }
+                    if (event is ConnectEvent.Connected) {
+                        if (event.resumeSession) {
+                            navController.navigate(HomeRoute) {
+                                popUpTo(ConnectRoute) { inclusive = true }
+                            }
+                        } else {
+                            navController.navigate(ProfilesRoute) {
+                                popUpTo(ConnectRoute) { inclusive = true }
+                            }
                         }
                     }
                 }
@@ -146,7 +170,9 @@ fun TelevisionNavGraph() {
                         ProfilesEvent.Home -> navController.navigate(HomeRoute) {
                             popUpTo(0) { inclusive = true }
                         }
-                        is ProfilesEvent.Login -> navController.navigate(LoginRoute(event.userName))
+                        is ProfilesEvent.Login -> navController.navigate(LoginRoute(event.userName)) {
+                            launchSingleTop = true
+                        }
                     }
                 }
             }
@@ -157,6 +183,7 @@ fun TelevisionNavGraph() {
                 onAnotherAccount = viewModel::useAnotherAccount,
                 onBack = {
                     navController.navigate(ConnectRoute) {
+                        popUpTo(0) { inclusive = true }
                         launchSingleTop = true
                     }
                 },
@@ -176,7 +203,7 @@ fun TelevisionNavGraph() {
                             popUpTo(0) { inclusive = true }
                         }
                         LoginEvent.AccountLocked -> navController.navigate(AccountLockedRoute) {
-                            popUpTo(ProfilesRoute) { inclusive = false }
+                            popUpTo(0) { inclusive = true }
                         }
                     }
                 }
@@ -191,7 +218,14 @@ fun TelevisionNavGraph() {
                 onForgotPassword = {
                     navController.navigate(RecoveryRoute(state.userName))
                 },
-                onBack = navController::popBackStack,
+                onBack = {
+                    if (!navController.popBackStack()) {
+                        navController.navigate(ProfilesRoute) {
+                            popUpTo(0) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                },
             )
         }
 
@@ -239,6 +273,7 @@ fun TelevisionNavGraph() {
                 onPrimary = {
                     navController.navigate(ProfilesRoute) {
                         popUpTo(AccountLockedRoute) { inclusive = true }
+                        launchSingleTop = true
                     }
                 },
             )
@@ -246,7 +281,13 @@ fun TelevisionNavGraph() {
 
         composable<HomeRoute> {
             val viewModel = containerViewModel { container ->
-                TelevisionHomeViewModel(container.libraryRepository, container.imageUrlBuilder)
+                TelevisionHomeViewModel(
+                    repository = container.libraryRepository,
+                    images = container.imageUrlBuilder,
+                    sessionStore = container.sessionStore,
+                    settingsStore = container.settingsStore,
+                    libraryCacheStore = container.libraryCacheStore,
+                )
             }
             val state by viewModel.state.collectAsStateWithLifecycle()
             TelevisionHomeScreen(
@@ -266,6 +307,7 @@ fun TelevisionNavGraph() {
                 onNavigateLibrary = { navController.navigateLibrary(it) },
                 onNavigateSettings = { navController.navigateTop(SettingsRoute) },
                 onNavigateProfile = { navController.navigate(ProfilesRoute) },
+                navigationState = topNavigationState,
             )
         }
 
@@ -283,6 +325,14 @@ fun TelevisionNavGraph() {
                 onRetry = viewModel::retry,
                 onOpenItem = { navController.navigate(DetailRoute(it.id)) },
                 onBack = navController::popBackStack,
+                libraries = shell.libraries,
+                userName = shell.userName,
+                avatarUrl = shell.avatarUrl,
+                onNavigateHome = { navController.navigateTop(HomeRoute) },
+                onNavigateLibrary = { navController.navigateLibrary(it) },
+                onNavigateSettings = { navController.navigateTop(SettingsRoute) },
+                onNavigateProfile = { navController.navigate(ProfilesRoute) },
+                navigationState = topNavigationState,
             )
         }
 
@@ -292,6 +342,9 @@ fun TelevisionNavGraph() {
                 TelevisionLibraryViewModel(
                     repository = container.libraryRepository,
                     images = container.imageUrlBuilder,
+                    sessionStore = container.sessionStore,
+                    settingsStore = container.settingsStore,
+                    libraryCacheStore = container.libraryCacheStore,
                     libraryId = route.libraryId,
                     title = route.title,
                     collectionType = route.collectionType,
@@ -320,6 +373,7 @@ fun TelevisionNavGraph() {
                 onNavigateLibrary = { navController.navigateLibrary(it) },
                 onNavigateSettings = { navController.navigateTop(SettingsRoute) },
                 onNavigateProfile = { navController.navigate(ProfilesRoute) },
+                navigationState = topNavigationState,
             )
         }
 
@@ -351,6 +405,15 @@ fun TelevisionNavGraph() {
                 onFocusProgram = viewModel::focus,
                 onOpenProgram = { navController.navigate(DetailRoute(it.id)) },
                 onPlay = { navController.navigate(it.toPlayerRoute()) },
+                libraries = shell.libraries,
+                userName = shell.userName,
+                avatarUrl = shell.avatarUrl,
+                onNavigateHome = { navController.navigateTop(HomeRoute) },
+                onNavigateSearch = { navController.navigateTop(SearchRoute) },
+                onNavigateLibrary = { navController.navigateLibrary(it) },
+                onNavigateSettings = { navController.navigateTop(SettingsRoute) },
+                onNavigateProfile = { navController.navigate(ProfilesRoute) },
+                navigationState = topNavigationState,
             )
         }
 
@@ -360,9 +423,11 @@ fun TelevisionNavGraph() {
                     settingsStore = container.settingsStore,
                     sessionStore = container.sessionStore,
                     authRepository = container.authRepository,
+                    artworkCache = container.artworkCache,
                 )
             }
             val state by viewModel.state.collectAsStateWithLifecycle()
+            val context = LocalContext.current
             LaunchedEffect(viewModel) {
                 viewModel.events.collect { event ->
                     when (event) {
@@ -371,6 +436,9 @@ fun TelevisionNavGraph() {
                         }
                         TelevisionSettingsEvent.Connect -> navController.navigate(ConnectRoute) {
                             popUpTo(0) { inclusive = true }
+                        }
+                        is TelevisionSettingsEvent.CacheMessage -> {
+                            Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
@@ -382,14 +450,17 @@ fun TelevisionNavGraph() {
                 onUpdate = viewModel::update,
                 onSignOut = viewModel::signOut,
                 onChangeServer = viewModel::changeServer,
+                onForgetServer = viewModel::forgetServer,
                 onSwitchProfile = viewModel::switchProfile,
                 onTestConnection = viewModel::testConnection,
                 onRefreshLibraries = shellViewModel::refreshLibraries,
                 onQuickConnect = viewModel::generateQuickConnect,
+                onClearArtworkCache = viewModel::clearArtworkCache,
                 onNavigateHome = { navController.navigateTop(HomeRoute) },
                 onNavigateSearch = { navController.navigateTop(SearchRoute) },
                 onNavigateLibrary = { navController.navigateLibrary(it) },
                 onNavigateProfile = { navController.navigate(ProfilesRoute) },
+                navigationState = topNavigationState,
             )
         }
 

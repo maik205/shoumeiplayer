@@ -8,6 +8,10 @@ data class ServerChoiceUi(
     val id: String,
     val name: String,
     val address: String,
+    val remembered: Boolean = false,
+    val active: Boolean = false,
+    val hasSession: Boolean = false,
+    val userName: String? = null,
 )
 
 @Immutable
@@ -25,6 +29,7 @@ data class ProfileUi(
     val name: String,
     val imageUrl: String?,
     val hasPassword: Boolean,
+    val active: Boolean = false,
 )
 
 @Immutable

@@ -4,10 +4,14 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maik205.shoumeiplayer.data.ApiResult
+import com.maik205.shoumeiplayer.data.cache.ArtworkCache
 import com.maik205.shoumeiplayer.data.repo.AuthRepository
 import com.maik205.shoumeiplayer.data.session.ClientSettings
 import com.maik205.shoumeiplayer.data.session.SessionStore
 import com.maik205.shoumeiplayer.data.session.SettingsStore
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -20,6 +24,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Immutable
 data class TelevisionSettingsState(
@@ -32,11 +37,14 @@ data class TelevisionSettingsState(
     val connectionMessage: String? = null,
     val quickConnectLoading: Boolean = false,
     val quickConnectCode: String? = null,
+    val artworkCacheSize: String = "Calculating…",
+    val clearingArtworkCache: Boolean = false,
 )
 
 sealed interface TelevisionSettingsEvent {
     data object Profiles : TelevisionSettingsEvent
     data object Connect : TelevisionSettingsEvent
+    data class CacheMessage(val message: String) : TelevisionSettingsEvent
 }
 
 private data class TelevisionSettingsSupplement(
@@ -46,14 +54,19 @@ private data class TelevisionSettingsSupplement(
     val connectionMessage: String? = null,
     val quickConnectLoading: Boolean = false,
     val quickConnectCode: String? = null,
+    val artworkCacheSize: String = "Calculating…",
+    val clearingArtworkCache: Boolean = false,
 )
 
 class TelevisionSettingsViewModel(
     private val settingsStore: SettingsStore,
     private val sessionStore: SessionStore,
     private val authRepository: AuthRepository,
+    private val artworkCache: ArtworkCache,
 ) : ViewModel() {
     private val supplement = MutableStateFlow(TelevisionSettingsSupplement())
+    private var quickConnectJob: Job? = null
+    private var quickConnectSecret: String? = null
 
     val state: StateFlow<TelevisionSettingsState> = combine(
         settingsStore.settings,
@@ -71,6 +84,8 @@ class TelevisionSettingsViewModel(
             connectionMessage = supplement.connectionMessage,
             quickConnectLoading = supplement.quickConnectLoading,
             quickConnectCode = supplement.quickConnectCode,
+            artworkCacheSize = supplement.artworkCacheSize,
+            clearingArtworkCache = supplement.clearingArtworkCache,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -83,6 +98,10 @@ class TelevisionSettingsViewModel(
 
     init {
         viewModelScope.launch {
+            authRepository.retryPendingTokenRevocation()
+        }
+        refreshArtworkCacheSize()
+        viewModelScope.launch {
             sessionStore.serverUrl
                 .filterNotNull()
                 .distinctUntilChanged()
@@ -92,6 +111,50 @@ class TelevisionSettingsViewModel(
 
     fun update(transform: (ClientSettings) -> ClientSettings) {
         viewModelScope.launch { settingsStore.update(transform) }
+    }
+
+    fun clearArtworkCache() {
+        if (supplement.value.clearingArtworkCache) return
+        viewModelScope.launch {
+            supplement.update { it.copy(clearingArtworkCache = true) }
+            runCatching {
+                withContext(Dispatchers.IO) { artworkCache.clear() }
+            }.onSuccess { clearedBytes ->
+                supplement.update {
+                    it.copy(
+                        artworkCacheSize = formatCacheSize(0L),
+                        clearingArtworkCache = false,
+                    )
+                }
+                _events.emit(
+                    TelevisionSettingsEvent.CacheMessage(
+                        if (clearedBytes > 0) {
+                            "${formatCacheSize(clearedBytes)} of artwork cache cleared"
+                        } else {
+                            "Artwork cache is already empty"
+                        },
+                    ),
+                )
+            }.onFailure {
+                supplement.update { it.copy(clearingArtworkCache = false) }
+                _events.emit(TelevisionSettingsEvent.CacheMessage("Couldn't clear artwork cache"))
+                refreshArtworkCacheSize()
+            }
+        }
+    }
+
+    private fun refreshArtworkCacheSize() {
+        viewModelScope.launch {
+            val bytes = withContext(Dispatchers.IO) { artworkCache.estimatedSizeBytes() }
+            supplement.update { it.copy(artworkCacheSize = formatCacheSize(bytes)) }
+        }
+    }
+
+    private fun formatCacheSize(bytes: Long): String = when {
+        bytes < 1024L -> if (bytes == 0L) "Empty" else "$bytes B"
+        bytes < 1024L * 1024L -> "%.1f KiB".format(bytes / 1024.0)
+        bytes < 1024L * 1024L * 1024L -> "%.1f MiB".format(bytes / (1024.0 * 1024.0))
+        else -> "%.2f GiB".format(bytes / (1024.0 * 1024.0 * 1024.0))
     }
 
     fun testConnection() {
@@ -106,8 +169,9 @@ class TelevisionSettingsViewModel(
     }
 
     fun generateQuickConnect() {
-        if (supplement.value.quickConnectLoading) return
-        viewModelScope.launch {
+        quickConnectJob?.cancel()
+        quickConnectSecret = null
+        quickConnectJob = viewModelScope.launch {
             supplement.update {
                 it.copy(
                     quickConnectLoading = true,
@@ -122,11 +186,26 @@ class TelevisionSettingsViewModel(
                     )
                 }
 
-                is ApiResult.Success -> supplement.update {
-                    it.copy(
-                        quickConnectLoading = false,
-                        quickConnectCode = result.data.code ?: "Unavailable",
-                    )
+                is ApiResult.Success -> {
+                    val secret = result.data.secret?.takeIf(String::isNotBlank)
+                    val code = result.data.code?.takeIf(String::isNotBlank)
+                    if (secret == null || code == null) {
+                        supplement.update {
+                            it.copy(
+                                quickConnectLoading = false,
+                                quickConnectCode = "Unavailable",
+                            )
+                        }
+                        return@launch
+                    }
+                    quickConnectSecret = secret
+                    supplement.update {
+                        it.copy(
+                            quickConnectLoading = false,
+                            quickConnectCode = code,
+                        )
+                    }
+                    pollQuickConnectReplacement(secret)
                 }
             }
         }
@@ -146,6 +225,12 @@ class TelevisionSettingsViewModel(
     }
 
     fun changeServer() {
+        viewModelScope.launch {
+            _events.emit(TelevisionSettingsEvent.Connect)
+        }
+    }
+
+    fun forgetServer() {
         viewModelScope.launch {
             authRepository.forgetServer()
             _events.emit(TelevisionSettingsEvent.Connect)
@@ -181,5 +266,54 @@ class TelevisionSettingsViewModel(
                 )
             }
         }
+    }
+
+    private suspend fun pollQuickConnectReplacement(secret: String) {
+        repeat(QUICK_CONNECT_MAX_POLLS) {
+            if (quickConnectSecret != secret) return
+            delay(QUICK_CONNECT_POLL_MS)
+            when (val state = authRepository.pollQuickConnect(secret)) {
+                is ApiResult.Failure -> Unit
+                is ApiResult.Success -> if (state.data.authenticated) {
+                    val message = when (
+                        val replacement = authRepository.replaceSessionWithQuickConnect(secret)
+                    ) {
+                        is ApiResult.Failure -> replacement.error.displayMessage
+                        is ApiResult.Success -> when {
+                            !replacement.data.tokenChanged -> "Session verified"
+                            replacement.data.oldTokenRevoked -> "Session replaced"
+                            else -> "Replaced · revocation pending"
+                        }
+                    }
+                    quickConnectSecret = null
+                    supplement.update {
+                        it.copy(
+                            quickConnectLoading = false,
+                            quickConnectCode = message,
+                        )
+                    }
+                    return
+                }
+            }
+        }
+        if (quickConnectSecret == secret) {
+            quickConnectSecret = null
+            supplement.update {
+                it.copy(
+                    quickConnectLoading = false,
+                    quickConnectCode = "Timed out · Try again",
+                )
+            }
+        }
+    }
+
+    override fun onCleared() {
+        quickConnectJob?.cancel()
+        super.onCleared()
+    }
+
+    private companion object {
+        const val QUICK_CONNECT_POLL_MS = 2_000L
+        const val QUICK_CONNECT_MAX_POLLS = 45
     }
 }
