@@ -7,7 +7,7 @@ This checklist tracks the non-Live-TV performance issues being implemented in th
 - [x] #39 Move library cache serialization off the main thread.
 - [x] #40 Coalesce and scope persisted Home/library cache writes.
 - [x] #2 Bound mpv stream cache settings to the device memory budget.
-- [ ] #3 Decode and cache BlurHash artwork off the main thread.
+- [x] #3 Decode and cache BlurHash artwork off the main thread (not applicable: no active BlurHash UI decode path).
 
 ## Compose and artwork
 
@@ -24,9 +24,9 @@ This checklist tracks the non-Live-TV performance issues being implemented in th
 - [x] #6 Disable Ktor request logging in release builds.
 - [x] #4 Stage and limit concurrent Home/browse network fan-out.
 - [x] #8 Cancel stale detail, season, and browse reload jobs.
-- [ ] #9 Avoid duplicate MediaItemUi mapping in detail loading.
-- [ ] #10 Reduce raw DTO retention in television detail state.
+- [x] #9 Avoid duplicate MediaItemUi mapping in detail loading (resolved by data-layer mapping).
+- [x] #10 Reduce raw DTO retention in television detail state (resolved by domain-only state).
 - [ ] #12 Coalesce mpv timeline callbacks before crossing JNI.
-- [ ] #13 Replace Home raw DTO hero lookup maps with lightweight hero data.
+- [x] #13 Replace Home raw DTO hero lookup maps with lightweight hero data (already absent in current Home state).
 
 Live TV issues are intentionally excluded.
