@@ -64,6 +64,7 @@ class PlayerViewModel(
     private val settingsStore: PlayerSettingsRepository? = null,
     private val initialQualityLabel: String? = null,
     private val audioRouteLabel: StateFlow<String> = MutableStateFlow("System default"),
+    private val effectiveHdrMode: StateFlow<String> = MutableStateFlow("Automatic"),
 ) : ViewModel() {
 
     private data class LocalState(
@@ -183,7 +184,7 @@ class PlayerViewModel(
 
     private val playback = combine(engine.state, engine.speed) { state, speed -> Playback(state, speed) }
 
-    val uiState: StateFlow<PlayerUiState> = combine(
+    private val baseUiState = combine(
         playback,
         engine.durationMs,
         trackGroups,
@@ -239,6 +240,10 @@ class PlayerViewModel(
             activeAudioRoute = activeAudioRoute,
             displayDescription = local.displayDescription,
         )
+    }
+
+    val uiState: StateFlow<PlayerUiState> = combine(baseUiState, effectiveHdrMode) { state, hdrMode ->
+        state.copy(effectiveHdrMode = hdrMode)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlayerUiState())
 
     init {

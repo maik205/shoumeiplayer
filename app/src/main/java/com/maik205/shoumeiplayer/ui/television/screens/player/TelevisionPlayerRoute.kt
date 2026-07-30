@@ -50,6 +50,7 @@ fun TelevisionPlayerScreen(
             settingsStore = container.settingsStore,
             initialQualityLabel = initialQualityLabel,
             audioRouteLabel = container.audioRouteLabel,
+            effectiveHdrMode = container.effectiveHdrModeLabel,
         )
     }
     val controller = remember(viewModel) { PlayerViewModelController(viewModel) }

@@ -738,7 +738,7 @@ internal fun TelevisionPlayerContent(
                     PlayerSelectionRow("info:source", "Source", state.playMethod ?: state.quality.label, onClick = {}),
                     PlayerSelectionRow("info:container", "Container", state.container ?: "Unknown", onClick = {}),
                     PlayerSelectionRow("info:video", "Video", state.videoDescription ?: videoTrack, onClick = {}),
-                    PlayerSelectionRow("info:color", "Color", hdrMode, onClick = {}),
+                    PlayerSelectionRow("info:color", "Color", state.effectiveHdrMode, onClick = {}),
                     PlayerSelectionRow("info:audio", "Audio", state.audioDescription ?: state.audioTracks.firstOrNull { it.selected }?.label ?: "Unknown", onClick = {}),
                     PlayerSelectionRow("info:output", "Output", state.activeAudioRoute, onClick = {}),
                     PlayerSelectionRow("info:display", "Display", state.displayDescription ?: "TV", onClick = {}),

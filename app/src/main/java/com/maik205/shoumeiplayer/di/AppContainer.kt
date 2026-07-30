@@ -24,6 +24,8 @@ import com.maik205.shoumeiplayer.player.PlayerEngine
 import com.maik205.shoumeiplayer.platform.media.AndroidAudioFocusPlayerEngine
 import com.maik205.shoumeiplayer.platform.media.AndroidAudioRoutePlayerEngine
 import com.maik205.shoumeiplayer.platform.media.AndroidFrameRatePlayerEngine
+import com.maik205.shoumeiplayer.platform.media.AndroidCaptionPreferencesPlayerEngine
+import com.maik205.shoumeiplayer.platform.media.AndroidHdrPolicyPlayerEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -84,17 +86,28 @@ class AppContainer(
     // planned native successor behind this same PlayerEngine interface (see
     // docs/mplayer-integration.md); SimulatedPlayerEngine stays for JVM unit tests.
     private val audioRouteEngine by lazy {
-        AndroidAudioRoutePlayerEngine(context, frameRateEngine)
+        AndroidAudioRoutePlayerEngine(context, hdrEngine)
     }
     private val frameRateEngine by lazy {
         AndroidFrameRatePlayerEngine(PlayerEngineFactory.create(context))
+    }
+    private val hdrEngine by lazy {
+        AndroidHdrPolicyPlayerEngine(context, frameRateEngine)
     }
     val audioRouteLabel by lazy {
         audioRouteEngine.route
             .map { it.description }
             .stateIn(applicationScope, SharingStarted.Eagerly, audioRouteEngine.route.value.description)
     }
-    val playerEngine: PlayerEngine by lazy { AndroidAudioFocusPlayerEngine(context, audioRouteEngine) }
+    private val captionEngine by lazy {
+        AndroidCaptionPreferencesPlayerEngine(context, audioRouteEngine)
+    }
+    val effectiveHdrModeLabel by lazy {
+        hdrEngine.effectiveMode
+            .map { it.label }
+            .stateIn(applicationScope, SharingStarted.Eagerly, hdrEngine.effectiveMode.value.label)
+    }
+    val playerEngine: PlayerEngine by lazy { AndroidAudioFocusPlayerEngine(context, captionEngine) }
     val progressReporter: PlaybackProgressReporter by lazy {
         PlaybackProgressReporter(playbackRepository)
     }

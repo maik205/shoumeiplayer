@@ -102,6 +102,7 @@ data class PlayerUiState(
     val videoDescription: String? = null,
     val audioDescription: String? = null,
     val activeAudioRoute: String = "System default",
+    val effectiveHdrMode: String = "Automatic",
     val displayDescription: String? = null,
 )
 
