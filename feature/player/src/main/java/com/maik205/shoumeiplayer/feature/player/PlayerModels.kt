@@ -104,6 +104,8 @@ data class PlayerUiState(
     val activeAudioRoute: String = "System default",
     val effectiveHdrMode: String = "Automatic",
     val displayDescription: String? = null,
+    val favorite: Boolean = false,
+    val played: Boolean = false,
 )
 
 internal fun chapterMarks(chapters: List<ChapterMark>, durationMs: Long?): List<ChapterMark> =

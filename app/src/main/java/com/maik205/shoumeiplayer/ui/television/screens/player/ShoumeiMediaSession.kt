@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Looper
+import android.os.Bundle
+import android.os.Process
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -14,6 +16,10 @@ import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaSession
+import androidx.media3.session.CommandButton
+import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionCommands
+import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.maik205.shoumeiplayer.MainActivity
@@ -176,6 +182,7 @@ internal class ShoumeiMedia3Player(
 internal fun createPlayerMediaSession(
     context: Context,
     player: Player,
+    actions: MediaSessionActions = MediaSessionActions(),
 ): MediaSession {
     val sessionActivity = PendingIntent.getActivity(
         context,
@@ -185,8 +192,97 @@ internal fun createPlayerMediaSession(
     )
     return MediaSession.Builder(context, player)
         .setSessionActivity(sessionActivity)
+        .setMediaButtonPreferences(actions.buttons())
+        .setCallback(object : MediaSession.Callback {
+            override fun onConnect(
+                session: MediaSession,
+                controller: MediaSession.ControllerInfo,
+            ): MediaSession.ConnectionResult {
+                val builder = MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                if (controller.isTrustedForMutation(context)) {
+                    builder.setAvailableSessionCommands(
+                        MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
+                            .buildUpon()
+                            .apply { CUSTOM_COMMANDS.forEach(::add) }
+                            .build(),
+                    )
+                }
+                return builder.build()
+            }
+
+            override fun onCustomCommand(
+                session: MediaSession,
+                controller: MediaSession.ControllerInfo,
+                customCommand: SessionCommand,
+                args: Bundle,
+            ): ListenableFuture<SessionResult> {
+                if (!controller.isTrustedForMutation(context)) {
+                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_ERROR_PERMISSION_DENIED))
+                }
+                val handled = when (customCommand.customAction) {
+                    TOGGLE_SUBTITLES -> actions.toggleSubtitles()
+                    TOGGLE_FAVORITE -> actions.toggleFavorite()
+                    TOGGLE_PLAYED -> actions.togglePlayed()
+                    PLAY_UP_NEXT -> actions.playUpNext()
+                    else -> false
+                }
+                return Futures.immediateFuture(
+                    SessionResult(if (handled) SessionResult.RESULT_SUCCESS else SessionResult.RESULT_ERROR_NOT_SUPPORTED),
+                )
+            }
+        })
         .build()
 }
+
+internal data class MediaSessionActions(
+    val subtitlesAvailable: () -> Boolean = { false },
+    val favoriteAvailable: () -> Boolean = { false },
+    val playedAvailable: () -> Boolean = { false },
+    val upNextAvailable: () -> Boolean = { false },
+    val toggleSubtitles: () -> Boolean = { false },
+    val toggleFavorite: () -> Boolean = { false },
+    val togglePlayed: () -> Boolean = { false },
+    val playUpNext: () -> Boolean = { false },
+) {
+    fun buttons(): List<CommandButton> = buildList {
+        add(CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setDisplayName("Subtitles")
+            .setSessionCommand(SessionCommand(TOGGLE_SUBTITLES, Bundle.EMPTY))
+            .setEnabled(subtitlesAvailable())
+            .build())
+        add(CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setDisplayName("Favorite")
+            .setSessionCommand(SessionCommand(TOGGLE_FAVORITE, Bundle.EMPTY))
+            .setEnabled(favoriteAvailable())
+            .build())
+        add(CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+            .setDisplayName("Watched")
+            .setSessionCommand(SessionCommand(TOGGLE_PLAYED, Bundle.EMPTY))
+            .setEnabled(playedAvailable())
+            .build())
+        if (upNextAvailable()) {
+            add(CommandButton.Builder(CommandButton.ICON_UNDEFINED)
+                .setDisplayName("Up Next")
+                .setSessionCommand(SessionCommand(PLAY_UP_NEXT, Bundle.EMPTY))
+                .build())
+        }
+    }
+}
+
+private const val TOGGLE_SUBTITLES = "com.maik205.shoumei.action.TOGGLE_SUBTITLES"
+private const val TOGGLE_FAVORITE = "com.maik205.shoumei.action.TOGGLE_FAVORITE"
+private const val TOGGLE_PLAYED = "com.maik205.shoumei.action.TOGGLE_PLAYED"
+private const val PLAY_UP_NEXT = "com.maik205.shoumei.action.PLAY_UP_NEXT"
+
+private val CUSTOM_COMMANDS = listOf(
+    SessionCommand(TOGGLE_SUBTITLES, Bundle.EMPTY),
+    SessionCommand(TOGGLE_FAVORITE, Bundle.EMPTY),
+    SessionCommand(TOGGLE_PLAYED, Bundle.EMPTY),
+    SessionCommand(PLAY_UP_NEXT, Bundle.EMPTY),
+)
+
+private fun MediaSession.ControllerInfo.isTrustedForMutation(context: Context): Boolean =
+    packageName == context.packageName || uid == Process.myUid()
 
 internal fun PlayerState.toMedia3PlaybackState(): @Player.State Int = when (this) {
     PlayerState.Loading, PlayerState.Buffering -> Player.STATE_BUFFERING

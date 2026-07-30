@@ -19,7 +19,14 @@ data class PlayerItemMetadata(
     val episodeNumber: Int?,
     val year: Int?,
     val cast: List<CastMemberUi>,
+    val favorite: Boolean = false,
+    val played: Boolean = false,
 )
+
+interface PlaybackUserDataMutator {
+    suspend fun setFavorite(itemId: String, favorite: Boolean): Boolean
+    suspend fun setPlayed(itemId: String, played: Boolean): Boolean
+}
 
 data class MusicPlaybackContext(
     val queue: List<AudioQueueItemUi>,

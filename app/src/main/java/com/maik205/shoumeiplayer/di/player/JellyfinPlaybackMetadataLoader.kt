@@ -74,6 +74,8 @@ class JellyfinPlaybackMetadataLoader(
                     blurHash = person.imageBlurHashes["Primary"]?.get(person.primaryImageTag),
                 )
             },
+            favorite = item?.userData?.isFavorite == true,
+            played = item?.userData?.played == true,
         )
     }
 

@@ -71,6 +71,7 @@ class PlayerViewModel(
     private val effectiveHdrMode: StateFlow<String> = MutableStateFlow("Automatic"),
     private val networkAvailable: StateFlow<Boolean> = MutableStateFlow(true),
     private val metricsSink: PlaybackMetricsSink? = null,
+    private val userDataMutator: PlaybackUserDataMutator? = null,
 ) : ViewModel() {
 
     private data class LocalState(
@@ -116,6 +117,8 @@ class PlayerViewModel(
         val audioDelayMs: Long = 0,
         val subtitleDelayMs: Long = 0,
         val seekIntervalSeconds: Int = 10,
+        val favorite: Boolean = false,
+        val played: Boolean = false,
     )
 
     private val localState = MutableStateFlow(LocalState())
@@ -246,6 +249,8 @@ class PlayerViewModel(
             audioDescription = local.audioDescription,
             activeAudioRoute = activeAudioRoute,
             displayDescription = local.displayDescription,
+            favorite = local.favorite,
+            played = local.played,
         )
     }
 
@@ -428,6 +433,36 @@ class PlayerViewModel(
                     trackController.selectedAudioIndex,
                     trackController.selectedSubtitleIndex,
                 )
+            }
+        }
+    }
+
+    fun toggleSubtitles() {
+        val selected = uiState.value.subtitleTracks.firstOrNull(PlayerTrack::selected)
+        val target = if (selected != null) {
+            PlayerTrack(id = -1, type = TrackType.SUBTITLE, label = "Off")
+        } else {
+            uiState.value.subtitleTracks.firstOrNull { it.id >= 0 }
+        }
+        target?.let(::selectTrack)
+    }
+
+    fun toggleFavorite() {
+        val mutator = userDataMutator ?: return
+        val target = !localState.value.favorite
+        viewModelScope.launch {
+            if (mutator.setFavorite(currentItemId, target)) {
+                localState.update { it.copy(favorite = target) }
+            }
+        }
+    }
+
+    fun togglePlayed() {
+        val mutator = userDataMutator ?: return
+        val target = !localState.value.played
+        viewModelScope.launch {
+            if (mutator.setPlayed(currentItemId, target)) {
+                localState.update { it.copy(played = target) }
             }
         }
     }
@@ -828,6 +863,8 @@ class PlayerViewModel(
                 lyricsSynced = false,
                 musicContextLoading = metadata.isAudio,
                 cast = metadata.cast,
+                favorite = metadata.favorite,
+                played = metadata.played,
             )
         }
     }

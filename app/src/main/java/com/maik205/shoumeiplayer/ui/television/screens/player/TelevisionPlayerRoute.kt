@@ -3,6 +3,7 @@ package com.maik205.shoumeiplayer.ui.television.screens.player
 import android.view.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -12,7 +13,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import com.maik205.shoumeiplayer.di.player.JellyfinPlaybackMetadataLoader
 import com.maik205.shoumeiplayer.feature.player.PlayerViewModel
+import com.maik205.shoumeiplayer.feature.player.PlaybackUserDataMutator
 import com.maik205.shoumeiplayer.feature.player.TrackController
+import com.maik205.shoumeiplayer.domain.result.ApiResult
 import com.maik205.shoumeiplayer.player.PlayerTrack
 import com.maik205.shoumeiplayer.player.VideoQuality
 import com.maik205.shoumeiplayer.ui.navigation.containerViewModel
@@ -61,6 +64,17 @@ fun TelevisionPlayerScreen(
                     container.networkMonitor.snapshot.value.validated,
                 ),
             metricsSink = container.newPlaybackMetricsSink(),
+            userDataMutator = object : PlaybackUserDataMutator {
+                override suspend fun setFavorite(itemId: String, favorite: Boolean): Boolean =
+                    (container.libraryRepository.setFavorite(itemId, favorite) as? ApiResult.Success)
+                        ?.data
+                        ?.isFavorite == favorite
+
+                override suspend fun setPlayed(itemId: String, played: Boolean): Boolean =
+                    (container.libraryRepository.setPlayed(itemId, played) as? ApiResult.Success)
+                        ?.data
+                        ?.played == played
+            },
         )
     }
     val controller = remember(viewModel) { PlayerViewModelController(viewModel) }
@@ -111,9 +125,43 @@ private fun PlayerMediaSession(
             onSetSpeed = controller::setSpeed,
         )
     }
+    val sessionActions = remember(viewModel, controller) {
+        MediaSessionActions(
+            subtitlesAvailable = { viewModel.uiState.value.subtitleTracks.any { it.id >= 0 } },
+            favoriteAvailable = { viewModel.uiState.value.title.isNotBlank() },
+            playedAvailable = {
+                viewModel.uiState.value.title.isNotBlank() && !viewModel.uiState.value.isAudio
+            },
+            upNextAvailable = { viewModel.uiState.value.upNext != null },
+            toggleSubtitles = {
+                if (viewModel.uiState.value.subtitleTracks.none { it.id >= 0 }) false
+                else true.also { controller.toggleSubtitles() }
+            },
+            toggleFavorite = {
+                if (viewModel.uiState.value.title.isBlank()) false
+                else true.also { controller.toggleFavorite() }
+            },
+            togglePlayed = {
+                if (viewModel.uiState.value.title.isBlank() || viewModel.uiState.value.isAudio) false
+                else true.also { controller.togglePlayed() }
+            },
+            playUpNext = {
+                if (viewModel.uiState.value.upNext == null) false
+                else true.also { controller.playUpNext() }
+            },
+        )
+    }
+    val session = remember(context, player, sessionActions) {
+        createPlayerMediaSession(context, player, sessionActions)
+    }
 
-    DisposableEffect(context, player) {
-        val session = createPlayerMediaSession(context, player)
+    LaunchedEffect(session, viewModel, sessionActions) {
+        viewModel.uiState.collect {
+            session.setMediaButtonPreferences(sessionActions.buttons())
+        }
+    }
+
+    DisposableEffect(session, player) {
         onDispose {
             session.release()
             player.release()
@@ -134,6 +182,9 @@ internal interface TelevisionPlayerController {
     fun playNextAudio()
     fun playRandomAudio()
     fun playFirstAudio()
+    fun toggleSubtitles()
+    fun toggleFavorite()
+    fun togglePlayed()
     fun switchTo(itemId: String)
     fun seekBy(deltaMs: Long)
     fun seekTo(positionMs: Long)
@@ -166,6 +217,9 @@ private class PlayerViewModelController(
     override fun playNextAudio() = viewModel.playNextAudio()
     override fun playRandomAudio() = viewModel.playRandomAudio()
     override fun playFirstAudio() = viewModel.playFirstAudio()
+    override fun toggleSubtitles() = viewModel.toggleSubtitles()
+    override fun toggleFavorite() = viewModel.toggleFavorite()
+    override fun togglePlayed() = viewModel.togglePlayed()
     override fun switchTo(itemId: String) = viewModel.switchTo(itemId)
     override fun seekBy(deltaMs: Long) = viewModel.seekBy(deltaMs)
     override fun seekTo(positionMs: Long) = viewModel.seekTo(positionMs)
