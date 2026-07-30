@@ -21,6 +21,7 @@ import com.maik205.shoumeiplayer.player.PlaybackProgressReporter
 import com.maik205.shoumeiplayer.player.PlayerEngine
 import com.maik205.shoumeiplayer.platform.media.AndroidAudioFocusPlayerEngine
 import com.maik205.shoumeiplayer.platform.media.AndroidAudioRoutePlayerEngine
+import com.maik205.shoumeiplayer.platform.media.AndroidFrameRatePlayerEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -72,7 +73,10 @@ class AppContainer(
     // planned native successor behind this same PlayerEngine interface (see
     // docs/mplayer-integration.md); SimulatedPlayerEngine stays for JVM unit tests.
     private val audioRouteEngine by lazy {
-        AndroidAudioRoutePlayerEngine(context, PlayerEngineFactory.create(context))
+        AndroidAudioRoutePlayerEngine(context, frameRateEngine)
+    }
+    private val frameRateEngine by lazy {
+        AndroidFrameRatePlayerEngine(PlayerEngineFactory.create(context))
     }
     val audioRouteLabel by lazy {
         audioRouteEngine.route

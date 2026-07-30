@@ -29,6 +29,7 @@ class MplayerEngine : PlayerEngine {
     // TODO(mplayer): drive `speed_mult` over the slave protocol once the JNI bridge exists. Until
     // then the rate is pinned at 1× and never lies about a speed the engine is not running at.
     override val speed: StateFlow<Float> = MutableStateFlow(PlaybackSpeed.Normal).asStateFlow()
+    override val videoFps: StateFlow<Double?> = MutableStateFlow<Double?>(null).asStateFlow()
 
     // TODO(mplayer): bind via JNI to ../mplayer
     override fun setSurface(surface: Surface?) {

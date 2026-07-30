@@ -22,6 +22,8 @@ interface PlayerEngine {
      * the rate hold this at `1.0` forever, so the OSD always has a truthful value to render.
      */
     val speed: StateFlow<Float>
+    /** Native source frame rate, when the current stream reports one. */
+    val videoFps: StateFlow<Double?>
     fun setSurface(surface: Surface?)
 
     /**

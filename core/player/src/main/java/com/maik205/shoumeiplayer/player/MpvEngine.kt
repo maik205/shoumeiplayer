@@ -58,6 +58,9 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
     private val _speed = MutableStateFlow(PlaybackSpeed.Normal)
     override val speed: StateFlow<Float> = _speed.asStateFlow()
 
+    private val _videoFps = MutableStateFlow<Double?>(null)
+    override val videoFps: StateFlow<Double?> = _videoFps.asStateFlow()
+
     @Volatile private var released = false
     @Volatile private var surfaceAttached = false
     @Volatile private var pendingLoad: PlayRequest? = null
@@ -149,6 +152,7 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         // mpv can refuse or round a rate change (and keeps `speed` across loadfile), so the flow is
         // driven by what mpv reports rather than by what was asked for.
         MpvNative.observeProperty("speed", MpvNative.MPV_FORMAT_DOUBLE)
+        MpvNative.observeProperty("container-fps", MpvNative.MPV_FORMAT_DOUBLE)
         MpvNative.observeProperty("track-list", MpvNative.MPV_FORMAT_NONE)
     }
 
@@ -289,7 +293,8 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         mpvTracks = emptyList()
         externalIndexByMpvId = emptyMap()
         _tracks.value = emptyList()
-        _bufferedMs.value = null
+            _bufferedMs.value = null
+            _videoFps.value = null
         _positionMs.value = item.startPositionMs
         _durationMs.value = item.durationMs
         _state.value = PlayerState.Loading
@@ -455,6 +460,7 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         pendingExternalSubtitles = emptyList()
         _positionMs.value = 0
         _bufferedMs.value = null
+        _videoFps.value = null
         _state.value = PlayerState.Idle
     }
 
@@ -495,6 +501,7 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
             // Negative means "cache empty or unknown" — report null rather than a bogus 0.
             "demuxer-cache-time" -> _bufferedMs.value = if (value >= 0) (value * 1000).toLong() else null
             "speed" -> if (value > 0) _speed.value = value.toFloat()
+            "container-fps" -> _videoFps.value = value.takeIf { it > 0.0 }
         }
     }
 

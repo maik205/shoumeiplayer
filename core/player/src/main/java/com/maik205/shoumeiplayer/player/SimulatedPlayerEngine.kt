@@ -44,6 +44,8 @@ class SimulatedPlayerEngine(
     private val _speed = MutableStateFlow(PlaybackSpeed.Normal)
     override val speed: StateFlow<Float> = _speed.asStateFlow()
 
+    override val videoFps: StateFlow<Double?> = MutableStateFlow<Double?>(null).asStateFlow()
+
     private var tickerJob: Job? = null
 
     /**
