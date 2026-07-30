@@ -31,6 +31,8 @@ These commits are already on `main`:
 - `bc05950` — reduced playback progress reporter work and allocation churn.
 - `20ea5d4` — throttled high-frequency mpv timeline JNI callbacks.
 - `6a6b5d2` — right-sized TV rail artwork request widths.
+- `c5e7683` — isolated sampled timeline state to progress-dependent player composables.
+- `28d94f9` — bounded TV artwork decode dimensions, prefetch windows, and loader concurrency.
 
 Documentation/checkpoint commits record the state of the checklist and partial work:
 
