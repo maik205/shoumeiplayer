@@ -26,6 +26,7 @@ import com.maik205.shoumeiplayer.platform.media.AndroidAudioRoutePlayerEngine
 import com.maik205.shoumeiplayer.platform.media.AndroidFrameRatePlayerEngine
 import com.maik205.shoumeiplayer.platform.media.AndroidCaptionPreferencesPlayerEngine
 import com.maik205.shoumeiplayer.platform.media.AndroidHdrPolicyPlayerEngine
+import com.maik205.shoumeiplayer.platform.network.AndroidNetworkMonitor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -49,6 +50,7 @@ class AppContainer(
     val sessionStore: SessionStore by lazy { SessionStore(context) }
     val sessionManager: SessionManager by lazy { SessionManager(sessionStore) }
     val settingsStore: SettingsStore by lazy { SettingsStore(context) }
+    val networkMonitor by lazy { AndroidNetworkMonitor(context) }
     val devicePlaybackCapabilities by lazy {
         devicePlaybackProfile.capabilities
     }

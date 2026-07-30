@@ -7,6 +7,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import com.maik205.shoumeiplayer.di.player.JellyfinPlaybackMetadataLoader
 import com.maik205.shoumeiplayer.feature.player.PlayerViewModel
 import com.maik205.shoumeiplayer.feature.player.TrackController
@@ -51,6 +54,12 @@ fun TelevisionPlayerScreen(
             initialQualityLabel = initialQualityLabel,
             audioRouteLabel = container.audioRouteLabel,
             effectiveHdrMode = container.effectiveHdrModeLabel,
+            networkAvailable = container.networkMonitor.snapshot.map { it.validated }
+                .stateIn(
+                    container.applicationScope,
+                    SharingStarted.Eagerly,
+                    container.networkMonitor.snapshot.value.validated,
+                ),
         )
     }
     val controller = remember(viewModel) { PlayerViewModelController(viewModel) }

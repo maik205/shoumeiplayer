@@ -65,6 +65,7 @@ class PlayerViewModel(
     private val initialQualityLabel: String? = null,
     private val audioRouteLabel: StateFlow<String> = MutableStateFlow("System default"),
     private val effectiveHdrMode: StateFlow<String> = MutableStateFlow("Automatic"),
+    private val networkAvailable: StateFlow<Boolean> = MutableStateFlow(true),
 ) : ViewModel() {
 
     private data class LocalState(
@@ -135,6 +136,7 @@ class PlayerViewModel(
     private var swapJob: Job? = null
     private var shelvesJob: Job? = null
     private var musicContextJob: Job? = null
+    private var pausedForNetwork = false
 
     /** Position + duration + buffered end, grouped so the outer [combine] stays within arity. */
     private data class Timeline(val positionMs: Long, val durationMs: Long?, val bufferedMs: Long?)
@@ -248,6 +250,20 @@ class PlayerViewModel(
 
     init {
         startInitialPlayback()
+        viewModelScope.launch {
+            networkAvailable.collect { available ->
+                if (!available) {
+                    if (engine.state.value == PlayerState.Playing || engine.state.value == PlayerState.Buffering) {
+                        pausedForNetwork = true
+                        engine.pause()
+                        localState.update { it.copy(notice = "Network connection lost; playback is paused") }
+                    }
+                } else if (pausedForNetwork && !sessionCoordinator.isScreenGone) {
+                    pausedForNetwork = false
+                    retryPlayback()
+                }
+            }
+        }
     }
 
     private fun startInitialPlayback() {
