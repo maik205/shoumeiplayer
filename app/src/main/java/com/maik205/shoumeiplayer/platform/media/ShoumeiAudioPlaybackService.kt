@@ -22,6 +22,9 @@ import com.maik205.shoumeiplayer.player.PlaybackResolutionRequest
 import com.maik205.shoumeiplayer.player.PlayerEngine
 import com.maik205.shoumeiplayer.player.PlayerEngineFactory
 import com.maik205.shoumeiplayer.player.PlayerState
+import com.maik205.shoumeiplayer.player.PlaybackMetricsEvent
+import com.maik205.shoumeiplayer.player.PlaybackMetricsSink
+import com.maik205.shoumeiplayer.player.toPlaybackMetricsState
 import com.maik205.shoumeiplayer.util.Ticks
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,16 +41,19 @@ class ShoumeiAudioPlaybackService : MediaSessionService() {
     private lateinit var player: AudioServicePlayer
     private lateinit var session: MediaSession
     private lateinit var resumptionStore: AudioResumptionStore
+    private var metricsSink: PlaybackMetricsSink? = null
 
     override fun onCreate() {
         super.onCreate()
         val container = (application as ShoumeiApp).container
         val engine = AndroidAudioFocusPlayerEngine(this, PlayerEngineFactory.create(this))
         resumptionStore = AudioResumptionStore(this)
+        metricsSink = container.newPlaybackMetricsSink()
         player = AudioServicePlayer(
             engine = engine,
             resolver = container.playbackRepository,
             reporter = container.progressReporter,
+            metricsSink = metricsSink,
             scope = scope,
             onPersist = { items, index, positionMs ->
                 scope.launch(Dispatchers.IO) {
@@ -87,6 +93,11 @@ class ShoumeiAudioPlaybackService : MediaSessionService() {
                 }
             })
             .build()
+        scope.launch {
+            container.networkMonitor.snapshot.collect {
+                metricsSink?.recordNetwork(it.transport, it.validated)
+            }
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession = session
@@ -99,6 +110,8 @@ class ShoumeiAudioPlaybackService : MediaSessionService() {
         player.stop()
         player.release()
         session.release()
+        metricsSink?.close()
+        metricsSink = null
         scope.cancel()
         super.onDestroy()
     }
@@ -109,6 +122,7 @@ private class AudioServicePlayer(
     private val engine: PlayerEngine,
     private val resolver: com.maik205.shoumeiplayer.player.PlaybackResolver,
     private val reporter: com.maik205.shoumeiplayer.player.PlaybackProgressReporter,
+    private val metricsSink: PlaybackMetricsSink?,
     private val scope: CoroutineScope,
     private val onPersist: (List<MediaItem>, Int, Long) -> Unit,
     private val onEnded: () -> Unit,
@@ -123,6 +137,17 @@ private class AudioServicePlayer(
             combine(engine.state, engine.positionMs, engine.durationMs) { _, _, _ -> Unit }
                 .collect {
                     invalidateState()
+                    val state = engine.state.value
+                    metricsSink?.record(
+                        PlaybackMetricsEvent(
+                            itemId = items.getOrNull(currentIndex)?.mediaId.orEmpty(),
+                            state = state.toPlaybackMetricsState(),
+                            positionMs = engine.positionMs.value,
+                            durationMs = engine.durationMs.value,
+                            errorCode = (state as? PlayerState.Error)?.message,
+                        ),
+                    )
+                    metricsSink?.recordTracks(engine.tracks.value)
                     if (items.isNotEmpty()) onPersist(items, currentIndex, engine.positionMs.value)
                     if (engine.state.value == PlayerState.Ended) {
                         stopReporting(failed = false)

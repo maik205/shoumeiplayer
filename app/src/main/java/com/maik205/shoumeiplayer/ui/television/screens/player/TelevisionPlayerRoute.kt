@@ -69,7 +69,7 @@ fun TelevisionPlayerScreen(
                     SharingStarted.Eagerly,
                     container.networkMonitor.snapshot.value.transport,
                 ),
-            metricsSink = container.newPlaybackMetricsSink(),
+            metricsSink = if (audioOnly) null else container.newPlaybackMetricsSink(),
             userDataMutator = object : PlaybackUserDataMutator {
                 override suspend fun setFavorite(itemId: String, favorite: Boolean): Boolean =
                     (container.libraryRepository.setFavorite(itemId, favorite) as? ApiResult.Success)
