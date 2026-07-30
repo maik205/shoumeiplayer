@@ -15,7 +15,7 @@ This checklist tracks the non-Live-TV performance issues being implemented in th
 - [ ] #42 Add size-aware artwork decoding and TV prefetch limits.
 - [x] #43 Reuse Home rail focus requesters without rebuilding keyed lists.
 - [ ] #7 Memoize derived search and browse collections.
-- [ ] #11 Reduce audio player blur and offscreen compositing cost.
+- [x] #11 Reduce audio player blur and offscreen compositing cost.
 
 ## Playback state and network work
 
