@@ -11,6 +11,7 @@ import com.maik205.shoumeiplayer.domain.repository.MediaDetailsRepository
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -71,13 +72,17 @@ class TelevisionDetailViewModel(
 ) : ViewModel() {
     private val _state = MutableStateFlow(TelevisionDetailState())
     val state: StateFlow<TelevisionDetailState> = _state.asStateFlow()
+    private var reloadJob: Job? = null
+    private var seasonJob: Job? = null
 
     init {
         reload()
     }
 
     fun reload() {
-        viewModelScope.launch {
+        reloadJob?.cancel()
+        seasonJob?.cancel()
+        reloadJob = viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null) }
             when (val result = repository.item(itemId)) {
                 is ApiResult.Failure -> _state.update {
@@ -99,7 +104,8 @@ class TelevisionDetailViewModel(
         if (_state.value.selectedSeasonId == seasonId) return
         val previousSeasonId = _state.value.selectedSeasonId
         _state.update { it.copy(selectedSeasonId = seasonId, error = null) }
-        viewModelScope.launch {
+        seasonJob?.cancel()
+        seasonJob = viewModelScope.launch {
             when (val result = repository.episodes(seriesId, seasonId)) {
                 is ApiResult.Failure -> _state.update {
                     it.copy(

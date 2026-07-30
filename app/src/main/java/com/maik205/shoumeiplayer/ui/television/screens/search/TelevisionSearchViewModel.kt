@@ -65,7 +65,10 @@ class TelevisionSearchViewModel(
         }
 
         _state.update { it.copy(searching = true, error = null) }
-        when (val result = catalog.search(term, 100)) {
+        // A TV search only renders a single viewport plus a small scroll-ahead window. Keep the
+        // first response bounded so JSON mapping and artwork work do not scale with the total
+        // number of matches; pagination can request more results explicitly later.
+        when (val result = catalog.search(term, SEARCH_PAGE_SIZE)) {
             is ApiResult.Failure -> _state.update {
                 it.copy(searching = false, error = result.error.displayMessage)
             }
@@ -82,5 +85,6 @@ class TelevisionSearchViewModel(
 
     private companion object {
         const val MIN_QUERY_LENGTH = 2
+        const val SEARCH_PAGE_SIZE = 40
     }
 }

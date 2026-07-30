@@ -291,7 +291,14 @@ internal fun HomeShelf(
     onFocused: (MediaItemUi) -> Unit,
     onClick: (MediaItemUi) -> Unit,
 ) {
-    val railFocusRequesters = remember(shelf.items.map(MediaItemUi::id), firstItemFocusRequester) {
+    // Keep the remember key allocation-free. The previous `items.map { id }` created a temporary
+    // list on every recomposition before Compose could decide whether the rail changed.
+    val itemIdentity = shelf.items.fold(1) { hash, item -> 31 * hash + item.id.hashCode() }
+    val railFocusRequesters = remember(
+        shelf.items.size,
+        itemIdentity,
+        firstItemFocusRequester,
+    ) {
         List(shelf.items.size) { index ->
             if (index == 0 && firstItemFocusRequester != null) {
                 firstItemFocusRequester

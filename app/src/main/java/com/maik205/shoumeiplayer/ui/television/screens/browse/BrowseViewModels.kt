@@ -17,6 +17,7 @@ import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDesti
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import com.maik205.shoumeiplayer.domain.model.MediaShelf as MediaShelfUi
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -25,6 +26,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 @Immutable
 data class TelevisionHomeState(
@@ -42,6 +45,7 @@ class TelevisionHomeViewModel(
     private val settingsStore: SettingsStore,
     private val libraryCacheStore: LibraryCacheStore,
 ) : ViewModel() {
+    private val shelfRequestSemaphore = Semaphore(MAX_SHELF_REQUESTS)
     private val _state = MutableStateFlow(TelevisionHomeState())
     val state: StateFlow<TelevisionHomeState> = _state.asStateFlow()
 
@@ -82,24 +86,28 @@ class TelevisionHomeViewModel(
                     return@launch
                 }
                 val shelves = coroutineScope {
-                    val resume = async { catalog.resumeItems(24).asItems() }
-                    val nextUp = async { catalog.nextUp(24).asItems() }
+                    val resume = async { shelfRequestSemaphore.withPermit { catalog.resumeItems(24).asItems() } }
+                    val nextUp = async { shelfRequestSemaphore.withPermit { catalog.nextUp(24).asItems() } }
                     val favorites = async {
-                        when (val result = catalog.favoriteItems(24)) {
-                            is ApiResult.Failure -> emptyList()
-                            is ApiResult.Success -> result.data
+                        shelfRequestSemaphore.withPermit {
+                            when (val result = catalog.favoriteItems(24)) {
+                                is ApiResult.Failure -> emptyList()
+                                is ApiResult.Success -> result.data
+                            }
                         }
                     }
                     val latest = views
                         .take(MAX_LATEST_LIBRARIES)
                         .map { view ->
                             async {
-                                val items = catalog.latest(view.id, 24).asItems()
-                                MediaShelfUi(
-                                    id = "latest:${view.id}",
-                                    title = "Latest in ${view.title}",
-                                    items = items,
-                                )
+                                shelfRequestSemaphore.withPermit {
+                                    val items = catalog.latest(view.id, 24).asItems()
+                                    MediaShelfUi(
+                                        id = "latest:${view.id}",
+                                        title = "Latest in ${view.title}",
+                                        items = items,
+                                    )
+                                }
                             }
                         }
 
@@ -230,6 +238,7 @@ class TelevisionHomeViewModel(
         (this as? ApiResult.Success)?.data.orEmpty()
 
     private companion object {
+        const val MAX_SHELF_REQUESTS = 3
         const val MAX_LATEST_LIBRARIES = 8
     }
 }
@@ -282,6 +291,8 @@ class TelevisionLibraryViewModel(
     val state: StateFlow<TelevisionLibraryState> = _state.asStateFlow()
 
     private var nextIndex = 0
+    private var reloadJob: Job? = null
+    private var loadMoreJob: Job? = null
     init {
         viewModelScope.launch {
             val session = sessionStore.current()
@@ -313,7 +324,9 @@ class TelevisionLibraryViewModel(
         sort: BrowseSort = _state.value.sort,
         view: LibraryViewMode = _state.value.view,
     ) {
-        viewModelScope.launch {
+        reloadJob?.cancel()
+        loadMoreJob?.cancel()
+        reloadJob = viewModelScope.launch {
             nextIndex = 0
             val previous = _state.value
             val keepCachedItems = previous.items.isNotEmpty() &&
@@ -376,7 +389,8 @@ class TelevisionLibraryViewModel(
     fun loadMore() {
         val snapshot = _state.value
         if (snapshot.loading || snapshot.loadingMore || snapshot.exhausted) return
-        viewModelScope.launch {
+        loadMoreJob?.cancel()
+        loadMoreJob = viewModelScope.launch {
             _state.update { it.copy(loadingMore = true) }
             when (val result = loadPage(nextIndex, snapshot.sort, snapshot.view)) {
                 is ApiResult.Failure -> _state.update {

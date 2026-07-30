@@ -11,8 +11,14 @@ import com.maik205.shoumeiplayer.domain.model.LibraryDestination
 import com.maik205.shoumeiplayer.domain.model.MediaItem
 import com.maik205.shoumeiplayer.domain.model.MediaShelf
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Small disk snapshot used to render the library rail before the first network response.
@@ -25,6 +31,10 @@ class LibraryCacheStore(private val store: DataStore<Preferences>) {
         ignoreUnknownKeys = true
         encodeDefaults = true
     }
+    private val generation = AtomicLong()
+    private val latestGeneration = ConcurrentHashMap<String, Long>()
+    private val lastEncoded = ConcurrentHashMap<String, String>()
+    private val writeMutex = Mutex()
 
     constructor(context: Context) : this(
         PreferenceDataStoreFactory.create {
@@ -33,16 +43,20 @@ class LibraryCacheStore(private val store: DataStore<Preferences>) {
     )
 
     suspend fun read(serverUrl: String, userId: String): List<LibraryDestination> {
-        val persisted = store.data.first()[Keys.SNAPSHOT]
-            ?.let { encoded -> runCatching { json.decodeFromString<PersistedLibrarySnapshot>(encoded) }.getOrNull() }
-            ?: return emptyList()
-        if (persisted.serverUrl != serverUrl || persisted.userId != userId) return emptyList()
-        return persisted.libraries.map { it.toUi() }
+        return withContext(Dispatchers.IO) {
+            val persisted = store.data.first()[Keys.SNAPSHOT]
+                ?.let { encoded -> runCatching { json.decodeFromString<PersistedLibrarySnapshot>(encoded) }.getOrNull() }
+                ?: return@withContext emptyList()
+            if (persisted.serverUrl != serverUrl || persisted.userId != userId) return@withContext emptyList()
+            persisted.libraries.map { it.toUi() }
+        }
     }
 
     suspend fun write(serverUrl: String, userId: String, libraries: List<LibraryDestination>) {
-        store.edit { preferences ->
-            preferences[Keys.SNAPSHOT] = json.encodeToString(
+        val key = "snapshot:$serverUrl:$userId"
+        val writeGeneration = generation.incrementAndGet().also { latestGeneration[key] = it }
+        val encoded = withContext(Dispatchers.IO) {
+            json.encodeToString(
                 PersistedLibrarySnapshot(
                     serverUrl = serverUrl,
                     userId = userId,
@@ -50,18 +64,25 @@ class LibraryCacheStore(private val store: DataStore<Preferences>) {
                 ),
             )
         }
+        writeEncoded(key, writeGeneration, Keys.SNAPSHOT, encoded)
     }
 
     suspend fun clear() {
-        store.edit { it.remove(Keys.SNAPSHOT) }
+        withContext(Dispatchers.IO) {
+            store.edit { it.remove(Keys.SNAPSHOT) }
+            latestGeneration.clear()
+            lastEncoded.clear()
+        }
     }
 
     suspend fun readHome(serverUrl: String, userId: String): HomeCache? {
-        val persisted = store.data.first()[Keys.HOME]
-            ?.let { encoded -> runCatching { json.decodeFromString<PersistedHomeSnapshot>(encoded) }.getOrNull() }
-            ?: return null
-        if (persisted.serverUrl != serverUrl || persisted.userId != userId) return null
-        return HomeCache(persisted.libraries.map { it.toUi() }, persisted.shelves, persisted.heroItemId)
+        return withContext(Dispatchers.IO) {
+            val persisted = store.data.first()[Keys.HOME]
+                ?.let { encoded -> runCatching { json.decodeFromString<PersistedHomeSnapshot>(encoded) }.getOrNull() }
+                ?: return@withContext null
+            if (persisted.serverUrl != serverUrl || persisted.userId != userId) return@withContext null
+            HomeCache(persisted.libraries.map { it.toUi() }, persisted.shelves, persisted.heroItemId)
+        }
     }
 
     suspend fun writeHome(
@@ -71,8 +92,10 @@ class LibraryCacheStore(private val store: DataStore<Preferences>) {
         shelves: List<MediaShelf>,
         heroItemId: String?,
     ) {
-        store.edit { preferences ->
-            preferences[Keys.HOME] = json.encodeToString(
+        val key = "home:$serverUrl:$userId"
+        val writeGeneration = generation.incrementAndGet().also { latestGeneration[key] = it }
+        val encoded = withContext(Dispatchers.IO) {
+            json.encodeToString(
                 PersistedHomeSnapshot(
                     serverUrl = serverUrl,
                     userId = userId,
@@ -82,6 +105,7 @@ class LibraryCacheStore(private val store: DataStore<Preferences>) {
                 ),
             )
         }
+        writeEncoded(key, writeGeneration, Keys.HOME, encoded)
     }
 
     suspend fun readLibrary(
@@ -91,11 +115,13 @@ class LibraryCacheStore(private val store: DataStore<Preferences>) {
         sort: String,
         view: String,
     ): LibraryPageCache? {
-        val snapshot = store.data.first()[libraryKey(libraryId, sort, view)]
-            ?.let { encoded -> runCatching { json.decodeFromString<PersistedLibraryPage>(encoded) }.getOrNull() }
-            ?: return null
-        if (snapshot.serverUrl != serverUrl || snapshot.userId != userId) return null
-        return LibraryPageCache(snapshot.items, snapshot.totalCount, snapshot.exhausted)
+        return withContext(Dispatchers.IO) {
+            val snapshot = store.data.first()[libraryKey(libraryId, sort, view)]
+                ?.let { encoded -> runCatching { json.decodeFromString<PersistedLibraryPage>(encoded) }.getOrNull() }
+                ?: return@withContext null
+            if (snapshot.serverUrl != serverUrl || snapshot.userId != userId) return@withContext null
+            LibraryPageCache(snapshot.items, snapshot.totalCount, snapshot.exhausted)
+        }
     }
 
     suspend fun writeLibrary(
@@ -108,8 +134,11 @@ class LibraryCacheStore(private val store: DataStore<Preferences>) {
         totalCount: Int,
         exhausted: Boolean,
     ) {
-        store.edit { preferences ->
-            preferences[libraryKey(libraryId, sort, view)] = json.encodeToString(
+        val preferenceKey = libraryKey(libraryId, sort, view)
+        val key = "library:$serverUrl:$userId:$libraryId:$sort:$view"
+        val writeGeneration = generation.incrementAndGet().also { latestGeneration[key] = it }
+        val encoded = withContext(Dispatchers.IO) {
+            json.encodeToString(
                 PersistedLibraryPage(
                     serverUrl = serverUrl,
                     userId = userId,
@@ -118,6 +147,21 @@ class LibraryCacheStore(private val store: DataStore<Preferences>) {
                     exhausted = exhausted,
                 ),
             )
+        }
+        writeEncoded(key, writeGeneration, preferenceKey, encoded)
+    }
+
+    private suspend fun writeEncoded(
+        key: String,
+        writeGeneration: Long,
+        preferenceKey: androidx.datastore.preferences.core.Preferences.Key<String>,
+        encoded: String,
+    ) = withContext(Dispatchers.IO) {
+        writeMutex.withLock {
+            if (latestGeneration[key] != writeGeneration) return@withLock
+            if (lastEncoded[key] == encoded) return@withLock
+            store.edit { preferences -> preferences[preferenceKey] = encoded }
+            lastEncoded[key] = encoded
         }
     }
 

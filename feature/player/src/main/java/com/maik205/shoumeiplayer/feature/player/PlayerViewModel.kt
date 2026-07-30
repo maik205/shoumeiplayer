@@ -23,9 +23,12 @@ import com.maik205.shoumeiplayer.util.Ticks
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.FlowPreview
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -43,6 +46,7 @@ private const val TRICKPLAY_TARGET_WIDTH = 320
  * go through [swapStream], which retires the outgoing server session (stop report + transcode
  * teardown) while leaving the ViewModel's own final teardown latch untouched.
  */
+@OptIn(FlowPreview::class)
 class PlayerViewModel(
     private val engine: PlayerEngine,
     private val playbackResolver: PlaybackResolver,
@@ -135,6 +139,25 @@ class PlayerViewModel(
         engine.durationMs,
         engine.bufferedMs,
     ) { positionMs, durationMs, bufferedMs -> Timeline(positionMs, durationMs, bufferedMs) }
+        // mpv can emit position updates much faster than a TV display can present them. Keep
+        // exact values on the engine flows for seeking/reporting, but bound UI state churn.
+        .sample(100)
+
+    private val trackGroups = engine.tracks
+        .map { tracks ->
+            TrackGroups(
+                audio = tracks.filter { it.type == TrackType.AUDIO },
+                subtitles = tracks.filter { it.type == TrackType.SUBTITLE },
+                video = tracks.filter { it.type == TrackType.VIDEO },
+            )
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrackGroups())
+
+    private data class TrackGroups(
+        val audio: List<PlayerTrack> = emptyList(),
+        val subtitles: List<PlayerTrack> = emptyList(),
+        val video: List<PlayerTrack> = emptyList(),
+    )
 
     /** Engine state + rate, grouped for the same reason as [Timeline]. */
     private data class Playback(val state: PlayerState, val speed: Float)
@@ -144,7 +167,7 @@ class PlayerViewModel(
     val uiState: StateFlow<PlayerUiState> = combine(
         playback,
         timeline,
-        engine.tracks,
+        trackGroups,
         localState,
     ) { play, time, tracks, local ->
         val duration = time.durationMs ?: local.itemDurationMs
@@ -157,9 +180,9 @@ class PlayerViewModel(
             positionMs = time.positionMs,
             durationMs = duration,
             bufferedMs = time.bufferedMs,
-            audioTracks = tracks.filter { it.type == TrackType.AUDIO },
-            subtitleTracks = tracks.filter { it.type == TrackType.SUBTITLE },
-            videoTracks = tracks.filter { it.type == TrackType.VIDEO },
+            audioTracks = tracks.audio,
+            subtitleTracks = tracks.subtitles,
+            videoTracks = tracks.video,
             chapters = chapterMarks(local.chapters, duration),
             speed = play.speed,
             quality = local.quality,

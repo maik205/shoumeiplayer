@@ -41,6 +41,7 @@ class JellyfinClient(
     private val appName: String,
     private val appVersion: String,
     engine: HttpClientEngine? = null,
+    private val enableLogging: Boolean = false,
     private val onUnauthorized: suspend () -> Unit = defaultUnauthorizedHandler(sessions),
 ) {
     private val httpClient: HttpClient = if (engine != null) {
@@ -64,8 +65,10 @@ class JellyfinClient(
             requestTimeoutMillis = 30_000
             connectTimeoutMillis = 15_000
         }
-        install(Logging) {
-            level = LogLevel.INFO
+        if (enableLogging) {
+            install(Logging) {
+                level = LogLevel.INFO
+            }
         }
     }
 

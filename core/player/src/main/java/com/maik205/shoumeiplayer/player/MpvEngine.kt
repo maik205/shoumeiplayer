@@ -1,6 +1,7 @@
 package com.maik205.shoumeiplayer.player
 
 import android.content.Context
+import android.app.ActivityManager
 import android.util.Log
 import android.view.Surface
 import com.maik205.mpvroid.MpvNative
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.Locale
+import kotlin.math.min
 
 private const val TAG = "MpvEngine"
 
@@ -29,6 +31,14 @@ private const val TAG = "MpvEngine"
  * touched from here.
  */
 internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserver, MpvNative.LogObserver {
+
+    private val memoryBudgetMiB: Int = run {
+        val activityManager = context.applicationContext
+            .getSystemService(ActivityManager::class.java)
+        // Reserve most of the heap for decoded artwork, Compose, and Jellyfin responses. The
+        // stream cache is a resilience budget, not a reason to pressure the entire TV process.
+        ((activityManager?.memoryClass ?: 256) * 0.20f).toInt().coerceIn(32, 256)
+    }
 
     private val _state = MutableStateFlow<PlayerState>(PlayerState.Idle)
     override val state: StateFlow<PlayerState> = _state.asStateFlow()
@@ -96,10 +106,10 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         MpvNative.setOptionString("demuxer-readahead-secs", "20")
         // demuxer-max-bytes: hard ceiling on the forward cache — 64MiB is the practical cap
         // for an Android TV heap and comfortably holds the 20s readahead above.
-        MpvNative.setOptionString("demuxer-max-bytes", "64MiB")
+        MpvNative.setOptionString("demuxer-max-bytes", "${min(64, memoryBudgetMiB)}MiB")
         // demuxer-max-back-bytes: backwards cache, so short back-seeks are instant instead of
         // forcing a new HTTP range request.
-        MpvNative.setOptionString("demuxer-max-back-bytes", "32MiB")
+        MpvNative.setOptionString("demuxer-max-back-bytes", "${min(32, memoryBudgetMiB / 2)}MiB")
         // cache-pause-initial: hold playback until the cache has filled once, so the first
         // frame is followed by continuous video instead of an immediate re-buffer.
         MpvNative.setOptionString("cache-pause-initial", "yes")
@@ -257,8 +267,10 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         MpvNative.setOptionString("cache", settings.networkCacheEnabled.yesNo())
         MpvNative.setOptionString("cache-secs", settings.cacheDurationSeconds.toString())
         MpvNative.setOptionString("demuxer-readahead-secs", settings.readAheadSeconds.toString())
-        MpvNative.setOptionString("demuxer-max-bytes", "${settings.forwardCacheMiB}MiB")
-        MpvNative.setOptionString("demuxer-max-back-bytes", "${settings.backwardCacheMiB}MiB")
+        val forwardCacheMiB = min(settings.forwardCacheMiB, memoryBudgetMiB)
+        val backwardCacheMiB = min(settings.backwardCacheMiB, memoryBudgetMiB / 2)
+        MpvNative.setOptionString("demuxer-max-bytes", "${forwardCacheMiB}MiB")
+        MpvNative.setOptionString("demuxer-max-back-bytes", "${backwardCacheMiB}MiB")
         MpvNative.setOptionString("cache-pause-wait", settings.resumeBufferSeconds.toString())
         MpvNative.setOptionString("network-timeout", settings.networkTimeoutSeconds.toString())
         MpvNative.setOptionString("tls-verify", settings.verifyTlsCertificates.yesNo())

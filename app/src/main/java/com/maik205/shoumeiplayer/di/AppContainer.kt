@@ -44,6 +44,7 @@ class AppContainer(
             sessions = sessionStore,
             appName = appName,
             appVersion = appVersion,
+            enableLogging = BuildConfig.DEBUG,
             onUnauthorized = sessionManager::expireSession,
         )
     }
