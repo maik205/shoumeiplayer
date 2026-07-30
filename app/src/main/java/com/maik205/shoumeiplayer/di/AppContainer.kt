@@ -19,6 +19,7 @@ import com.maik205.shoumeiplayer.data.session.SettingsStore
 import com.maik205.shoumeiplayer.player.PlayerEngineFactory
 import com.maik205.shoumeiplayer.player.PlaybackProgressReporter
 import com.maik205.shoumeiplayer.player.PlayerEngine
+import com.maik205.shoumeiplayer.platform.media.AndroidAudioFocusPlayerEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -66,7 +67,9 @@ class AppContainer(
     // MplayerEngine remains the
     // planned native successor behind this same PlayerEngine interface (see
     // docs/mplayer-integration.md); SimulatedPlayerEngine stays for JVM unit tests.
-    val playerEngine: PlayerEngine by lazy { PlayerEngineFactory.create(context) }
+    val playerEngine: PlayerEngine by lazy {
+        AndroidAudioFocusPlayerEngine(context, PlayerEngineFactory.create(context))
+    }
     val progressReporter: PlaybackProgressReporter by lazy {
         PlaybackProgressReporter(playbackRepository)
     }

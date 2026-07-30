@@ -1,6 +1,7 @@
 package com.maik205.shoumeiplayer
 
 import android.os.Bundle
+import android.media.AudioManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
@@ -28,6 +29,7 @@ import kotlinx.coroutines.delay
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        volumeControlStream = AudioManager.STREAM_MUSIC
         setContent {
             CompositionLocalProvider(
                 LocalAppContainer provides (application as ShoumeiApp).container
