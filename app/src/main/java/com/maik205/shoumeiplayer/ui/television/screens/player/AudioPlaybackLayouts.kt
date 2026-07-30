@@ -54,7 +54,6 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
@@ -126,11 +125,6 @@ internal fun AudioNormalPlayback(
         animationSpec = tween(150, easing = AudioMaterialEase),
         label = "audioContentOpacity",
     )
-    val contentBlur by animateDpAsState(
-        targetValue = if (lyricsVisible) 1.65.dp else 0.dp,
-        animationSpec = tween(160, easing = AudioMaterialEase),
-        label = "audioContentBlur",
-    )
     AudioCover(
         state = state,
         alpha = coverAlpha,
@@ -148,7 +142,6 @@ internal fun AudioNormalPlayback(
         modifier = Modifier
             .offset(x = AudioContentLeft, y = 35.dp)
             .width(AudioContentWidth)
-            .blur(contentBlur)
             .alpha(contentAlpha),
     ) {
         AudioMetadata(state = state, titleSize = 35.sp, titleLineHeight = 34.sp)
@@ -212,16 +205,10 @@ internal fun AudioLyricsPlayback(
         animationSpec = tween(180, easing = AudioCssEase),
         label = "audioLyricsMetadataOpacity",
     )
-    val metadataBlur by animateDpAsState(
-        targetValue = if (visible) 0.dp else 1.65.dp,
-        animationSpec = tween(180, easing = AudioCssEase),
-        label = "audioLyricsMetadataBlur",
-    )
     Column(
         modifier = Modifier
             .offset(x = 163.dp, y = 22.dp)
             .width(240.dp)
-            .blur(metadataBlur)
             .alpha(metadataAlpha),
     ) {
         AudioMetadata(state = state, titleSize = 30.sp, titleLineHeight = 29.sp)
