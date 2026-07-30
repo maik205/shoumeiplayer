@@ -40,9 +40,13 @@ internal class ShoumeiMedia3Player(
     private val onSeek: (Long) -> Unit,
     private val onPrevious: () -> Unit,
     private val onNext: () -> Unit,
+    private val onShuffleNext: () -> Unit,
+    private val onRepeatAllNext: () -> Unit,
     private val onSetSpeed: (Float) -> Unit,
 ) : SimpleBasePlayer(Looper.getMainLooper()) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var repeatMode = Player.REPEAT_MODE_OFF
+    private var shuffleModeEnabled = false
 
     init {
         scope.launch {
@@ -69,6 +73,10 @@ internal class ShoumeiMedia3Player(
             .add(Player.COMMAND_GET_TIMELINE)
             .add(Player.COMMAND_GET_METADATA)
             .apply {
+                if (ui.isAudio) {
+                    add(Player.COMMAND_SET_REPEAT_MODE)
+                    add(Player.COMMAND_SET_SHUFFLE_MODE)
+                }
                 if (playlist.currentIndex > 0) {
                     add(Player.COMMAND_SEEK_TO_PREVIOUS)
                     add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
@@ -95,6 +103,8 @@ internal class ShoumeiMedia3Player(
             .setSeekBackIncrementMs(ui.seekIntervalSeconds * 1_000L)
             .setSeekForwardIncrementMs(ui.seekIntervalSeconds * 1_000L)
             .setPlaybackParameters(PlaybackParameters(ui.speed))
+            .setRepeatMode(repeatMode)
+            .setShuffleModeEnabled(shuffleModeEnabled)
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
@@ -121,7 +131,15 @@ internal class ShoumeiMedia3Player(
     ): ListenableFuture<*> {
         when (seekCommand.toMediaSessionSeekAction()) {
             MediaSessionSeekAction.Previous -> onPrevious()
-            MediaSessionSeekAction.Next -> onNext()
+            MediaSessionSeekAction.Next -> when {
+                uiState.value.isAudio && repeatMode == Player.REPEAT_MODE_ONE -> {
+                    onSeek(0L)
+                    onPlay()
+                }
+                uiState.value.isAudio && shuffleModeEnabled -> onShuffleNext()
+                uiState.value.isAudio && repeatMode == Player.REPEAT_MODE_ALL -> onRepeatAllNext()
+                else -> onNext()
+            }
             MediaSessionSeekAction.Position -> onSeek(positionMs.coerceAtLeast(0L))
         }
         return Futures.immediateVoidFuture()
@@ -129,6 +147,22 @@ internal class ShoumeiMedia3Player(
 
     override fun handleSetPlaybackParameters(playbackParameters: PlaybackParameters): ListenableFuture<*> {
         onSetSpeed(playbackParameters.speed)
+        return Futures.immediateVoidFuture()
+    }
+
+    override fun handleSetRepeatMode(repeatMode: Int): ListenableFuture<*> {
+        if (uiState.value.isAudio) {
+            this.repeatMode = repeatMode
+            invalidateState()
+        }
+        return Futures.immediateVoidFuture()
+    }
+
+    override fun handleSetShuffleModeEnabled(shuffleModeEnabled: Boolean): ListenableFuture<*> {
+        if (uiState.value.isAudio) {
+            this.shuffleModeEnabled = shuffleModeEnabled
+            invalidateState()
+        }
         return Futures.immediateVoidFuture()
     }
 

@@ -105,6 +105,8 @@ private fun PlayerMediaSession(
                     controller.playNextEpisode()
                 }
             },
+            onShuffleNext = controller::playRandomAudio,
+            onRepeatAllNext = controller::playFirstAudio,
             onSetSpeed = controller::setSpeed,
         )
     }
@@ -129,6 +131,8 @@ internal interface TelevisionPlayerController {
     fun playNextEpisode()
     fun playPreviousAudio()
     fun playNextAudio()
+    fun playRandomAudio()
+    fun playFirstAudio()
     fun switchTo(itemId: String)
     fun seekBy(deltaMs: Long)
     fun seekTo(positionMs: Long)
@@ -159,6 +163,8 @@ private class PlayerViewModelController(
     override fun playNextEpisode() = viewModel.playNextEpisode()
     override fun playPreviousAudio() = viewModel.playPreviousAudio()
     override fun playNextAudio() = viewModel.playNextAudio()
+    override fun playRandomAudio() = viewModel.playRandomAudio()
+    override fun playFirstAudio() = viewModel.playFirstAudio()
     override fun switchTo(itemId: String) = viewModel.switchTo(itemId)
     override fun seekBy(deltaMs: Long) = viewModel.seekBy(deltaMs)
     override fun seekTo(positionMs: Long) = viewModel.seekTo(positionMs)

@@ -543,6 +543,18 @@ class PlayerViewModel(
         queueNavigator.nextAudio(localState.value.queue)?.let(::switchTo)
     }
 
+    fun playRandomAudio() {
+        localState.value.queue
+            .filterNot { it.playing }
+            .randomOrNull()
+            ?.itemId
+            ?.let(::switchTo)
+    }
+
+    fun playFirstAudio() {
+        localState.value.queue.firstOrNull()?.itemId?.let(::switchTo)
+    }
+
     /**
      * Swaps the player over to [targetItemId] without leaving the screen (docs/osd-v3.md §5): the
      * outgoing session gets its stop report and transcode teardown, the new item is resolved at its
