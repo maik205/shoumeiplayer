@@ -3,7 +3,8 @@ package com.maik205.shoumeiplayer.player
 import android.content.Context
 import android.util.Log
 import android.view.Surface
-import dev.jdtech.mpv.MPVLib
+import com.maik205.mpvroid.MpvNative
+import com.maik205.shoumeiplayer.data.session.ClientSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,15 +13,15 @@ import java.util.Locale
 private const val TAG = "MpvEngine"
 
 /**
- * Real [PlayerEngine] backed by libmpv (`dev.jdtech.mpv:libmpv`, the prebuilt
- * AAR Findroid ships). Option set follows Findroid's `MPVPlayer` so behaviour
- * on Android TV hardware matches a known-good client.
+ * Real [PlayerEngine] backed directly by mpv v0.41.0 through the app-owned
+ * [MpvNative] JNI bridge. The option set follows the established Android
+ * configuration so behaviour remains suitable for Android TV hardware.
  *
- * MPVLib callbacks arrive on mpv's own thread; every field written from them is
+ * MpvNative callbacks arrive on mpv's own thread; every field written from them is
  * either a [MutableStateFlow] (thread-safe) or `@Volatile`, and no view is ever
  * touched from here.
  */
-class MpvEngine(context: Context) : PlayerEngine, MPVLib.EventObserver, MPVLib.LogObserver {
+class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserver, MpvNative.LogObserver {
 
     private val _state = MutableStateFlow<PlayerState>(PlayerState.Idle)
     override val state: StateFlow<PlayerState> = _state.asStateFlow()
@@ -42,6 +43,7 @@ class MpvEngine(context: Context) : PlayerEngine, MPVLib.EventObserver, MPVLib.L
 
     @Volatile private var released = false
     @Volatile private var surfaceAttached = false
+    @Volatile private var pendingLoad: PlayRequest? = null
     @Volatile private var hasRequest = false
     @Volatile private var fileLoaded = false
     @Volatile private var lastErrorMessage: String? = null
@@ -60,91 +62,95 @@ class MpvEngine(context: Context) : PlayerEngine, MPVLib.EventObserver, MPVLib.L
     @Volatile private var seeking = false
 
     init {
-        MPVLib.create(context.applicationContext)
+        MpvNative.create(context.applicationContext)
         // Findroid MPVPlayer option set (player/local/.../mpv/MPVPlayer.kt).
-        MPVLib.setOptionString("config", "no")
-        MPVLib.setOptionString("profile", "fast")
-        MPVLib.setOptionString("vo", "gpu")
-        MPVLib.setOptionString("gpu-context", "android")
-        MPVLib.setOptionString("opengl-es", "yes")
-        MPVLib.setOptionString("ao", "audiotrack")
-        MPVLib.setOptionString("audio-set-media-role", "yes")
+        MpvNative.setOptionString("config", "no")
+        MpvNative.setOptionString("profile", "fast")
+        MpvNative.setOptionString("vo", "gpu")
+        MpvNative.setOptionString("gpu-context", "android")
+        MpvNative.setOptionString("opengl-es", "yes")
+        MpvNative.setOptionString("ao", "audiotrack")
+        MpvNative.setOptionString("audio-set-media-role", "yes")
         // mediacodec-copy is the TV-safe variant: it survives surface loss and
         // keeps subtitle/filter paths working where direct rendering does not.
-        MPVLib.setOptionString("hwdec", "mediacodec-copy")
-        MPVLib.setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
-        MPVLib.setOptionString("tls-verify", "no")
+        MpvNative.setOptionString("hwdec", "mediacodec-copy")
+        MpvNative.setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
+        MpvNative.setOptionString("tls-verify", "no")
         // --- network stream cache -------------------------------------------------
         // Jellyfin streams are remote HTTP; without a real cache every hiccup on the LAN
         // becomes a visible stall. The values below are the Findroid-era defaults.
         // cache: enable the stream cache for network sources (mpv disables it for some).
-        MPVLib.setOptionString("cache", "yes")
+        MpvNative.setOptionString("cache", "yes")
         // cache-secs: how much decoded-ahead material the cache is allowed to keep; 30s is
         // enough to ride out a Wi-Fi dropout without hoarding memory on a TV box.
-        MPVLib.setOptionString("cache-secs", "30")
+        MpvNative.setOptionString("cache-secs", "30")
         // demuxer-readahead-secs: how far the demuxer reads past the playhead. 20s keeps the
         // buffered bar meaningfully ahead while staying under demuxer-max-bytes for HD video.
-        MPVLib.setOptionString("demuxer-readahead-secs", "20")
+        MpvNative.setOptionString("demuxer-readahead-secs", "20")
         // demuxer-max-bytes: hard ceiling on the forward cache — 64MiB is the practical cap
         // for an Android TV heap and comfortably holds the 20s readahead above.
-        MPVLib.setOptionString("demuxer-max-bytes", "64MiB")
+        MpvNative.setOptionString("demuxer-max-bytes", "64MiB")
         // demuxer-max-back-bytes: backwards cache, so short back-seeks are instant instead of
         // forcing a new HTTP range request.
-        MPVLib.setOptionString("demuxer-max-back-bytes", "32MiB")
+        MpvNative.setOptionString("demuxer-max-back-bytes", "32MiB")
         // cache-pause-initial: hold playback until the cache has filled once, so the first
         // frame is followed by continuous video instead of an immediate re-buffer.
-        MPVLib.setOptionString("cache-pause-initial", "yes")
+        MpvNative.setOptionString("cache-pause-initial", "yes")
         // cache-pause-wait: seconds of data to accumulate before resuming after an underrun.
         // Small (1s) so a brief stall does not turn into a long visible freeze.
-        MPVLib.setOptionString("cache-pause-wait", "1")
+        MpvNative.setOptionString("cache-pause-wait", "1")
         // network-timeout: give up on a dead connection after 15s instead of hanging forever;
         // the resulting end-file surfaces as PlayerState.Error.
-        MPVLib.setOptionString("network-timeout", "15")
+        MpvNative.setOptionString("network-timeout", "15")
         // stream-buffer-size is deliberately left at mpv's default — raising it only adds
         // latency in front of the demuxer cache that is already sized above.
-        MPVLib.setOptionString("sub-scale-with-window", "yes")
-        MPVLib.setOptionString("sub-use-margins", "no")
-        MPVLib.setOptionString("save-position-on-quit", "no")
-        MPVLib.setOptionString("ytdl", "no")
-        MPVLib.setOptionString("idle", "yes")
+        MpvNative.setOptionString("sub-scale-with-window", "yes")
+        MpvNative.setOptionString("sub-use-margins", "no")
+        MpvNative.setOptionString("save-position-on-quit", "no")
+        MpvNative.setOptionString("ytdl", "no")
+        MpvNative.setOptionString("idle", "yes")
         // keep-open so the Ended state is observable instead of mpv going idle.
-        MPVLib.setOptionString("keep-open", "yes")
+        MpvNative.setOptionString("keep-open", "yes")
         // No window until a Surface is attached.
-        MPVLib.setOptionString("force-window", "no")
-        MPVLib.init()
-        MPVLib.addObserver(this)
-        MPVLib.addLogObserver(this)
+        MpvNative.setOptionString("force-window", "no")
+        MpvNative.init()
+        MpvNative.addObserver(this)
+        MpvNative.addLogObserver(this)
         // DOUBLE rather than INT64: an integer-seconds position makes the seek bar and the
         // timecode advance in visible 1s jumps and rounds away accurate resume points.
-        MPVLib.observeProperty("time-pos", MPVLib.MPV_FORMAT_DOUBLE)
-        MPVLib.observeProperty("duration", MPVLib.MPV_FORMAT_DOUBLE)
-        MPVLib.observeProperty("pause", MPVLib.MPV_FORMAT_FLAG)
-        MPVLib.observeProperty("core-idle", MPVLib.MPV_FORMAT_FLAG)
-        MPVLib.observeProperty("paused-for-cache", MPVLib.MPV_FORMAT_FLAG)
-        MPVLib.observeProperty("eof-reached", MPVLib.MPV_FORMAT_FLAG)
+        MpvNative.observeProperty("time-pos", MpvNative.MPV_FORMAT_DOUBLE)
+        MpvNative.observeProperty("duration", MpvNative.MPV_FORMAT_DOUBLE)
+        MpvNative.observeProperty("pause", MpvNative.MPV_FORMAT_FLAG)
+        MpvNative.observeProperty("core-idle", MpvNative.MPV_FORMAT_FLAG)
+        MpvNative.observeProperty("paused-for-cache", MpvNative.MPV_FORMAT_FLAG)
+        MpvNative.observeProperty("eof-reached", MpvNative.MPV_FORMAT_FLAG)
         // `seeking` flips true while mpv refills after a seek: surfaced as Buffering so the OSD
         // shows motion instead of a frozen Playing state.
-        MPVLib.observeProperty("seeking", MPVLib.MPV_FORMAT_FLAG)
+        MpvNative.observeProperty("seeking", MpvNative.MPV_FORMAT_FLAG)
         // demuxer-cache-time is the absolute playback timestamp (seconds) the cache reaches.
-        MPVLib.observeProperty("demuxer-cache-time", MPVLib.MPV_FORMAT_DOUBLE)
+        MpvNative.observeProperty("demuxer-cache-time", MpvNative.MPV_FORMAT_DOUBLE)
         // mpv can refuse or round a rate change (and keeps `speed` across loadfile), so the flow is
         // driven by what mpv reports rather than by what was asked for.
-        MPVLib.observeProperty("speed", MPVLib.MPV_FORMAT_DOUBLE)
-        MPVLib.observeProperty("track-list", MPVLib.MPV_FORMAT_NONE)
+        MpvNative.observeProperty("speed", MpvNative.MPV_FORMAT_DOUBLE)
+        MpvNative.observeProperty("track-list", MpvNative.MPV_FORMAT_NONE)
     }
 
     override fun setSurface(surface: Surface?) {
         if (released) return
         if (surface != null) {
-            MPVLib.attachSurface(surface)
-            MPVLib.setOptionString("force-window", "yes")
-            MPVLib.setOptionString("vo", "gpu")
+            MpvNative.attachSurface(surface)
+            MpvNative.setOptionString("force-window", "yes")
+            MpvNative.setOptionString("vo", "gpu")
             surfaceAttached = true
+            pendingLoad?.let { request ->
+                pendingLoad = null
+                startLoad(request)
+            }
         } else if (surfaceAttached) {
             // Must detach before the surface is destroyed.
-            MPVLib.setOptionString("vo", "null")
-            MPVLib.setOptionString("force-window", "no")
-            MPVLib.detachSurface()
+            MpvNative.setOptionString("vo", "null")
+            MpvNative.setOptionString("force-window", "no")
+            MpvNative.detachSurface()
             surfaceAttached = false
         }
     }
@@ -156,7 +162,99 @@ class MpvEngine(context: Context) : PlayerEngine, MPVLib.EventObserver, MPVLib.L
      */
     override fun setSurfaceSize(width: Int, height: Int) {
         if (released || width <= 0 || height <= 0) return
-        MPVLib.setPropertyString("android-surface-size", "${width}x$height")
+        MpvNative.setPropertyString("android-surface-size", "${width}x$height")
+    }
+
+    override fun configure(settings: ClientSettings) {
+        if (released) return
+
+        MpvNative.setOptionString(
+            "profile",
+            when (settings.renderingProfile) {
+                "Quality" -> "gpu-hq"
+                "Balanced" -> "default"
+                else -> "fast"
+            },
+        )
+        MpvNative.setOptionString(
+            "hwdec",
+            when (settings.hardwareDecoding) {
+                "Software" -> "no"
+                "MediaCodec" -> "mediacodec"
+                else -> "mediacodec-copy"
+            },
+        )
+        MpvNative.setOptionString(
+            "target-colorspace-hint",
+            if (settings.hdrMode == "Off") "no" else "yes",
+        )
+        MpvNative.setOptionString(
+            "tone-mapping",
+            when (settings.toneMapping) {
+                "BT.2390" -> "bt.2390"
+                "Reinhard" -> "reinhard"
+                "Mobius" -> "mobius"
+                "Off" -> "clip"
+                else -> "auto"
+            },
+        )
+        MpvNative.setOptionString(
+            "deinterlace",
+            when (settings.deinterlaceMode) {
+                "On" -> "yes"
+                "Off" -> "no"
+                else -> "auto"
+            },
+        )
+        MpvNative.setOptionString("interpolation", settings.frameInterpolation.yesNo())
+
+        MpvNative.setOptionString("audio-pitch-correction", settings.pitchCorrection.yesNo())
+        MpvNative.setOptionString("audio-channels", if (settings.downmixStereo) "stereo" else "auto")
+        val passthrough = buildList {
+            if (settings.dolbyDigitalPassthrough) add("ac3")
+            if (settings.dolbyDigitalPlusPassthrough) add("eac3")
+            if (settings.dtsPassthrough) addAll(listOf("dts", "dts-hd"))
+        }
+        MpvNative.setOptionString("audio-spdif", passthrough.joinToString(","))
+        MpvNative.setOptionString(
+            "alang",
+            settings.preferredAudioLanguage.toMpvLanguagePreference(),
+        )
+
+        MpvNative.setOptionString("sub-scale", (settings.subtitleSizePercent / 100f).toString())
+        MpvNative.setOptionString(
+            "sub-color",
+            when (settings.subtitleColor) {
+                "Yellow" -> "#FFF176"
+                "Grey" -> "#C8C8C8"
+                else -> "#FFFFFF"
+            },
+        )
+        MpvNative.setOptionString(
+            "sub-border-size",
+            when (settings.subtitleStroke) {
+                "Off" -> "0"
+                "Light" -> "1"
+                "Heavy" -> "4"
+                else -> "2"
+            },
+        )
+        MpvNative.setOptionString("sub-bold", settings.boldSubtitles.yesNo())
+        MpvNative.setOptionString("sub-scale-with-window", settings.scaleSubtitlesWithWindow.yesNo())
+        MpvNative.setOptionString("sub-use-margins", settings.useVideoMargins.yesNo())
+        MpvNative.setOptionString(
+            "slang",
+            settings.preferredSubtitleLanguage.toMpvLanguagePreference(),
+        )
+
+        MpvNative.setOptionString("cache", settings.networkCacheEnabled.yesNo())
+        MpvNative.setOptionString("cache-secs", settings.cacheDurationSeconds.toString())
+        MpvNative.setOptionString("demuxer-readahead-secs", settings.readAheadSeconds.toString())
+        MpvNative.setOptionString("demuxer-max-bytes", "${settings.forwardCacheMiB}MiB")
+        MpvNative.setOptionString("demuxer-max-back-bytes", "${settings.backwardCacheMiB}MiB")
+        MpvNative.setOptionString("cache-pause-wait", settings.resumeBufferSeconds.toString())
+        MpvNative.setOptionString("network-timeout", settings.networkTimeoutSeconds.toString())
+        MpvNative.setOptionString("tls-verify", settings.verifyTlsCertificates.yesNo())
     }
 
     override fun load(item: PlayRequest) {
@@ -176,15 +274,25 @@ class MpvEngine(context: Context) : PlayerEngine, MPVLib.EventObserver, MPVLib.L
         _positionMs.value = item.startPositionMs
         _durationMs.value = item.durationMs
         _state.value = PlayerState.Loading
+        if (item.requiresVideoSurface && !surfaceAttached) {
+            pendingLoad = item
+            return
+        }
+        pendingLoad = null
+        startLoad(item)
+    }
+
+    private fun startLoad(item: PlayRequest) {
+        if (released || !hasRequest) return
         // http-header-fields is parsed as a comma-separated list, and Jellyfin's
         // MediaBrowser Authorization value contains commas — joining would split it
         // into malformed header lines and the server answers 400. change-list
         // appends each header as one atomic list entry instead.
-        MPVLib.command(arrayOf("change-list", "http-header-fields", "clr", ""))
+        MpvNative.command(arrayOf("change-list", "http-header-fields", "clr", ""))
         item.headers.forEach { (key, value) ->
-            MPVLib.command(arrayOf("change-list", "http-header-fields", "append", "$key: $value"))
+            MpvNative.command(arrayOf("change-list", "http-header-fields", "append", "$key: $value"))
         }
-        MPVLib.setOptionString(
+        MpvNative.setOptionString(
             "start",
             if (item.startPositionMs > 0) {
                 String.format(Locale.ROOT, "+%.3f", item.startPositionMs / 1000.0)
@@ -192,16 +300,16 @@ class MpvEngine(context: Context) : PlayerEngine, MPVLib.EventObserver, MPVLib.L
                 "none"
             },
         )
-        MPVLib.setPropertyBoolean("pause", false)
-        MPVLib.command(arrayOf("loadfile", item.url))
+        MpvNative.setPropertyBoolean("pause", false)
+        MpvNative.command(arrayOf("loadfile", item.url))
     }
 
     override fun play() {
-        if (!released) MPVLib.setPropertyBoolean("pause", false)
+        if (!released) MpvNative.setPropertyBoolean("pause", false)
     }
 
     override fun pause() {
-        if (!released) MPVLib.setPropertyBoolean("pause", true)
+        if (!released) MpvNative.setPropertyBoolean("pause", true)
     }
 
     override fun seekTo(ms: Long) {
@@ -211,7 +319,7 @@ class MpvEngine(context: Context) : PlayerEngine, MPVLib.EventObserver, MPVLib.L
         // Enter Buffering immediately; the `seeking` property event clears it once mpv has refilled.
         seeking = true
         updateState()
-        MPVLib.command(
+        MpvNative.command(
             arrayOf("seek", String.format(Locale.ROOT, "%.3f", target / 1000.0), "absolute"),
         )
     }
@@ -224,9 +332,68 @@ class MpvEngine(context: Context) : PlayerEngine, MPVLib.EventObserver, MPVLib.L
     override fun setSpeed(speed: Float) {
         if (released) return
         val clamped = PlaybackSpeed.clamp(speed)
-        MPVLib.setPropertyDouble("speed", clamped.toDouble())
+        MpvNative.setPropertyDouble("speed", clamped.toDouble())
         // Optimistic; the observed `speed` property corrects this if mpv lands somewhere else.
         _speed.value = clamped
+    }
+
+    override fun setAudioDelayMs(delayMs: Long) {
+        if (!released) MpvNative.setPropertyDouble("audio-delay", delayMs / 1_000.0)
+    }
+
+    override fun setSubtitleDelayMs(delayMs: Long) {
+        if (!released) MpvNative.setPropertyDouble("sub-delay", delayMs / 1_000.0)
+    }
+
+    override fun setFrameMode(mode: String) {
+        if (released) return
+        MpvNative.setPropertyDouble("panscan", if (mode == "Fill") 1.0 else 0.0)
+        MpvNative.setPropertyBoolean("video-unscaled", mode == "Original")
+        MpvNative.setPropertyString(
+            "video-aspect-override",
+            when (mode) {
+                "16:9" -> "16:9"
+                "4:3" -> "4:3"
+                else -> "-1"
+            },
+        )
+    }
+
+    override fun setHdrMode(mode: String) {
+        if (released) return
+        when (mode) {
+            "Passthrough" -> {
+                MpvNative.setPropertyString("target-colorspace-hint", "yes")
+                MpvNative.setPropertyString("target-trc", "auto")
+            }
+            "Tone map" -> {
+                MpvNative.setPropertyString("target-colorspace-hint", "no")
+                MpvNative.setPropertyString("target-trc", "auto")
+                MpvNative.setPropertyString("tone-mapping", "auto")
+            }
+            "Convert to SDR" -> {
+                MpvNative.setPropertyString("target-colorspace-hint", "no")
+                MpvNative.setPropertyString("target-trc", "bt.1886")
+                MpvNative.setPropertyString("tone-mapping", "auto")
+            }
+            else -> {
+                MpvNative.setPropertyString("target-colorspace-hint", "auto")
+                MpvNative.setPropertyString("target-trc", "auto")
+                MpvNative.setPropertyString("tone-mapping", "auto")
+            }
+        }
+    }
+
+    override fun setDeinterlaceMode(mode: String) {
+        if (released) return
+        MpvNative.setPropertyString(
+            "deinterlace",
+            when (mode) {
+                "On" -> "yes"
+                "Off" -> "no"
+                else -> "auto"
+            },
+        )
     }
 
     /**
@@ -235,7 +402,11 @@ class MpvEngine(context: Context) : PlayerEngine, MPVLib.EventObserver, MPVLib.L
      */
     override fun selectTrack(track: PlayerTrack) {
         if (released) return
-        val property = if (track.type == TrackType.AUDIO) "aid" else "sid"
+        val property = when (track.type) {
+            TrackType.VIDEO -> "vid"
+            TrackType.AUDIO -> "aid"
+            TrackType.SUBTITLE -> "sid"
+        }
         val value = if (track.id < 0) {
             "no"
         } else {
@@ -246,7 +417,7 @@ class MpvEngine(context: Context) : PlayerEngine, MPVLib.EventObserver, MPVLib.L
             }
             mpvId.toString()
         }
-        MPVLib.setPropertyString(property, value)
+        MpvNative.setPropertyString(property, value)
         _tracks.value = _tracks.value.map { existing ->
             if (existing.type != track.type) existing else existing.copy(selected = existing.id == track.id)
         }
@@ -255,10 +426,11 @@ class MpvEngine(context: Context) : PlayerEngine, MPVLib.EventObserver, MPVLib.L
     override fun stop() {
         if (released) return
         hasRequest = false
+        pendingLoad = null
         fileLoaded = false
         eofReached = false
         seeking = false
-        MPVLib.command(arrayOf("stop"))
+        MpvNative.command(arrayOf("stop"))
         mpvTracks = emptyList()
         externalIndexByMpvId = emptyMap()
         pendingExternalSubtitles = emptyList()
@@ -271,16 +443,17 @@ class MpvEngine(context: Context) : PlayerEngine, MPVLib.EventObserver, MPVLib.L
     override fun release() {
         if (released) return
         released = true
-        MPVLib.removeObserver(this)
-        MPVLib.removeLogObserver(this)
+        pendingLoad = null
+        MpvNative.removeObserver(this)
+        MpvNative.removeLogObserver(this)
         if (surfaceAttached) {
-            MPVLib.detachSurface()
+            MpvNative.detachSurface()
             surfaceAttached = false
         }
-        MPVLib.destroy()
+        MpvNative.destroy()
     }
 
-    // --- MPVLib.EventObserver (mpv thread) ------------------------------------
+    // --- MpvNative.EventObserver (mpv thread) ------------------------------------
 
     override fun eventProperty(property: String) {
         if (property == "track-list") refreshTracks()
@@ -324,7 +497,7 @@ class MpvEngine(context: Context) : PlayerEngine, MPVLib.EventObserver, MPVLib.L
 
     override fun event(eventId: Int) {
         when (eventId) {
-            MPVLib.MPV_EVENT_FILE_LOADED -> {
+            MpvNative.MPV_EVENT_FILE_LOADED -> {
                 fileLoaded = true
                 eofReached = false
                 // Order matters: the sideloaded files have to exist in track-list before the map is
@@ -338,15 +511,15 @@ class MpvEngine(context: Context) : PlayerEngine, MPVLib.EventObserver, MPVLib.L
             // mpv confirms a seek started, and confirms playback actually resumed afterwards. These
             // bracket the refill far more reliably than the `seeking` property alone, which can
             // settle before the first frame is decoded.
-            MPVLib.MPV_EVENT_SEEK -> {
+            MpvNative.MPV_EVENT_SEEK -> {
                 seeking = true
                 updateState()
             }
-            MPVLib.MPV_EVENT_PLAYBACK_RESTART -> {
+            MpvNative.MPV_EVENT_PLAYBACK_RESTART -> {
                 seeking = false
                 updateState()
             }
-            MPVLib.MPV_EVENT_END_FILE -> {
+            MpvNative.MPV_EVENT_END_FILE -> {
                 // This binding does not expose the end-file reason, so a file
                 // that ends without ever having loaded is treated as an error.
                 if (hasRequest && !fileLoaded) {
@@ -356,7 +529,7 @@ class MpvEngine(context: Context) : PlayerEngine, MPVLib.EventObserver, MPVLib.L
                     updateState()
                 }
             }
-            MPVLib.MPV_EVENT_SHUTDOWN -> {
+            MpvNative.MPV_EVENT_SHUTDOWN -> {
                 hasRequest = false
                 _state.value = PlayerState.Idle
             }
@@ -364,7 +537,7 @@ class MpvEngine(context: Context) : PlayerEngine, MPVLib.EventObserver, MPVLib.L
     }
 
     override fun logMessage(prefix: String, level: Int, text: String) {
-        if (level <= MPVLib.MPV_LOG_LEVEL_ERROR && level != MPVLib.MPV_LOG_LEVEL_NONE) {
+        if (level <= MpvNative.MPV_LOG_LEVEL_ERROR && level != MpvNative.MPV_LOG_LEVEL_NONE) {
             val message = text.trim()
             if (message.isNotEmpty()) {
                 lastErrorMessage = message
@@ -399,15 +572,15 @@ class MpvEngine(context: Context) : PlayerEngine, MPVLib.EventObserver, MPVLib.L
     private fun applyPreferredTracks() {
         pendingAudioTrackId?.let { index ->
             MpvTrackList.mpvIdFor(mpvTracks, externalIndexByMpvId, TrackType.AUDIO, index)
-                ?.let { MPVLib.setPropertyString("aid", it.toString()) }
+                ?.let { MpvNative.setPropertyString("aid", it.toString()) }
                 ?: Log.w(TAG, "preferred audio stream $index not present in track-list")
         }
         pendingSubtitleTrackId?.let { index ->
             if (index < 0) {
-                MPVLib.setPropertyString("sid", "no")
+                MpvNative.setPropertyString("sid", "no")
             } else {
                 MpvTrackList.mpvIdFor(mpvTracks, externalIndexByMpvId, TrackType.SUBTITLE, index)
-                    ?.let { MPVLib.setPropertyString("sid", it.toString()) }
+                    ?.let { MpvNative.setPropertyString("sid", it.toString()) }
                     ?: Log.w(TAG, "preferred subtitle stream $index not present in track-list")
             }
         }
@@ -421,14 +594,14 @@ class MpvEngine(context: Context) : PlayerEngine, MPVLib.EventObserver, MPVLib.L
      */
     private fun addExternalSubtitles() {
         pendingExternalSubtitles.forEach { subtitle ->
-            MPVLib.command(
+            MpvNative.command(
                 arrayOf("sub-add", subtitle.url, "auto", subtitle.title, subtitle.language.orEmpty()),
             )
         }
     }
 
     private fun refreshTracks() {
-        val json = runCatching { MPVLib.getPropertyString("track-list") }.getOrNull() ?: return
+        val json = runCatching { MpvNative.getPropertyString("track-list") }.getOrNull() ?: return
         val parsed = runCatching { MpvTrackList.parse(json) }.getOrElse {
             Log.w(TAG, "track-list parse failed", it)
             return
@@ -436,5 +609,16 @@ class MpvEngine(context: Context) : PlayerEngine, MPVLib.EventObserver, MPVLib.L
         mpvTracks = parsed
         externalIndexByMpvId = MpvTrackList.externalIndexByMpvId(parsed, pendingExternalSubtitles)
         _tracks.value = MpvTrackList.toPlayerTracks(parsed, externalIndexByMpvId)
+    }
+
+    private fun Boolean.yesNo(): String = if (this) "yes" else "no"
+
+    private fun String?.toMpvLanguagePreference(): String = when (this?.lowercase(Locale.ROOT)) {
+        "english" -> "eng,en"
+        "japanese" -> "jpn,ja"
+        "vietnamese" -> "vie,vi"
+        "french" -> "fra,fre,fr"
+        "german" -> "deu,ger,de"
+        else -> ""
     }
 }

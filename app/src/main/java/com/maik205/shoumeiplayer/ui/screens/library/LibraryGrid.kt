@@ -122,7 +122,7 @@ fun BaseItemDto.toGridTile(
     preferEpisodeThumb: Boolean = false,
 ): GridTileUi {
     val thumbUrl = if (preferEpisodeThumb && type == "Episode") {
-        images.thumbWithSeriesFallback(this, EPISODE_THUMB_IMAGE_WIDTH)
+        images.episodePreview(this, EPISODE_THUMB_IMAGE_WIDTH)
     } else {
         null
     }

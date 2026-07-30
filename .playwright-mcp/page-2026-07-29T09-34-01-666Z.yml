@@ -1,0 +1,291 @@
+- generic [ref=f1e2]:
+  - banner:
+    - navigation "Browse" [ref=f1e3]:
+      - button "search Search" [ref=f1e4] [cursor=pointer]:
+        - generic [ref=f1e5]: search
+        - generic [ref=f1e6]: Search
+      - button "home Home" [ref=f1e7] [cursor=pointer]:
+        - generic [ref=f1e8]: home
+        - generic [ref=f1e9]: Home
+      - generic [ref=f1e10]:
+        - button "movie Cinema" [ref=f1e11] [cursor=pointer]:
+          - generic [ref=f1e12]: movie
+          - generic [ref=f1e13]: Cinema
+        - button "tv Shows" [ref=f1e14] [cursor=pointer]:
+          - generic [ref=f1e15]: tv
+          - generic [ref=f1e16]: Shows
+        - button "headphones Music" [ref=f1e17] [cursor=pointer]:
+          - generic [ref=f1e18]: headphones
+          - generic [ref=f1e19]: Music
+        - button "photo_library Family photos" [ref=f1e20] [cursor=pointer]:
+          - generic [ref=f1e21]: photo_library
+          - generic [ref=f1e22]: Family photos
+        - button "live_tv Live TV" [ref=f1e23] [cursor=pointer]:
+          - generic [ref=f1e24]: live_tv
+          - generic [ref=f1e25]: Live TV
+    - generic [ref=f1e26]:
+      - button "Open settings" [ref=f1e27] [cursor=pointer]:
+        - generic [ref=f1e28]: settings
+        - generic: Settings
+      - button "Switch profile" [ref=f1e29] [cursor=pointer]
+  - main [ref=f1e30]:
+    - generic [ref=f1e31]:
+      - generic [ref=f1e33]:
+        - generic "The Last Light" [ref=f1e34]:
+          - generic [ref=f1e35]: The Last
+          - strong [ref=f1e36]: Light
+        - generic [ref=f1e37]:
+          - heading "The Last Light" [level=1] [ref=f1e38]
+          - generic [ref=f1e39]:
+            - generic [ref=f1e40]: "2026"
+            - generic [ref=f1e41]: 1h 52m
+            - generic [ref=f1e42]: 4K
+            - generic [ref=f1e43]: Drama
+        - generic [ref=f1e44]:
+          - button "play_arrow Play" [ref=f1e45] [cursor=pointer]:
+            - generic [ref=f1e46]: play_arrow
+            - generic [ref=f1e47]: Play
+          - button "info Details" [ref=f1e48] [cursor=pointer]:
+            - generic [ref=f1e49]: info
+            - text: Details
+          - button "add My list" [ref=f1e50] [cursor=pointer]:
+            - generic [ref=f1e51]: add
+            - text: My list
+      - region [ref=f1e52]:
+        - heading "Continue watching" [level=2] [ref=f1e54]
+        - generic [ref=f1e55]:
+          - button "Stormy coast beside a lighthouse The Last Light 32 min left" [ref=f1e56] [cursor=pointer]:
+            - img "Stormy coast beside a lighthouse" [ref=f1e57]
+            - generic [ref=f1e59]:
+              - strong [ref=f1e60]: The Last Light
+              - generic [ref=f1e61]: 32 min left
+          - button "Night train crossing a foggy bridge Night Service S1 E4 · 18 min left" [ref=f1e64] [cursor=pointer]:
+            - img "Night train crossing a foggy bridge" [ref=f1e65]
+            - generic [ref=f1e67]:
+              - strong [ref=f1e68]: Night Service
+              - generic [ref=f1e69]: S1 E4 · 18 min left
+      - region [ref=f1e72]:
+        - heading "Recommended" [level=2] [ref=f1e74]
+        - generic [ref=f1e75]:
+          - button "Observatory beneath a solar eclipse Solaris County 2026" [ref=f1e76] [cursor=pointer]:
+            - img "Observatory beneath a solar eclipse" [ref=f1e77]
+            - generic [ref=f1e78]:
+              - strong [ref=f1e79]: Solaris County
+              - generic [ref=f1e80]: "2026"
+          - button "Still Water poster placeholder Still Water 2024" [ref=f1e81] [cursor=pointer]:
+            - img "Still Water poster placeholder" [ref=f1e82]
+            - generic [ref=f1e83]:
+              - strong [ref=f1e84]: Still Water
+              - generic [ref=f1e85]: "2024"
+          - button "Orchard Road poster placeholder Orchard Road Series" [ref=f1e86] [cursor=pointer]:
+            - img "Orchard Road poster placeholder" [ref=f1e87]
+            - generic [ref=f1e88]:
+              - strong [ref=f1e89]: Orchard Road
+              - generic [ref=f1e90]: Series
+          - button "The Quiet Season poster placeholder The Quiet Season 2023" [ref=f1e91] [cursor=pointer]:
+            - img "The Quiet Season poster placeholder" [ref=f1e92]
+            - generic [ref=f1e93]:
+              - strong [ref=f1e94]: The Quiet Season
+              - generic [ref=f1e95]: "2023"
+          - button "Signal Fire poster placeholder Signal Fire 2026" [ref=f1e96] [cursor=pointer]:
+            - img "Signal Fire poster placeholder" [ref=f1e97]
+            - generic [ref=f1e98]:
+              - strong [ref=f1e99]: Signal Fire
+              - generic [ref=f1e100]: "2026"
+      - region [ref=f1e101]:
+        - heading "Live and recorded" [level=2] [ref=f1e103]
+        - generic [ref=f1e104]:
+          - button "World News live channel placeholder World News Live now" [ref=f1e105] [cursor=pointer]:
+            - img "World News live channel placeholder" [ref=f1e106]
+            - generic [ref=f1e108]:
+              - strong [ref=f1e109]: World News
+              - generic [ref=f1e110]: Live now
+          - button "Coastal League live event placeholder Coastal League Live · 38 min remaining" [ref=f1e111] [cursor=pointer]:
+            - img "Coastal League live event placeholder" [ref=f1e112]
+            - generic [ref=f1e114]:
+              - strong [ref=f1e115]: Coastal League
+              - generic [ref=f1e116]: Live · 38 min remaining
+          - button "Grand Prix recording placeholder Grand Prix Replay Recording" [ref=f1e117] [cursor=pointer]:
+            - img "Grand Prix recording placeholder" [ref=f1e118]
+            - generic [ref=f1e120]:
+              - strong [ref=f1e121]: Grand Prix Replay
+              - generic [ref=f1e122]: Recording
+      - region [ref=f1e123]:
+        - heading "Listen next" [level=2] [ref=f1e125]
+        - generic [ref=f1e126]:
+          - button "Blue Hours album artwork placeholder Blue Hours Marin Vale · Album" [ref=f1e127] [cursor=pointer]:
+            - img "Blue Hours album artwork placeholder" [ref=f1e128]
+            - generic [ref=f1e129]:
+              - strong [ref=f1e130]: Blue Hours
+              - generic [ref=f1e131]: Marin Vale · Album
+          - button "Late Night Drive playlist artwork placeholder Late Night Drive 34 tracks · Playlist" [ref=f1e132] [cursor=pointer]:
+            - img "Late Night Drive playlist artwork placeholder" [ref=f1e133]
+            - generic [ref=f1e134]:
+              - strong [ref=f1e135]: Late Night Drive
+              - generic [ref=f1e136]: 34 tracks · Playlist
+          - button "The Cartographer's Sleep audiobook cover placeholder The Cartographer's Sleep Audiobook · 3h left" [ref=f1e137] [cursor=pointer]:
+            - img "The Cartographer's Sleep audiobook cover placeholder" [ref=f1e138]
+            - generic [ref=f1e139]:
+              - strong [ref=f1e140]: The Cartographer's Sleep
+              - generic [ref=f1e141]: Audiobook · 3h left
+          - button "Northern Static artist image placeholder Northern Static Artist" [ref=f1e142] [cursor=pointer]:
+            - img "Northern Static artist image placeholder" [ref=f1e143]
+            - generic [ref=f1e144]:
+              - strong [ref=f1e145]: Northern Static
+              - generic [ref=f1e146]: Artist
+      - region [ref=f1e147]:
+        - heading "Photo memories" [level=2] [ref=f1e149]
+        - generic [ref=f1e150]:
+          - button "Saigon in July photo album placeholder Saigon in July 84 photos" [ref=f1e151] [cursor=pointer]:
+            - img "Saigon in July photo album placeholder" [ref=f1e152]
+            - generic [ref=f1e154]:
+              - strong [ref=f1e155]: Saigon in July
+              - generic [ref=f1e156]: 84 photos
+          - button "North Coast photo album placeholder North Coast 126 photos" [ref=f1e157] [cursor=pointer]:
+            - img "North Coast photo album placeholder" [ref=f1e158]
+            - generic [ref=f1e160]:
+              - strong [ref=f1e161]: North Coast
+              - generic [ref=f1e162]: 126 photos
+          - button "Family Archive photo album placeholder Family Archive 302 photos" [ref=f1e163] [cursor=pointer]:
+            - img "Family Archive photo album placeholder" [ref=f1e164]
+            - generic [ref=f1e166]:
+              - strong [ref=f1e167]: Family Archive
+              - generic [ref=f1e168]: 302 photos
+      - region [ref=f1e169]:
+        - heading "Recently added" [level=2] [ref=f1e171]
+        - generic [ref=f1e172]:
+          - button "Low Country poster placeholder Low Country 2025" [ref=f1e173] [cursor=pointer]:
+            - img "Low Country poster placeholder" [ref=f1e174]
+            - generic [ref=f1e175]:
+              - strong [ref=f1e176]: Low Country
+              - generic [ref=f1e177]: "2025"
+          - button "Afterimage poster placeholder Afterimage 2024" [ref=f1e178] [cursor=pointer]:
+            - img "Afterimage poster placeholder" [ref=f1e179]
+            - generic [ref=f1e180]:
+              - strong [ref=f1e181]: Afterimage
+              - generic [ref=f1e182]: "2024"
+          - button "Paper Moon poster placeholder Paper Moon Series" [ref=f1e183] [cursor=pointer]:
+            - img "Paper Moon poster placeholder" [ref=f1e184]
+            - generic [ref=f1e185]:
+              - strong [ref=f1e186]: Paper Moon
+              - generic [ref=f1e187]: Series
+      - paragraph [ref=f1e189]: The shelves end here
+    - text: Now
+  - text: · · ·
+  - generic [ref=f1e190]:
+    - generic [ref=f1e193]:
+      - generic [ref=f1e194]:
+        - generic [ref=f1e195]:
+          - text: Night Service · S1 E4
+          - heading "Passenger Zero" [level=2] [ref=f1e196]
+        - generic [ref=f1e197]:
+          - generic "Night Service" [ref=f1e198]:
+            - generic [ref=f1e199]: Night
+            - strong [ref=f1e200]: Service
+          - generic [ref=f1e201]:
+            - generic [ref=f1e202]: 4K HDR
+            - generic [ref=f1e203]: English stereo
+            - generic [ref=f1e204]: English subtitles
+      - button "Playback position, 42 percent" [ref=f1e205] [cursor=pointer]:
+        - generic:
+          - generic:
+            - strong: 19:44
+            - generic: The platform
+        - generic [ref=f1e206]:
+          - emphasis [ref=f1e209]
+          - emphasis [ref=f1e210]
+          - emphasis [ref=f1e211]
+        - generic [ref=f1e212]:
+          - generic [ref=f1e213]: 19:44
+          - generic [ref=f1e214]: "-27:16"
+      - generic [ref=f1e215]:
+        - button "Press twice to leave playback" [ref=f1e216] [cursor=pointer]:
+          - generic [ref=f1e217]: arrow_back
+          - generic: Back
+        - button "Rewind 10 seconds" [ref=f1e218] [cursor=pointer]:
+          - generic [ref=f1e219]: replay_10
+          - generic: Rewind
+        - button "Pause" [ref=f1e220] [cursor=pointer]:
+          - generic [ref=f1e221]: pause
+        - button "Forward 10 seconds" [ref=f1e223] [cursor=pointer]:
+          - generic [ref=f1e224]: forward_10
+          - generic: Forward
+        - button "Previous episode" [ref=f1e225] [cursor=pointer]:
+          - generic [ref=f1e226]: skip_previous
+        - button "Next episode" [ref=f1e227] [cursor=pointer]:
+          - generic [ref=f1e228]: skip_next
+        - button "Chapters" [ref=f1e229] [cursor=pointer]:
+          - generic [ref=f1e230]: video_library
+        - button "Subtitles" [ref=f1e231] [cursor=pointer]:
+          - generic [ref=f1e232]: subtitles
+        - button "Audio tracks" [ref=f1e233] [cursor=pointer]:
+          - generic [ref=f1e234]: graphic_eq
+          - generic: Audio
+        - button "Playback options" [ref=f1e235] [cursor=pointer]:
+          - generic [ref=f1e236]: tune
+          - generic: Options
+    - generic:
+      - generic: 19:44
+      - generic: "-27:16"
+    - complementary [ref=f1e237]:
+      - button "Close playback options" [ref=f1e238] [cursor=pointer]:
+        - generic [ref=f1e239]: arrow_back
+      - generic [ref=f1e240]:
+        - generic [ref=f1e241]: tune
+        - heading "Playback options" [level=3] [ref=f1e242]
+      - generic [ref=f1e243]:
+        - button "Playback speed Normal chevron_right" [active] [ref=f1e244] [cursor=pointer]:
+          - generic [ref=f1e245]:
+            - strong [ref=f1e246]: Playback speed
+            - generic [ref=f1e247]: Normal
+          - generic [ref=f1e248]: chevron_right
+        - button "Frame Fit chevron_right" [ref=f1e249] [cursor=pointer]:
+          - generic [ref=f1e250]:
+            - strong [ref=f1e251]: Frame
+            - generic [ref=f1e252]: Fit
+          - generic [ref=f1e253]: chevron_right
+        - button "HDR handling Auto chevron_right" [ref=f1e254] [cursor=pointer]:
+          - generic [ref=f1e255]:
+            - strong [ref=f1e256]: HDR handling
+            - generic [ref=f1e257]: Auto
+          - generic [ref=f1e258]: chevron_right
+        - button "Video HEVC · Main 10 chevron_right" [ref=f1e259] [cursor=pointer]:
+          - generic [ref=f1e260]:
+            - strong [ref=f1e261]: Video
+            - generic [ref=f1e262]: HEVC · Main 10
+          - generic [ref=f1e263]: chevron_right
+        - button "Audio delay 0 ms chevron_right" [ref=f1e264] [cursor=pointer]:
+          - generic [ref=f1e265]:
+            - strong [ref=f1e266]: Audio delay
+            - generic [ref=f1e267]: 0 ms
+          - generic [ref=f1e268]: chevron_right
+        - button "Subtitle delay 0 ms chevron_right" [ref=f1e269] [cursor=pointer]:
+          - generic [ref=f1e270]:
+            - strong [ref=f1e271]: Subtitle delay
+            - generic [ref=f1e272]: 0 ms
+          - generic [ref=f1e273]: chevron_right
+        - button "Deinterlace Auto chevron_right" [ref=f1e274] [cursor=pointer]:
+          - generic [ref=f1e275]:
+            - strong [ref=f1e276]: Deinterlace
+            - generic [ref=f1e277]: Auto
+          - generic [ref=f1e278]: chevron_right
+        - button "Sleep timer Off chevron_right" [ref=f1e279] [cursor=pointer]:
+          - generic [ref=f1e280]:
+            - strong [ref=f1e281]: Sleep timer
+            - generic [ref=f1e282]: "Off"
+          - generic [ref=f1e283]: chevron_right
+        - button "Playback information Direct play chevron_right" [ref=f1e284] [cursor=pointer]:
+          - generic [ref=f1e285]:
+            - strong [ref=f1e286]: Playback information
+            - generic [ref=f1e287]: Direct play
+          - generic [ref=f1e288]: chevron_right
+  - contentinfo:
+    - generic:
+      - generic: ←↑↓→
+      - text: Navigate
+    - generic:
+      - generic: Enter
+      - text: Select
+    - generic:
+      - generic: Esc
+      - text: Back

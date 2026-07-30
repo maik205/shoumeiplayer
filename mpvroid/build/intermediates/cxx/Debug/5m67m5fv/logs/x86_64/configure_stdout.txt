@@ -1,0 +1,9 @@
+-- The CXX compiler identification is Clang 19.0.1
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: C:/Users/maik/AppData/Local/Android/Sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/windows-x86_64/bin/clang++.exe - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Configuring done
+-- Generating done
+-- Build files have been written to: C:/Users/maik/Documents/Projects/shoumeiplayer/mpvroid/.cxx/Debug/5m67m5fv/x86_64

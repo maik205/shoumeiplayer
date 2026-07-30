@@ -1,0 +1,9 @@
+com.maik205.mpvroid-pngs-0 C:\Users\maik\Documents\Projects\shoumeiplayer\mpvroid\build\generated\res\pngs\debug
+com.maik205.mpvroid-updated_navigation_xml-1 C:\Users\maik\Documents\Projects\shoumeiplayer\mpvroid\build\generated\updated_navigation_xml\debug
+com.maik205.mpvroid-mergeDebugResources-2 C:\Users\maik\Documents\Projects\shoumeiplayer\mpvroid\build\intermediates\incremental\debug\mergeDebugResources\merged.dir
+com.maik205.mpvroid-mergeDebugResources-3 C:\Users\maik\Documents\Projects\shoumeiplayer\mpvroid\build\intermediates\incremental\debug\mergeDebugResources\stripped.dir
+com.maik205.mpvroid-debug-4 C:\Users\maik\Documents\Projects\shoumeiplayer\mpvroid\build\intermediates\merged_res\debug\mergeDebugResources
+com.maik205.mpvroid-debug-5 C:\Users\maik\Documents\Projects\shoumeiplayer\mpvroid\build\intermediates\packaged_res\debug\packageDebugResources
+com.maik205.mpvroid-debug-6 C:\Users\maik\Documents\Projects\shoumeiplayer\mpvroid\src\debug\res
+com.maik205.mpvroid-main-7 C:\Users\maik\Documents\Projects\shoumeiplayer\mpvroid\src\main\res
+gradleHome-0 C:\Users\maik\.gradle

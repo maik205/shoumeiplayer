@@ -1,0 +1,3 @@
+[submodule "native/mpv/upstream"]
+	path = native/mpv/upstream
+	url = https://github.com/mpv-player/mpv.git

@@ -1,0 +1,2 @@
+ninja: Entering directory `C:\Users\maik\Documents\Projects\shoumeiplayer\mpvroid\.cxx\Debug\4m1d3r66\arm64-v8a'
+ninja: no work to do.

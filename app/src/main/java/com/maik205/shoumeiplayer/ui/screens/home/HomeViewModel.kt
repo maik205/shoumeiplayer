@@ -3,11 +3,11 @@ package com.maik205.shoumeiplayer.ui.screens.home
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.data.ApiResult
 import com.maik205.shoumeiplayer.data.ImageUrlBuilder
 import com.maik205.shoumeiplayer.data.api.dto.BaseItemDto
 import com.maik205.shoumeiplayer.data.api.dto.blurHash
-import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.data.repo.LibraryRepository
 import com.maik205.shoumeiplayer.ui.components.MediaCardUi
 import com.maik205.shoumeiplayer.ui.components.toCardUi
@@ -184,7 +184,9 @@ class HomeViewModel(
                         key = ROW_CONTINUE_WATCHING,
                         titleRes = R.string.continue_watching,
                         items = resumeItems,
-                        cards = resumeItems.map { it.toCardUi(imageUrlBuilder) },
+                        // Resume items are predominantly episodes with landscape primary art.
+                        // Keep this row at the established 280×158 wide-card height, like Next Up.
+                        cards = resumeItems.map { it.toCardUi(imageUrlBuilder, wide = true) },
                     )
                 }
 

@@ -44,5 +44,12 @@ enum class VideoQuality(val label: String, val maxStreamingBitrate: Long?) {
         fun forBitrate(maxStreamingBitrate: Long?): VideoQuality =
             entries.firstOrNull { it.maxStreamingBitrate != null && it.maxStreamingBitrate == maxStreamingBitrate }
                 ?: AUTO
+
+        /** Resolves either the user-facing label or enum name stored in client settings. */
+        fun forLabel(label: String?): VideoQuality =
+            entries.firstOrNull {
+                it.label.equals(label, ignoreCase = true) ||
+                    it.name.equals(label, ignoreCase = true)
+            } ?: AUTO
     }
 }

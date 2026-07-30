@@ -1,0 +1,25 @@
+{
+  "MediaSources": [
+    {
+      "Id": "audio-source-1",
+      "Name": "Native FLAC",
+      "Container": "flac",
+      "Protocol": "File",
+      "RunTimeTicks": 1830000000,
+      "SupportsDirectPlay": true,
+      "SupportsDirectStream": true,
+      "SupportsTranscoding": false,
+      "DefaultAudioStreamIndex": 0,
+      "MediaStreams": [
+        {
+          "Index": 0,
+          "Type": "Audio",
+          "Codec": "flac",
+          "Channels": 2,
+          "IsDefault": true
+        }
+      ]
+    }
+  ],
+  "PlaySessionId": "audio-play-session"
+}

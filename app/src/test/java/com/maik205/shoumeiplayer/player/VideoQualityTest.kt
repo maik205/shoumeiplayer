@@ -59,6 +59,15 @@ class VideoQualityTest {
         assertEquals(VideoQuality.AUTO, VideoQuality.forBitrate(null))
         assertEquals(VideoQuality.AUTO, VideoQuality.forBitrate(12_345L))
     }
+
+    @Test
+    fun `forLabel accepts stored labels and enum names without case sensitivity`() {
+        assertEquals(VideoQuality.UHD, VideoQuality.forLabel("4k"))
+        assertEquals(VideoQuality.FHD, VideoQuality.forLabel("fhd"))
+        assertEquals(VideoQuality.HD, VideoQuality.forLabel("720P"))
+        assertEquals(VideoQuality.AUTO, VideoQuality.forLabel(null))
+        assertEquals(VideoQuality.AUTO, VideoQuality.forLabel("unknown"))
+    }
 }
 
 /** docs/osd-v3.md §5 — the speed ladder. */

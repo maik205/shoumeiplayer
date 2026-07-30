@@ -40,8 +40,9 @@ private data class Art(val url: String, val blurHash: String?)
 /**
  * Maps a Jellyfin [BaseItemDto] to the trimmed UI model consumed by [MediaCard].
  *
- * Image sizing follows §5 — don't pay for 1920 twice. Wide cards prefer `Thumb`, then a backdrop,
- * then the primary poster; posters always request 320px. Every chain runs through
+ * Image sizing follows §5 — don't pay for 1920 twice. Episode wide cards prefer the episode
+ * preview still, while other wide cards prefer `Thumb`, then a backdrop, then the primary poster;
+ * posters always request 320px. Every chain runs through
  * [ImageUrlBuilder]'s DTO-aware fallbacks, which only ever pair a parent tag with that parent's own
  * id. [MediaCardUi.backdropUrl] is what the Home ambient layer washes the room with (§5.1), falling
  * back to the parent series when the episode itself has no backdrop of its own.
@@ -61,7 +62,8 @@ fun BaseItemDto.toCardUi(
         ?.div(100f)
 
     val art = if (wide) {
-        thumbArt(images, THUMB_MAX_WIDTH)
+        (if (type == "Episode") episodePreviewArt(images, THUMB_MAX_WIDTH) else null)
+            ?: thumbArt(images, THUMB_MAX_WIDTH)
             ?: backdropArt(images, WIDE_MAX_WIDTH)
             ?: primaryArt(images, WIDE_MAX_WIDTH)
     } else {
@@ -83,6 +85,24 @@ fun BaseItemDto.toCardUi(
         aspect = primaryImageAspectRatio?.toFloat()?.takeIf { !wide },
         tagline = taglines.firstOrNull()?.takeIf { it.isNotBlank() },
     )
+}
+
+private fun BaseItemDto.episodePreviewArt(images: ImageUrlBuilder, maxWidth: Int): Art? {
+    val (imageType, tag) = when {
+        imageTags["Primary"] != null -> "Primary" to imageTags.getValue("Primary")
+        imageTags["Thumb"] != null -> "Thumb" to imageTags.getValue("Thumb")
+        backdropImageTags.firstOrNull() != null ->
+            "Backdrop" to backdropImageTags.first()
+        parentThumbImageTag != null && parentThumbItemId != null ->
+            "Thumb" to parentThumbImageTag
+        seriesThumbImageTag != null && seriesId != null ->
+            "Thumb" to seriesThumbImageTag
+        parentBackdropImageTags.firstOrNull() != null && parentBackdropItemId != null ->
+            "Backdrop" to parentBackdropImageTags.first()
+        else -> return null
+    }
+    val url = images.episodePreview(this, maxWidth) ?: return null
+    return Art(url, imageBlurHashes.blurHash(imageType, tag))
 }
 
 /**

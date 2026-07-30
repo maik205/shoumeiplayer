@@ -23,4 +23,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Shoumei Player"
-include(":app")
+include(":app", ":mpvroid")

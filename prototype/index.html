@@ -1,0 +1,1677 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#111416" />
+    <title>Shoumei TV - Redesign skeleton</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app app--onboarding" id="app">
+      <div class="ambient" aria-hidden="true">
+        <div class="ambient__image" id="ambient-image"></div>
+        <div class="ambient__wash"></div>
+      </div>
+
+      <div class="onboarding-scene" aria-hidden="true">
+        <div class="onboarding-scene__image"></div>
+        <div class="onboarding-scene__shade"></div>
+        <div class="onboarding-scene__contrast onboarding-scene__contrast--left"></div>
+        <div class="onboarding-scene__contrast onboarding-scene__contrast--right"></div>
+      </div>
+
+      <header class="topbar">
+        <div class="topbar__context" id="topbar-context">Good evening</div>
+        <div class="topbar__status">
+          <span class="connection"><span class="connection__dot"></span> Media server</span>
+          <time id="clock">20:42</time>
+        </div>
+        <nav class="top-nav" aria-label="Browse">
+          <button class="top-nav__item top-nav__search" data-focus data-nav="search">
+            <span class="material-symbols-rounded">search</span>
+            <span>Search</span>
+          </button>
+          <button class="top-nav__item is-active" data-focus data-nav="home">
+            <span class="material-symbols-rounded">home</span><span>Home</span>
+          </button>
+          <span class="top-nav__libraries" id="user-library-nav"></span>
+        </nav>
+        <div class="topbar__actions">
+          <button class="topbar-settings" data-focus data-nav="settings" aria-label="Open settings">
+            <span class="material-symbols-rounded">settings</span>
+            <span class="topbar-settings__label">Settings</span>
+          </button>
+          <button class="top-profile" data-focus data-profile-switch aria-label="Switch profile">
+            <img src="https://picsum.photos/seed/maik-profile/160/160" alt="" />
+          </button>
+        </div>
+      </header>
+
+      <main class="content" id="content">
+        <section class="view connection-screen is-active" data-view="connect">
+          <div class="connection-screen__layout">
+            <header class="connection-intro">
+              <span class="connection-intro__icon material-symbols-rounded" aria-hidden="true">connected_tv</span>
+              <h1>Choose your media server</h1>
+            </header>
+
+            <section class="server-browser" aria-labelledby="available-servers-title">
+              <div class="server-browser__heading">
+                <div>
+                  <h2 id="available-servers-title">Available servers</h2>
+                </div>
+                <button class="server-refresh" data-focus aria-label="Search again">
+                  <span class="material-symbols-rounded">refresh</span>
+                  <span class="server-refresh__label">Search again</span>
+                </button>
+              </div>
+
+              <div class="server-list" role="list">
+                <button class="server-option" data-focus data-default-focus data-server="Living room" role="listitem">
+                  <span class="server-option__arrow material-symbols-rounded" aria-hidden="true">arrow_forward</span>
+                  <span class="server-option__copy">
+                    <strong>Living room</strong>
+                    <small>192.168.1.14</small>
+                  </span>
+                </button>
+
+                <button class="server-option" data-focus data-server="Studio" role="listitem">
+                  <span class="server-option__arrow material-symbols-rounded" aria-hidden="true">arrow_forward</span>
+                  <span class="server-option__copy">
+                    <strong>Studio</strong>
+                    <small>192.168.1.28</small>
+                  </span>
+                </button>
+              </div>
+
+              <div class="manual-connect">
+                <div class="manual-connect__heading">
+                  <h2>Server address</h2>
+                </div>
+                <div class="manual-connect__field">
+                  <span class="material-symbols-rounded" aria-hidden="true">language</span>
+                  <span class="manual-connect__protocol" aria-hidden="true">http://</span>
+                  <input
+                    id="server-address"
+                    data-focus
+                    inputmode="url"
+                    autocomplete="url"
+                    aria-label="Jellyfin server address"
+                    placeholder="server-address:8096"
+                  />
+                  <button class="icon-button" data-focus data-connect-manual aria-label="Connect to this address">
+                    <span class="material-symbols-rounded">arrow_forward</span>
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view connection-error-screen" data-view="connection-error" hidden>
+          <button class="onboarding-back" data-focus data-nav="connect" aria-label="Back to servers">
+            <span class="material-symbols-rounded">chevron_left</span>
+            <span>Back to servers</span>
+          </button>
+
+          <div class="connection-error-screen__layout">
+            <header class="connection-error-intro">
+              <h1>Can’t reach Studio</h1>
+            </header>
+
+            <section class="connection-error-actions" aria-labelledby="connection-error-title">
+              <div class="connection-error-status">
+                <span class="material-symbols-rounded" aria-hidden="true">cloud_off</span>
+                <div>
+                  <h2 id="connection-error-title">Server didn’t respond</h2>
+                  <p>192.168.1.28</p>
+                </div>
+              </div>
+
+              <button class="connection-retry" data-focus data-default-focus data-retry-server>
+                <span class="material-symbols-rounded">refresh</span>
+                <span>Try again</span>
+              </button>
+
+              <button class="connection-change" data-focus data-nav="connect">
+                <span class="material-symbols-rounded">dns</span>
+                <span>Choose another server</span>
+              </button>
+            </section>
+          </div>
+        </section>
+
+        <section class="view profile-screen" data-view="profiles" hidden>
+          <button class="profile-screen__back" data-focus data-profile-back aria-label="Go back">
+            <span class="material-symbols-rounded">chevron_left</span>
+            <span>Go back</span>
+          </button>
+
+          <div class="profile-screen__layout">
+            <header class="profile-intro">
+              <h1>Who’s watching?</h1>
+            </header>
+
+            <section class="profile-chooser" aria-label="Choose a profile">
+              <div class="profile-options">
+                <button class="profile-option" data-focus data-default-focus data-profile="Maik">
+                  <span class="profile-option__image">
+                    <img src="https://picsum.photos/seed/maik-profile/460/460" alt="" />
+                  </span>
+                  <strong>Maik</strong>
+                </button>
+
+                <button class="profile-option" data-focus data-profile="Guest">
+                  <span class="profile-option__image">
+                    <img src="https://picsum.photos/seed/guest-profile/460/460" alt="" />
+                  </span>
+                  <strong>Guest</strong>
+                </button>
+
+                <button class="profile-option" data-focus data-profile="Kids">
+                  <span class="profile-option__image">
+                    <img src="https://picsum.photos/seed/kids-profile/460/460" alt="" />
+                  </span>
+                  <strong>Kids</strong>
+                </button>
+              </div>
+
+              <button class="profile-manual" data-focus data-manual-login>
+                <span class="material-symbols-rounded">keyboard</span>
+                Use another account
+              </button>
+            </section>
+          </div>
+        </section>
+
+        <section class="view login-screen" data-view="login" hidden>
+          <button class="onboarding-back" data-focus data-nav="profiles" aria-label="Back to profiles">
+            <span class="material-symbols-rounded">chevron_left</span>
+            <span>Back to profiles</span>
+          </button>
+
+          <div class="login-screen__layout">
+            <header class="login-intro">
+              <h1>Sign in</h1>
+            </header>
+
+            <form class="login-form" aria-label="Sign in to Jellyfin">
+              <label class="login-field">
+                <span>Username</span>
+                <input
+                  id="login-username"
+                  data-focus
+                  data-default-focus
+                  autocomplete="username"
+                  inputmode="text"
+                  placeholder="Your username"
+                />
+              </label>
+
+              <label class="login-field">
+                <span>Password</span>
+                <span class="login-field__control">
+                  <input
+                    id="login-password"
+                    data-focus
+                    type="password"
+                    autocomplete="current-password"
+                    placeholder="Your password"
+                  />
+                  <button class="login-field__reveal" type="button" data-focus aria-label="Show password">
+                    <span class="material-symbols-rounded">visibility</span>
+                  </button>
+                </span>
+              </label>
+
+              <button class="login-recovery" type="button" data-focus data-forgot-password>
+                Forgot password?
+              </button>
+
+              <div class="login-actions">
+                <button class="login-submit" type="button" data-focus>
+                  <span>Sign in</span>
+                  <span class="material-symbols-rounded">arrow_forward</span>
+                </button>
+                <button class="login-quick" type="button" data-focus data-quick-connect>
+                  <span class="material-symbols-rounded">phonelink_lock</span>
+                  <span class="login-quick__label">Quick Connect</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section class="view recovery-screen" data-view="recovery" hidden>
+          <button class="onboarding-back" data-focus data-nav="login" aria-label="Back to sign in">
+            <span class="material-symbols-rounded">chevron_left</span>
+            <span>Back to sign in</span>
+          </button>
+
+          <div class="recovery-screen__layout">
+            <header class="recovery-intro">
+              <h1>Reset password</h1>
+            </header>
+
+            <form class="recovery-form" aria-label="Reset password">
+              <label class="login-field">
+                <span>Username</span>
+                <input
+                  id="recovery-username"
+                  data-focus
+                  data-default-focus
+                  autocomplete="username"
+                  inputmode="text"
+                  placeholder="Your username"
+                />
+              </label>
+
+              <button class="recovery-submit" type="button" data-focus>
+                <span>Request reset</span>
+                <span class="material-symbols-rounded">arrow_forward</span>
+              </button>
+
+              <div class="recovery-result" role="status" hidden>
+                <span class="material-symbols-rounded">info</span>
+                <p>Follow the reset instructions provided by your server administrator.</p>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section class="view compact-state-screen" data-view="splash" hidden>
+          <div class="compact-state-screen__content">
+            <span class="material-symbols-rounded compact-state-screen__spinner" aria-hidden="true">progress_activity</span>
+            <h1>Connecting</h1>
+            <p>Living room</p>
+          </div>
+        </section>
+
+        <section class="view compact-state-screen" data-view="session-expired" hidden>
+          <button class="onboarding-back" data-focus data-nav="profiles" aria-label="Back to profiles">
+            <span class="material-symbols-rounded">chevron_left</span>
+            <span>Back to profiles</span>
+          </button>
+          <div class="compact-state-screen__content">
+            <span class="material-symbols-rounded" aria-hidden="true">lock_clock</span>
+            <h1>Session expired</h1>
+            <p>Sign in again to continue.</p>
+            <button class="compact-state-action" data-focus data-default-focus data-nav="login">
+              <span>Sign in again</span>
+              <span class="material-symbols-rounded">arrow_forward</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="view compact-state-screen" data-view="account-locked" hidden>
+          <button class="onboarding-back" data-focus data-nav="profiles" aria-label="Back to profiles">
+            <span class="material-symbols-rounded">chevron_left</span>
+            <span>Back to profiles</span>
+          </button>
+          <div class="compact-state-screen__content">
+            <span class="material-symbols-rounded" aria-hidden="true">person_lock</span>
+            <h1>Account locked</h1>
+            <p>Ask your server administrator to unlock it.</p>
+            <button class="compact-state-action" data-focus data-default-focus data-nav="profiles">
+              <span class="material-symbols-rounded">group</span>
+              <span>Choose a profile</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="view compact-state-screen" data-view="certificate-warning" hidden>
+          <button class="onboarding-back" data-focus data-nav="connect" aria-label="Back to servers">
+            <span class="material-symbols-rounded">chevron_left</span>
+            <span>Back to servers</span>
+          </button>
+          <div class="compact-state-screen__content">
+            <span class="material-symbols-rounded compact-state-screen__warning" aria-hidden="true">gpp_maybe</span>
+            <h1>Connection isn’t private</h1>
+            <p>The certificate for 192.168.1.28 could not be verified.</p>
+            <div class="compact-state-actions">
+              <button class="compact-state-action" data-focus data-default-focus data-nav="connect">
+                <span class="material-symbols-rounded">arrow_back</span>
+                <span>Go back</span>
+              </button>
+              <button class="compact-state-action compact-state-action--quiet" data-focus>
+                <span>Continue anyway</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="view compact-state-screen" data-view="version-warning" hidden>
+          <button class="onboarding-back" data-focus data-nav="connect" aria-label="Back to servers">
+            <span class="material-symbols-rounded">chevron_left</span>
+            <span>Back to servers</span>
+          </button>
+          <div class="compact-state-screen__content">
+            <span class="material-symbols-rounded" aria-hidden="true">system_update</span>
+            <h1>Server update needed</h1>
+            <p>This server version is not supported by the app.</p>
+            <div class="compact-state-actions">
+              <button class="compact-state-action" data-focus data-default-focus>
+                <span class="material-symbols-rounded">refresh</span>
+                <span>Try again</span>
+              </button>
+              <button class="compact-state-action compact-state-action--quiet" data-focus data-nav="connect">
+                <span>Choose a server</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="view view--home" data-view="home" hidden>
+          <div class="hero">
+            <div class="hero__content">
+              <div class="movie-wordmark" id="hero-wordmark" aria-label="The Last Light">
+                <span>The Last</span>
+                <strong>Light</strong>
+              </div>
+              <div class="hero__titleline">
+                <h1 id="hero-title">The Last Light</h1>
+                <div class="hero__meta" id="hero-meta">
+                  <span>2026</span><span>1h 52m</span><span>4K</span><span>Drama</span>
+                </div>
+              </div>
+              <p class="hero__summary" id="hero-summary">
+                A lighthouse keeper waits out the final storm of the season.
+              </p>
+              <div class="hero__actions">
+                <button class="button button--primary" data-focus data-default-focus data-action="play">
+                  <span class="material-symbols-rounded">play_arrow</span>
+                  <span id="hero-primary-label">Play</span>
+                </button>
+                <button class="button button--quiet" data-focus data-action="details">
+                  <span class="material-symbols-rounded">info</span>
+                  Details
+                </button>
+                <button class="button button--quiet" data-focus data-action="favorite">
+                  <span class="material-symbols-rounded">add</span>
+                  My list
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <section class="media-section media-section--continue" aria-labelledby="continue-title">
+            <div class="section-heading">
+              <h2 id="continue-title">Continue watching</h2>
+            </div>
+            <div class="media-row media-row--landscape">
+              <button
+                class="media-card media-card--landscape"
+                data-focus
+                data-media
+                data-title="The Last Light"
+                data-meta="2026|1h 52m|4K|Drama"
+                data-summary="A lighthouse keeper waits out the final storm of the season."
+                data-backdrop="./assets/hero-lighthouse.png"
+              >
+                <img src="./assets/hero-lighthouse.png" alt="Stormy coast beside a lighthouse" />
+                <span class="media-card__scrim"></span>
+                <span class="media-card__body">
+                  <strong>The Last Light</strong>
+                  <small>32 min left</small>
+                </span>
+                <span class="progress" style="--progress: 72%"><i></i></span>
+              </button>
+              <button
+                class="media-card media-card--landscape"
+                data-focus
+                data-media
+                data-title="Night Service"
+                data-meta="2025|8 episodes|4K|Mystery"
+                data-summary="The last train carries one passenger who never bought a ticket."
+                data-backdrop="./assets/poster-night-train.png"
+              >
+                <img src="./assets/poster-night-train.png" alt="Night train crossing a foggy bridge" />
+                <span class="media-card__scrim"></span>
+                <span class="media-card__body">
+                  <strong>Night Service</strong>
+                  <small>S1 E4 · 18 min left</small>
+                </span>
+                <span class="progress" style="--progress: 44%"><i></i></span>
+              </button>
+            </div>
+          </section>
+
+          <section class="media-section" aria-labelledby="tonight-title">
+            <div class="section-heading">
+              <h2 id="tonight-title">Recommended</h2>
+            </div>
+            <div class="media-row media-row--poster">
+              <button
+                class="media-card media-card--poster"
+                data-focus
+                data-media
+                data-title="Solaris County"
+                data-meta="2026|2h 04m|HDR|Science fiction"
+                data-summary="An observatory receives a signal from beneath the desert floor."
+                data-backdrop="./assets/poster-eclipse.png"
+              >
+                <img src="./assets/poster-eclipse.png" alt="Observatory beneath a solar eclipse" />
+                <span class="media-card__label"><strong>Solaris County</strong><small>2026</small></span>
+              </button>
+              <button
+                class="media-card media-card--poster"
+                data-focus
+                data-media
+                data-title="Still Water"
+                data-logo="none"
+                data-meta="2024|1h 43m|HD|Thriller"
+                data-summary="A diver finds a town preserved beneath a mountain reservoir."
+                data-backdrop="https://picsum.photos/seed/still-water-cinema/1600/900"
+              >
+                <img src="https://picsum.photos/seed/still-water-cinema/600/900" alt="Still Water poster placeholder" />
+                <span class="media-card__label"><strong>Still Water</strong><small>2024</small></span>
+              </button>
+              <button
+                class="media-card media-card--poster"
+                data-focus
+                data-media
+                data-title="Orchard Road"
+                data-meta="2025|6 episodes|4K|Drama"
+                data-summary="Three siblings return home to settle an impossible inheritance."
+                data-backdrop="https://picsum.photos/seed/orchard-road-film/1600/900"
+              >
+                <img src="https://picsum.photos/seed/orchard-road-film/600/900" alt="Orchard Road poster placeholder" />
+                <span class="media-card__label"><strong>Orchard Road</strong><small>Series</small></span>
+              </button>
+              <button
+                class="media-card media-card--poster"
+                data-focus
+                data-media
+                data-title="The Quiet Season"
+                data-logo="none"
+                data-meta="2023|1h 37m|HD|Documentary"
+                data-summary="A fishing village prepares for a winter without daylight."
+                data-backdrop="https://picsum.photos/seed/quiet-season-film/1600/900"
+              >
+                <img src="https://picsum.photos/seed/quiet-season-film/600/900" alt="The Quiet Season poster placeholder" />
+                <span class="media-card__label"><strong>The Quiet Season</strong><small>2023</small></span>
+              </button>
+              <button
+                class="media-card media-card--poster"
+                data-focus
+                data-media
+                data-title="Signal Fire"
+                data-meta="2026|1h 56m|HDR|Adventure"
+                data-summary="Two climbers follow a chain of fires across an unmapped range."
+                data-backdrop="https://picsum.photos/seed/signal-fire-film/1600/900"
+              >
+                <img src="https://picsum.photos/seed/signal-fire-film/600/900" alt="Signal Fire poster placeholder" />
+                <span class="media-card__label"><strong>Signal Fire</strong><small>2026</small></span>
+              </button>
+            </div>
+          </section>
+
+          <section class="media-section" aria-labelledby="live-title">
+            <div class="section-heading">
+              <h2 id="live-title">Live and recorded</h2>
+            </div>
+            <div class="media-row media-row--landscape">
+              <button class="media-card media-card--landscape" data-focus data-media data-title="World News" data-meta="Live now|HD|News" data-summary="Live coverage from your selected news channel." data-backdrop="https://picsum.photos/seed/live-world-news/1600/900">
+                <img src="https://picsum.photos/seed/live-world-news/800/450" alt="World News live channel placeholder" />
+                <span class="media-card__scrim"></span>
+                <span class="media-card__body"><strong>World News</strong><small>Live now</small></span>
+              </button>
+              <button class="media-card media-card--landscape" data-focus data-media data-logo="none" data-title="Coastal League" data-meta="Live now|4K|Sports" data-summary="The evening match, live from the coastal stadium." data-backdrop="https://picsum.photos/seed/live-coastal-league/1600/900">
+                <img src="https://picsum.photos/seed/live-coastal-league/800/450" alt="Coastal League live event placeholder" />
+                <span class="media-card__scrim"></span>
+                <span class="media-card__body"><strong>Coastal League</strong><small>Live · 38 min remaining</small></span>
+              </button>
+              <button class="media-card media-card--landscape" data-focus data-media data-title="Grand Prix Replay" data-meta="Recording|2h 18m|4K" data-summary="Your recording of the full Sunday race." data-backdrop="https://picsum.photos/seed/grand-prix-recording/1600/900">
+                <img src="https://picsum.photos/seed/grand-prix-recording/800/450" alt="Grand Prix recording placeholder" />
+                <span class="media-card__scrim"></span>
+                <span class="media-card__body"><strong>Grand Prix Replay</strong><small>Recording</small></span>
+              </button>
+            </div>
+          </section>
+
+          <section class="media-section" aria-labelledby="listen-title">
+            <div class="section-heading">
+              <h2 id="listen-title">Listen next</h2>
+            </div>
+            <div class="media-row media-row--square">
+              <button class="media-card media-card--square" data-focus data-media data-logo="none" data-title="Blue Hours" data-meta="Album|42 min|Lossless" data-summary="Blue Hours by Marin Vale." data-backdrop="https://picsum.photos/seed/blue-hours-album/1200/1200">
+                <img src="https://picsum.photos/seed/blue-hours-album/600/600" alt="Blue Hours album artwork placeholder" />
+                <span class="media-card__label"><strong>Blue Hours</strong><small>Marin Vale · Album</small></span>
+              </button>
+              <button class="media-card media-card--square" data-focus data-media data-title="Late Night Drive" data-meta="Playlist|34 tracks|Lossless" data-summary="A playlist for quiet roads after dark." data-backdrop="https://picsum.photos/seed/late-night-playlist/1200/1200">
+                <img src="https://picsum.photos/seed/late-night-playlist/600/600" alt="Late Night Drive playlist artwork placeholder" />
+                <span class="media-card__label"><strong>Late Night Drive</strong><small>34 tracks · Playlist</small></span>
+              </button>
+              <button class="media-card media-card--square" data-focus data-media data-title="The Cartographer's Sleep" data-meta="Audiobook|8h 14m|Chapter 12" data-summary="Continue the audiobook from chapter twelve." data-backdrop="https://picsum.photos/seed/cartographer-audiobook/1200/1200">
+                <img src="https://picsum.photos/seed/cartographer-audiobook/600/600" alt="The Cartographer's Sleep audiobook cover placeholder" />
+                <span class="media-card__label"><strong>The Cartographer's Sleep</strong><small>Audiobook · 3h left</small></span>
+              </button>
+              <button class="media-card media-card--square" data-focus data-media data-title="Northern Static" data-meta="Artist|3 albums|Lossless" data-summary="Music by Northern Static." data-backdrop="https://picsum.photos/seed/northern-static-artist/1200/1200">
+                <img src="https://picsum.photos/seed/northern-static-artist/600/600" alt="Northern Static artist image placeholder" />
+                <span class="media-card__label"><strong>Northern Static</strong><small>Artist</small></span>
+              </button>
+            </div>
+          </section>
+
+          <section class="media-section" aria-labelledby="photos-title">
+            <div class="section-heading">
+              <h2 id="photos-title">Photo memories</h2>
+            </div>
+            <div class="media-row media-row--landscape">
+              <button class="media-card media-card--landscape" data-focus data-media data-logo="none" data-title="Saigon in July" data-meta="Photo album|84 photos|2026" data-summary="A photo album from July in Saigon." data-backdrop="https://picsum.photos/seed/saigon-july-photos/1600/900">
+                <img src="https://picsum.photos/seed/saigon-july-photos/800/450" alt="Saigon in July photo album placeholder" />
+                <span class="media-card__scrim"></span>
+                <span class="media-card__body"><strong>Saigon in July</strong><small>84 photos</small></span>
+              </button>
+              <button class="media-card media-card--landscape" data-focus data-media data-title="North Coast" data-meta="Photo album|126 photos|2025" data-summary="A photo album from the north coast." data-backdrop="https://picsum.photos/seed/north-coast-photos/1600/900">
+                <img src="https://picsum.photos/seed/north-coast-photos/800/450" alt="North Coast photo album placeholder" />
+                <span class="media-card__scrim"></span>
+                <span class="media-card__body"><strong>North Coast</strong><small>126 photos</small></span>
+              </button>
+              <button class="media-card media-card--landscape" data-focus data-media data-title="Family Archive" data-meta="Photo album|302 photos|Archive" data-summary="Scanned photographs from the family archive." data-backdrop="https://picsum.photos/seed/family-archive-photos/1600/900">
+                <img src="https://picsum.photos/seed/family-archive-photos/800/450" alt="Family Archive photo album placeholder" />
+                <span class="media-card__scrim"></span>
+                <span class="media-card__body"><strong>Family Archive</strong><small>302 photos</small></span>
+              </button>
+            </div>
+          </section>
+
+          <section class="media-section media-section--last" aria-labelledby="recent-title">
+            <div class="section-heading">
+              <h2 id="recent-title">Recently added</h2>
+            </div>
+            <div class="media-row media-row--poster">
+              <button class="media-card media-card--poster" data-focus data-media data-title="Low Country" data-meta="2025|1h 49m|4K|Crime" data-summary="A county detective follows a case into the flooded marsh." data-backdrop="https://picsum.photos/seed/low-country-film/1600/900">
+                <img src="https://picsum.photos/seed/low-country-film/600/900" alt="Low Country poster placeholder" />
+                <span class="media-card__label"><strong>Low Country</strong><small>2025</small></span>
+              </button>
+              <button class="media-card media-card--poster" data-focus data-media data-title="Afterimage" data-meta="2024|2h 11m|HDR|Drama" data-summary="A photographer discovers a stranger appearing in every lost frame." data-backdrop="https://picsum.photos/seed/afterimage-film/1600/900">
+                <img src="https://picsum.photos/seed/afterimage-film/600/900" alt="Afterimage poster placeholder" />
+                <span class="media-card__label"><strong>Afterimage</strong><small>2024</small></span>
+              </button>
+              <button class="media-card media-card--poster" data-focus data-media data-title="Paper Moon" data-meta="2026|10 episodes|HD|Comedy" data-summary="A small-town newspaper invents a story that becomes inconveniently real." data-backdrop="https://picsum.photos/seed/paper-moon-series/1600/900">
+                <img src="https://picsum.photos/seed/paper-moon-series/600/900" alt="Paper Moon poster placeholder" />
+                <span class="media-card__label"><strong>Paper Moon</strong><small>Series</small></span>
+              </button>
+            </div>
+          </section>
+
+          <footer class="home-feed-end">
+            <p data-feed-end-copy>That's everything</p>
+          </footer>
+        </section>
+
+        <section class="view view--search" data-view="search" hidden>
+          <div class="search-layout">
+            <div class="search-entry">
+              <button class="search-back" data-focus data-nav="home" aria-label="Return home">
+                <span class="material-symbols-rounded">arrow_back</span>
+                <span>Home</span>
+              </button>
+              <label class="search-field">
+                <span class="material-symbols-rounded">search</span>
+                <input
+                  id="search-input"
+                  data-focus
+                  data-default-focus
+                  type="search"
+                  inputmode="search"
+                  autocomplete="off"
+                  aria-label="Search your media"
+                  placeholder="Search your media"
+                />
+              </label>
+            </div>
+
+            <nav class="search-types" aria-label="Media type">
+              <button class="search-type is-active" data-focus data-search-type="all">
+                <span class="material-symbols-rounded">apps</span><span>All</span>
+              </button>
+              <button class="search-type" data-focus data-search-type="films">
+                <span class="material-symbols-rounded">movie</span><span>Films</span>
+              </button>
+              <button class="search-type" data-focus data-search-type="series">
+                <span class="material-symbols-rounded">tv</span><span>Series</span>
+              </button>
+              <button class="search-type" data-focus data-search-type="live">
+                <span class="material-symbols-rounded">live_tv</span><span>Live</span>
+              </button>
+              <button class="search-type" data-focus data-search-type="audio">
+                <span class="material-symbols-rounded">headphones</span><span>Audio</span>
+              </button>
+              <button class="search-type" data-focus data-search-type="photos">
+                <span class="material-symbols-rounded">photo_library</span><span>Photos</span>
+              </button>
+            </nav>
+
+            <section class="search-results" aria-labelledby="search-results-title">
+              <div class="section-heading">
+                <h2 id="search-results-title">Recommended for you</h2>
+                <span id="result-count">8 titles</span>
+              </div>
+              <div class="result-grid" id="search-result-grid"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view view--library" data-view="library" hidden>
+          <header class="library-heading">
+            <h1 id="library-page-title">Library</h1>
+            <div class="library-heading__tools">
+              <span id="library-count">0 items</span>
+            </div>
+          </header>
+          <nav class="library-views" aria-label="Library view">
+            <button class="library-view is-active" data-focus data-default-focus data-library-view="all">
+              <span class="material-symbols-rounded">grid_view</span><span>All</span>
+            </button>
+            <button class="library-view" data-focus data-library-view="recent">
+              <span class="material-symbols-rounded">schedule</span><span>New</span>
+            </button>
+            <button class="library-view" data-focus data-library-view="favorites">
+              <span class="material-symbols-rounded">favorite</span><span>Favorites</span>
+            </button>
+            <button class="library-sort" data-focus data-library-sort aria-label="Change sorting">
+              <span class="material-symbols-rounded">sort_by_alpha</span>
+              <span class="library-sort__label">Title</span>
+            </button>
+          </nav>
+          <div class="library-grid" id="library-grid"></div>
+          <footer class="library-end">
+            <p data-feed-end-copy>That's everything</p>
+          </footer>
+        </section>
+
+        <section class="view view--music" data-view="music" hidden>
+          <div class="music-backdrop" id="music-backdrop"></div>
+          <div class="music-backdrop__veil"></div>
+          <div class="music-preview" aria-hidden="true">
+            <img
+              id="music-preview-art"
+              src="https://picsum.photos/seed/blue-hours-album/240/240"
+              alt=""
+            />
+            <div class="music-preview__copy">
+              <span id="music-preview-artist">Marin Vale</span>
+              <strong id="music-preview-title">Blue Hours</strong>
+              <div class="music-preview__meta" id="music-preview-meta">
+                <span>Album</span><span>2026</span><span>42 min</span><span>Lossless</span>
+              </div>
+            </div>
+          </div>
+          <div class="music-layout">
+            <header class="music-heading">
+              <h1>Music</h1>
+              <nav class="music-views" aria-label="Music view">
+                <button class="music-view focus-reveal is-active" data-focus data-default-focus data-music-view="overview">
+                  <span class="material-symbols-rounded">headphones</span><span class="focus-reveal__label">Overview</span>
+                </button>
+                <button class="music-view focus-reveal" data-focus data-music-view="albums" data-music-target="music-albums">
+                  <span class="material-symbols-rounded">album</span><span class="focus-reveal__label">Albums</span>
+                </button>
+                <button class="music-view focus-reveal" data-focus data-music-view="artists" data-music-target="music-artists">
+                  <span class="material-symbols-rounded">person</span><span class="focus-reveal__label">Artists</span>
+                </button>
+                <button class="music-view focus-reveal" data-focus data-music-view="playlists" data-music-target="music-playlists">
+                  <span class="material-symbols-rounded">queue_music</span><span class="focus-reveal__label">Playlists</span>
+                </button>
+              </nav>
+            </header>
+
+            <div class="music-hero-slot">
+              <section class="music-hero" aria-labelledby="music-hero-title">
+                <img
+                  id="music-hero-art"
+                  src="https://picsum.photos/seed/blue-hours-album/720/720"
+                  alt=""
+                />
+                <div class="music-hero__copy">
+                  <span id="music-hero-artist">Marin Vale</span>
+                  <h2 id="music-hero-title">Blue Hours</h2>
+                  <div class="music-hero__meta" id="music-hero-meta">
+                    <span>Album</span><span>2026</span><span>42 min</span><span>Lossless</span>
+                  </div>
+                  <div class="music-hero__actions">
+                    <button class="button focus-reveal is-selected" data-focus data-music-primary>
+                      <span class="material-symbols-rounded">play_arrow</span><span class="focus-reveal__label">Play</span>
+                    </button>
+                    <button class="button focus-reveal" data-focus data-music-shuffle>
+                      <span class="material-symbols-rounded">shuffle</span><span class="focus-reveal__label">Shuffle</span>
+                    </button>
+                    <button class="button focus-reveal" data-focus data-music-more aria-label="More options">
+                      <span class="material-symbols-rounded">more_horiz</span><span class="focus-reveal__label">More</span>
+                    </button>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <section class="music-shelf" id="music-albums" aria-labelledby="music-albums-title">
+              <div class="section-heading">
+                <h2 id="music-albums-title">Albums</h2>
+              </div>
+              <div class="music-row">
+                <button class="music-item" data-focus data-media data-music-item data-title="Blue Hours" data-artist="Marin Vale" data-meta="Album|2026|42 min|Lossless" data-summary="Blue Hours by Marin Vale." data-image="https://picsum.photos/seed/blue-hours-album/720/720" data-backdrop="https://picsum.photos/seed/blue-hours-album/1600/1000">
+                  <img src="https://picsum.photos/seed/blue-hours-album/600/600" alt="Blue Hours album artwork placeholder" />
+                  <strong>Blue Hours</strong><small>Marin Vale</small>
+                </button>
+                <button class="music-item" data-focus data-media data-music-item data-title="Soft Current" data-artist="Jun Vale" data-meta="Album|2026|38 min|Lossless" data-summary="Soft Current by Jun Vale." data-image="https://picsum.photos/seed/soft-current/720/720" data-backdrop="https://picsum.photos/seed/soft-current/1600/1000">
+                  <img src="https://picsum.photos/seed/soft-current/600/600" alt="Soft Current album artwork placeholder" />
+                  <strong>Soft Current</strong><small>Jun Vale</small>
+                </button>
+                <button class="music-item" data-focus data-media data-music-item data-title="Nocturne Transit" data-artist="Glass Index" data-meta="Album|2025|47 min|Lossless" data-summary="Nocturne Transit by Glass Index." data-image="https://picsum.photos/seed/nocturne-transit/720/720" data-backdrop="https://picsum.photos/seed/nocturne-transit/1600/1000">
+                  <img src="https://picsum.photos/seed/nocturne-transit/600/600" alt="Nocturne Transit album artwork placeholder" />
+                  <strong>Nocturne Transit</strong><small>Glass Index</small>
+                </button>
+                <button class="music-item" data-focus data-media data-music-item data-title="Field Recordings" data-artist="Weather Systems" data-meta="Album|2026|54 min|Lossless" data-summary="Field recordings gathered along the northern coast." data-image="https://picsum.photos/seed/field-recordings/720/720" data-backdrop="https://picsum.photos/seed/field-recordings/1600/1000">
+                  <img src="https://picsum.photos/seed/field-recordings/600/600" alt="Field Recordings album artwork placeholder" />
+                  <strong>Field Recordings</strong><small>Weather Systems</small>
+                </button>
+                <button class="music-item" data-focus data-media data-music-item data-title="Still Forms" data-artist="Northern Static" data-meta="Album|2024|44 min|Lossless" data-summary="Still Forms by Northern Static." data-image="https://picsum.photos/seed/still-forms/720/720" data-backdrop="https://picsum.photos/seed/still-forms/1600/1000">
+                  <img src="https://picsum.photos/seed/still-forms/600/600" alt="Still Forms album artwork placeholder" />
+                  <strong>Still Forms</strong><small>Northern Static</small>
+                </button>
+                <button class="music-item" data-focus data-media data-music-item data-title="Low Signal" data-artist="Mara Field" data-meta="Album|2025|36 min|Lossless" data-summary="Low Signal by Mara Field." data-image="https://picsum.photos/seed/low-signal/720/720" data-backdrop="https://picsum.photos/seed/low-signal/1600/1000">
+                  <img src="https://picsum.photos/seed/low-signal/600/600" alt="Low Signal album artwork placeholder" />
+                  <strong>Low Signal</strong><small>Mara Field</small>
+                </button>
+              </div>
+            </section>
+
+            <section class="music-shelf" id="music-artists" aria-labelledby="music-artists-title">
+              <div class="section-heading">
+                <h2 id="music-artists-title">Artists</h2>
+              </div>
+              <div class="music-row music-row--artists">
+                <button class="music-item music-item--artist" data-focus data-media data-music-item data-title="Marin Vale" data-artist="Artist" data-meta="Artist|6 albums|Lossless" data-summary="Music and live sessions by Marin Vale." data-image="https://picsum.photos/seed/marin-vale/720/720" data-backdrop="https://picsum.photos/seed/marin-vale/1600/1000">
+                  <img src="https://picsum.photos/seed/marin-vale/600/600" alt="Marin Vale artist placeholder" />
+                  <strong>Marin Vale</strong><small>6 albums</small>
+                </button>
+                <button class="music-item music-item--artist" data-focus data-media data-music-item data-title="Weather Systems" data-artist="Artist" data-meta="Artist|4 albums|Lossless" data-summary="Music by Weather Systems." data-image="https://picsum.photos/seed/weather-systems/720/720" data-backdrop="https://picsum.photos/seed/weather-systems/1600/1000">
+                  <img src="https://picsum.photos/seed/weather-systems/600/600" alt="Weather Systems artist placeholder" />
+                  <strong>Weather Systems</strong><small>4 albums</small>
+                </button>
+                <button class="music-item music-item--artist" data-focus data-media data-music-item data-title="Northern Static" data-artist="Artist" data-meta="Artist|3 albums|Lossless" data-summary="Music by Northern Static." data-image="https://picsum.photos/seed/northern-static-artist/720/720" data-backdrop="https://picsum.photos/seed/northern-static-artist/1600/1000">
+                  <img src="https://picsum.photos/seed/northern-static-artist/600/600" alt="Northern Static artist placeholder" />
+                  <strong>Northern Static</strong><small>3 albums</small>
+                </button>
+                <button class="music-item music-item--artist" data-focus data-media data-music-item data-title="Glass Index" data-artist="Artist" data-meta="Artist|5 albums|Lossless" data-summary="Music by Glass Index." data-image="https://picsum.photos/seed/glass-index/720/720" data-backdrop="https://picsum.photos/seed/glass-index/1600/1000">
+                  <img src="https://picsum.photos/seed/glass-index/600/600" alt="Glass Index artist placeholder" />
+                  <strong>Glass Index</strong><small>5 albums</small>
+                </button>
+                <button class="music-item music-item--artist" data-focus data-media data-music-item data-title="Jun Vale" data-artist="Artist" data-meta="Artist|2 albums|Lossless" data-summary="Music by Jun Vale." data-image="https://picsum.photos/seed/jun-vale/720/720" data-backdrop="https://picsum.photos/seed/jun-vale/1600/1000">
+                  <img src="https://picsum.photos/seed/jun-vale/600/600" alt="Jun Vale artist placeholder" />
+                  <strong>Jun Vale</strong><small>2 albums</small>
+                </button>
+              </div>
+            </section>
+
+            <section class="music-shelf" id="music-playlists" aria-labelledby="music-playlists-title">
+              <div class="section-heading">
+                <h2 id="music-playlists-title">Playlists</h2>
+              </div>
+              <div class="music-row">
+                <button class="music-item" data-focus data-media data-music-item data-title="Open Frequency" data-artist="Playlist" data-meta="Playlist|28 tracks|Lossless" data-summary="A wide-open mix of ambient and electronic music." data-image="https://picsum.photos/seed/open-frequency/720/720" data-backdrop="https://picsum.photos/seed/open-frequency/1600/1000">
+                  <img src="https://picsum.photos/seed/open-frequency/600/600" alt="Open Frequency playlist artwork placeholder" />
+                  <strong>Open Frequency</strong><small>28 tracks</small>
+                </button>
+                <button class="music-item" data-focus data-media data-music-item data-title="After Midnight" data-artist="Playlist" data-meta="Playlist|41 tracks|Lossless" data-summary="A late-night playlist with a slow pulse." data-image="https://picsum.photos/seed/after-midnight/720/720" data-backdrop="https://picsum.photos/seed/after-midnight/1600/1000">
+                  <img src="https://picsum.photos/seed/after-midnight/600/600" alt="After Midnight playlist artwork placeholder" />
+                  <strong>After Midnight</strong><small>41 tracks</small>
+                </button>
+                <button class="music-item" data-focus data-media data-music-item data-title="Quiet Roads" data-artist="Playlist" data-meta="Playlist|22 tracks|Lossless" data-summary="A quiet playlist for long evening drives." data-image="https://picsum.photos/seed/quiet-roads/720/720" data-backdrop="https://picsum.photos/seed/quiet-roads/1600/1000">
+                  <img src="https://picsum.photos/seed/quiet-roads/600/600" alt="Quiet Roads playlist artwork placeholder" />
+                  <strong>Quiet Roads</strong><small>22 tracks</small>
+                </button>
+                <button class="music-item" data-focus data-media data-music-item data-title="Sunday Room" data-artist="Playlist" data-meta="Playlist|35 tracks|Lossless" data-summary="Soft records for a slow Sunday morning." data-image="https://picsum.photos/seed/sunday-room/720/720" data-backdrop="https://picsum.photos/seed/sunday-room/1600/1000">
+                  <img src="https://picsum.photos/seed/sunday-room/600/600" alt="Sunday Room playlist artwork placeholder" />
+                  <strong>Sunday Room</strong><small>35 tracks</small>
+                </button>
+                <button class="music-item" data-focus data-media data-music-item data-title="Deep Focus" data-artist="Playlist" data-meta="Playlist|52 tracks|Lossless" data-summary="Instrumental music for uninterrupted focus." data-image="https://picsum.photos/seed/deep-focus/720/720" data-backdrop="https://picsum.photos/seed/deep-focus/1600/1000">
+                  <img src="https://picsum.photos/seed/deep-focus/600/600" alt="Deep Focus playlist artwork placeholder" />
+                  <strong>Deep Focus</strong><small>52 tracks</small>
+                </button>
+              </div>
+            </section>
+
+            <footer class="music-end">
+              <p>End of music</p>
+            </footer>
+          </div>
+        </section>
+
+        <section class="view view--live" data-view="live" hidden>
+          <div class="live-backdrop" id="live-backdrop"></div>
+          <div class="live-backdrop__scrim"></div>
+          <div class="live-layout">
+            <header class="live-heading">
+              <h1>Live TV</h1>
+              <nav class="live-views" aria-label="Live TV view">
+                <button class="live-view is-active" data-focus data-default-focus data-live-view="now">
+                  <span class="material-symbols-rounded">sensors</span><span>Now</span>
+                </button>
+                <button class="live-view" data-focus data-live-view="guide">
+                  <span class="material-symbols-rounded">calendar_view_week</span><span>Guide</span>
+                </button>
+                <button class="live-view" data-focus data-live-view="recordings">
+                  <span class="material-symbols-rounded">video_library</span><span>Recordings</span>
+                </button>
+              </nav>
+              <time id="live-date">Monday · 20:42</time>
+            </header>
+
+            <section class="live-hero" aria-labelledby="live-program-title">
+              <div class="live-hero__copy">
+                <span id="live-channel">12 · World News</span>
+                <h2 id="live-program-title">Global Report</h2>
+                <div class="live-hero__meta">
+                  <span id="live-program-time">20:30–21:30</span>
+                  <span id="live-program-status">Live · 42 min left</span>
+                  <span id="live-program-rating">TV-PG</span>
+                </div>
+                <p id="live-program-summary">News and analysis from correspondents around the world.</p>
+                <div class="live-hero__actions">
+                  <button class="button button--primary" data-focus data-live-primary>
+                    <span class="material-symbols-rounded">play_arrow</span>
+                    <span id="live-primary-label">Watch</span>
+                  </button>
+                  <button class="button button--quiet" data-focus data-live-record>
+                    <span class="material-symbols-rounded">fiber_manual_record</span>
+                    <span>Record</span>
+                  </button>
+                </div>
+              </div>
+              <div class="live-channel-mark" id="live-channel-mark" aria-hidden="true">
+                <span>World</span><strong>News</strong>
+              </div>
+            </section>
+
+            <section class="live-guide" aria-labelledby="live-guide-title">
+              <div class="live-guide__heading">
+                <h2 id="live-guide-title">On now</h2>
+                <span>20:00–22:00</span>
+              </div>
+              <div class="guide-grid" id="live-guide-grid"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view view--settings" data-view="settings" hidden>
+          <div class="page-heading settings-heading">
+            <h1>Settings</h1>
+          </div>
+          <div class="settings-layout">
+            <nav class="settings-menu" aria-label="Settings category">
+              <button class="settings-menu__item is-active" data-focus data-default-focus data-settings-tab="playback">
+                <span class="material-symbols-rounded">play_circle</span><span>Playback</span>
+              </button>
+              <button class="settings-menu__item" data-focus data-settings-tab="video">
+                <span class="material-symbols-rounded">movie</span><span>Video</span>
+              </button>
+              <button class="settings-menu__item" data-focus data-settings-tab="audio">
+                <span class="material-symbols-rounded">volume_up</span><span>Audio</span>
+              </button>
+              <button class="settings-menu__item" data-focus data-settings-tab="subtitles">
+                <span class="material-symbols-rounded">subtitles</span><span>Subtitles</span>
+              </button>
+              <button class="settings-menu__item" data-focus data-settings-tab="interface">
+                <span class="material-symbols-rounded">display_settings</span><span>Interface</span>
+              </button>
+              <button class="settings-menu__item" data-focus data-settings-tab="network">
+                <span class="material-symbols-rounded">network_check</span><span>Network</span>
+              </button>
+              <button class="settings-menu__item" data-focus data-settings-tab="screensaver">
+                <span class="material-symbols-rounded">ambient_screen</span><span>Screensaver</span>
+              </button>
+              <button class="settings-menu__item" data-focus data-settings-tab="server">
+                <span class="material-symbols-rounded">dns</span><span>Server</span>
+              </button>
+              <button class="settings-menu__item" data-focus data-settings-tab="account">
+                <span class="material-symbols-rounded">person</span><span>Account</span>
+              </button>
+            </nav>
+            <div class="settings-panel" id="settings-panel"></div>
+          </div>
+        </section>
+      </main>
+
+      <div class="detail-layer" id="detail-layer" hidden>
+        <div class="detail-layer__backdrop" id="detail-backdrop"></div>
+        <div class="detail-layer__scrim"></div>
+        <div class="detail-layer__content">
+          <button class="detail-close" data-focus data-close-detail aria-label="Close details">
+            <span class="material-symbols-rounded">arrow_back</span>
+            <span class="detail-close__label">Back</span>
+          </button>
+          <section class="detail-hero">
+            <div class="detail-copy">
+              <h1 id="detail-title">The Last Light</h1>
+              <div class="hero__meta" id="detail-meta"></div>
+              <p id="detail-summary"></p>
+              <div class="hero__actions">
+                <button class="button button--primary" data-focus data-action="play">
+                  <span class="material-symbols-rounded">play_arrow</span><span id="detail-primary-label">Play</span>
+                </button>
+                <button class="button button--quiet" data-focus data-action="favorite">
+                  <span class="material-symbols-rounded">add</span>My list
+                </button>
+              </div>
+              <div class="detail-selects" id="detail-selects">
+                <label class="detail-select">
+                  <span><span class="material-symbols-rounded">volume_up</span>Audio</span>
+                  <select id="detail-audio-select" data-focus>
+                    <option>English 5.1</option>
+                    <option>Japanese 5.1</option>
+                    <option>Commentary</option>
+                  </select>
+                </label>
+                <label class="detail-select">
+                  <span><span class="material-symbols-rounded">subtitles</span>Subtitles</span>
+                  <select id="detail-subtitle-select" data-focus>
+                    <option>Off</option>
+                    <option selected>English</option>
+                    <option>English SDH</option>
+                    <option>Vietnamese</option>
+                  </select>
+                </label>
+                <label class="detail-select">
+                  <span><span class="material-symbols-rounded">high_quality</span>Quality</span>
+                  <select id="detail-quality-select" data-focus>
+                    <option>Original · 4K HDR</option>
+                    <option>1080p · 20 Mbps</option>
+                    <option>720p · 8 Mbps</option>
+                  </select>
+                </label>
+              </div>
+              <div class="detail-static-facts" id="detail-static-facts" hidden>
+                <div><span id="fact-label-one">Format</span><strong id="fact-value-one">Lossless</strong></div>
+                <div><span id="fact-label-two">Library</span><strong id="fact-value-two">Music</strong></div>
+                <div><span id="fact-label-three">Playback</span><strong id="fact-value-three">Direct play</strong></div>
+              </div>
+            </div>
+            <div class="movie-wordmark detail-wordmark" id="detail-wordmark" aria-label="The Last Light">
+              <span>The Last</span>
+              <strong>Light</strong>
+            </div>
+            <img
+              class="detail-cover"
+              id="detail-cover"
+              src="https://picsum.photos/seed/blue-hours-album/720/720"
+              alt=""
+              hidden
+            />
+          </section>
+
+          <section class="detail-series" id="detail-series" aria-labelledby="next-up-title" hidden>
+            <div class="series-next">
+              <button class="series-next__art" data-focus data-episode-play aria-label="Resume next episode">
+                <img id="series-next-image" src="./assets/poster-night-train.png" alt="" />
+                <span class="series-next__play material-symbols-rounded" aria-hidden="true">play_arrow</span>
+                <span class="series-progress" aria-hidden="true"><i id="series-next-progress"></i></span>
+              </button>
+              <div class="series-next__copy">
+                <span id="series-next-number">S1 E4</span>
+                <h2 id="next-up-title">Next up</h2>
+                <h3 id="series-next-title">Passenger Zero</h3>
+                <p id="series-next-summary">Mara follows the unclaimed suitcase into the train's sealed rear carriage.</p>
+                <div class="series-next__meta">
+                  <span id="series-next-duration">47 min</span>
+                  <span id="series-next-date">28 Mar 2025</span>
+                  <span id="series-next-rating">TV-14</span>
+                  <span id="series-next-quality">4K HDR</span>
+                </div>
+                <p class="series-next__credits" id="series-next-credits">Directed by Linh Aoki · Written by Aya Mercer</p>
+              </div>
+            </div>
+
+            <div class="series-episodes">
+              <div class="series-episodes__heading">
+                <h2>Episodes</h2>
+                <label class="season-select">
+                  <span class="material-symbols-rounded" aria-hidden="true">calendar_view_month</span>
+                  <select id="detail-season-select" data-focus aria-label="Season"></select>
+                </label>
+              </div>
+              <div class="episode-row" id="detail-episode-row" aria-live="polite"></div>
+            </div>
+          </section>
+
+          <section class="detail-music" id="detail-music" aria-labelledby="detail-music-title" hidden>
+            <div class="detail-music__heading">
+              <div>
+                <h2 id="detail-music-title">Tracks</h2>
+                <span id="detail-music-count">8 tracks · 42 min</span>
+              </div>
+              <button class="detail-music__shuffle" data-focus data-music-detail-shuffle>
+                <span class="material-symbols-rounded">shuffle</span><span>Shuffle</span>
+              </button>
+            </div>
+            <div class="detail-music__body">
+              <div class="track-list" id="detail-track-list"></div>
+              <aside class="track-actions" id="track-actions" aria-labelledby="track-actions-title" hidden>
+                <span>Track options</span>
+                <h3 id="track-actions-title">First Light</h3>
+                <button data-focus data-track-action="queue">
+                  <span class="material-symbols-rounded">playlist_add</span><span>Play next</span>
+                </button>
+                <button data-focus data-track-action="playlist">
+                  <span class="material-symbols-rounded">library_add</span><span>Add to playlist</span>
+                </button>
+                <button data-focus data-track-action="favorite">
+                  <span class="material-symbols-rounded">favorite</span><span>Favorite</span>
+                </button>
+                <button data-focus data-track-action="lyrics">
+                  <span class="material-symbols-rounded">lyrics</span><span>Lyrics</span>
+                </button>
+                <button data-focus data-track-action="details">
+                  <span class="material-symbols-rounded">info</span><span>File details</span>
+                </button>
+              </aside>
+            </div>
+          </section>
+
+          <section class="detail-artist" id="detail-artist" aria-labelledby="detail-artist-title" hidden>
+            <div class="detail-artist__popular">
+              <div class="detail-artist__heading">
+                <div>
+                  <h2 id="detail-artist-title">Popular</h2>
+                  <span id="detail-artist-count">Top tracks</span>
+                </div>
+              </div>
+              <div class="detail-artist__popular-body" id="detail-artist-popular-body">
+                <div class="track-list" id="detail-artist-track-list"></div>
+              </div>
+            </div>
+
+            <section class="detail-artist__releases" aria-labelledby="detail-artist-releases-title">
+              <div class="section-heading">
+                <h2 id="detail-artist-releases-title">Albums</h2>
+              </div>
+              <div class="music-row artist-release-row" id="detail-artist-release-row"></div>
+            </section>
+          </section>
+
+          <section class="detail-shelf" aria-labelledby="related-title">
+            <div class="section-heading">
+              <h2 id="related-title">More like this</h2>
+            </div>
+            <div class="media-row media-row--poster" id="detail-related-row">
+              <button class="media-card media-card--poster" data-focus data-media data-title="Solaris County" data-meta="2026|2h 04m|HDR|Science fiction" data-summary="An observatory receives a signal from beneath the desert floor." data-backdrop="./assets/poster-eclipse.png">
+                <img src="./assets/poster-eclipse.png" alt="Solaris County poster" />
+                <span class="media-card__label"><strong>Solaris County</strong><small>Science fiction</small></span>
+              </button>
+              <button class="media-card media-card--poster" data-focus data-media data-title="Still Water" data-meta="2024|1h 43m|HD|Thriller" data-summary="A diver finds a town preserved beneath a mountain reservoir." data-backdrop="https://picsum.photos/seed/still-water-cinema/1600/900">
+                <img src="https://picsum.photos/seed/still-water-cinema/600/900" alt="Still Water poster placeholder" />
+                <span class="media-card__label"><strong>Still Water</strong><small>Thriller</small></span>
+              </button>
+              <button class="media-card media-card--poster" data-focus data-media data-title="Signal Fire" data-meta="2026|1h 56m|HDR|Adventure" data-summary="Two climbers follow a chain of fires across an unmapped range." data-backdrop="https://picsum.photos/seed/signal-fire-film/1600/900">
+                <img src="https://picsum.photos/seed/signal-fire-film/600/900" alt="Signal Fire poster placeholder" />
+                <span class="media-card__label"><strong>Signal Fire</strong><small>Adventure</small></span>
+              </button>
+              <button class="media-card media-card--poster" data-focus data-media data-title="Low Country" data-meta="2025|1h 49m|4K|Crime" data-summary="A county detective follows a case into the flooded marsh." data-backdrop="https://picsum.photos/seed/low-country-film/1600/900">
+                <img src="https://picsum.photos/seed/low-country-film/600/900" alt="Low Country poster placeholder" />
+                <span class="media-card__label"><strong>Low Country</strong><small>Crime</small></span>
+              </button>
+              <button class="media-card media-card--poster" data-focus data-media data-title="Afterimage" data-meta="2024|2h 11m|HDR|Drama" data-summary="A photographer discovers a stranger appearing in every lost frame." data-backdrop="https://picsum.photos/seed/afterimage-film/1600/900">
+                <img src="https://picsum.photos/seed/afterimage-film/600/900" alt="Afterimage poster placeholder" />
+                <span class="media-card__label"><strong>Afterimage</strong><small>Drama</small></span>
+              </button>
+            </div>
+          </section>
+
+          <section class="detail-shelf" id="detail-cast-shelf" aria-labelledby="cast-title">
+            <div class="section-heading">
+              <h2 id="cast-title">Cast and crew</h2>
+            </div>
+            <div class="cast-row">
+              <button class="cast-card" data-focus data-person>
+                <img src="https://picsum.photos/seed/sora-venn-actor/480/600" alt="Sora Venn portrait placeholder" />
+                <strong>Sora Venn</strong><small>Mara</small>
+              </button>
+              <button class="cast-card" data-focus data-person>
+                <img src="https://picsum.photos/seed/idris-adebayo-actor/480/600" alt="Idris Adebayo portrait placeholder" />
+                <strong>Idris Adebayo</strong><small>Elias</small>
+              </button>
+              <button class="cast-card" data-focus data-person>
+                <img src="https://picsum.photos/seed/lena-kovacs-actor/480/600" alt="Lena Kovács portrait placeholder" />
+                <strong>Lena Kovács</strong><small>Ingrid</small>
+              </button>
+              <button class="cast-card" data-focus data-person>
+                <img src="https://picsum.photos/seed/minh-tran-actor/480/600" alt="Minh Trần portrait placeholder" />
+                <strong>Minh Trần</strong><small>Dr. Phan</small>
+              </button>
+              <button class="cast-card" data-focus data-person>
+                <img src="https://picsum.photos/seed/ines-salvat-director/480/600" alt="Inés Salvat portrait placeholder" />
+                <strong>Inés Salvat</strong><small>Director</small>
+              </button>
+            </div>
+          </section>
+
+          <section class="detail-about" aria-labelledby="about-title">
+            <h2 id="about-title">About this title</h2>
+            <div class="detail-about__grid" id="detail-about-grid">
+              <div><span>Director</span><strong>Inés Salvat</strong></div>
+              <div><span>Genres</span><strong>Drama, Mystery</strong></div>
+              <div><span>Studio</span><strong>Northline Pictures</strong></div>
+              <div><span>Release</span><strong>14 October 2026</strong></div>
+              <div><span>Rating</span><strong>TV-14</strong></div>
+              <div><span>Media</span><strong>4K HDR, HEVC, 24 fps</strong></div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="person-layer" id="person-layer" hidden>
+        <div class="person-layer__backdrop" id="person-backdrop"></div>
+        <div class="person-layer__scrim"></div>
+        <button class="detail-close" data-focus data-close-person aria-label="Close person details">
+          <span class="material-symbols-rounded">arrow_back</span>
+          <span class="detail-close__label">Back</span>
+        </button>
+        <div class="person-layer__content">
+          <section class="person-hero">
+            <img
+              class="person-hero__portrait"
+              id="person-portrait"
+              src="https://picsum.photos/seed/sora-venn-actor/720/900"
+              alt=""
+            />
+            <div class="person-hero__copy">
+              <span id="person-role">Actor</span>
+              <h1 id="person-name">Sora Venn</h1>
+              <p id="person-biography">
+                Known for quiet, character-led dramas and contemporary mysteries.
+              </p>
+              <button class="person-favorite" data-focus data-person-favorite aria-label="Favorite Sora Venn">
+                <span class="material-symbols-rounded">favorite</span>
+                <span>Favorite</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="person-known" aria-labelledby="person-known-title">
+            <h2 id="person-known-title">Known for</h2>
+            <div class="media-row media-row--poster" id="person-known-row"></div>
+          </section>
+
+          <section class="person-credits" aria-labelledby="person-credits-title">
+            <div class="person-credits__heading">
+              <h2 id="person-credits-title">Credits</h2>
+              <span id="person-credit-count">8 titles</span>
+            </div>
+            <div class="person-credits__list" id="person-credits-list"></div>
+          </section>
+        </div>
+      </div>
+
+      <div class="audio-player-layer" id="audio-player-layer" hidden>
+        <div class="audio-player__backdrop" id="audio-player-backdrop"></div>
+        <div class="audio-player__veil"></div>
+        <button class="audio-player__back" data-focus data-close-audio-player>
+          <span class="material-symbols-rounded">arrow_back</span><span>Back</span>
+        </button>
+
+        <div class="audio-playback-surface">
+          <main class="audio-player">
+            <img
+              class="audio-player__cover"
+              id="audio-player-cover"
+              src="https://picsum.photos/seed/blue-hours-album/900/900"
+              alt=""
+            />
+            <section class="audio-player__content" aria-labelledby="audio-player-title">
+            <span id="audio-player-album" data-audio-album>Blue Hours</span>
+            <h2 id="audio-player-title" data-audio-title>First Light</h2>
+            <div class="audio-player__artist">
+              <img
+                id="audio-player-artist-image"
+                data-audio-artist-image
+                src="https://picsum.photos/seed/marin-vale/160/160"
+                alt=""
+              />
+              <p id="audio-player-artist" data-audio-artist>Marin Vale</p>
+            </div>
+            <div class="audio-player__format" id="audio-player-format" data-audio-format>
+              <span>FLAC</span><span>24-bit</span><span>96 kHz</span><span>Stereo</span>
+            </div>
+
+            <button
+              class="audio-timeline"
+              id="audio-player-timeline"
+              data-focus
+              data-audio-player-timeline
+              aria-label="Playback position"
+            >
+              <span class="audio-timeline__track">
+                <i id="audio-player-progress" data-audio-progress></i>
+                <b id="audio-player-handle" data-audio-handle></b>
+              </span>
+              <span class="audio-timeline__time">
+                <span id="audio-player-elapsed" data-audio-elapsed>01:06</span>
+                <span id="audio-player-duration" data-audio-duration>04:12</span>
+              </span>
+            </button>
+
+            <div class="audio-transport">
+              <button data-focus data-audio-player-control="previous" aria-label="Previous track">
+                <span class="material-symbols-rounded">skip_previous</span>
+              </button>
+              <button class="audio-transport__primary" data-focus data-audio-player-control="primary" aria-label="Pause">
+                <span class="material-symbols-rounded">pause</span>
+              </button>
+              <button data-focus data-audio-player-control="next" aria-label="Next track">
+                <span class="material-symbols-rounded">skip_next</span>
+              </button>
+            </div>
+
+            <div class="audio-tools">
+              <button data-focus data-audio-player-control="shuffle">
+                <span class="material-symbols-rounded">shuffle</span><span>Shuffle</span>
+              </button>
+              <button data-focus data-audio-player-control="repeat">
+                <span class="material-symbols-rounded">repeat</span><span>Repeat</span>
+              </button>
+              <button data-focus data-audio-player-control="queue">
+                <span class="material-symbols-rounded">queue_music</span><span>Queue</span>
+              </button>
+              <button data-focus data-audio-player-control="lyrics">
+                <span class="material-symbols-rounded">lyrics</span><span>Lyrics</span>
+              </button>
+            </div>
+
+            </section>
+          </main>
+
+          <section
+            class="audio-lyrics-playback"
+            id="audio-lyrics-playback"
+            aria-hidden="true"
+            inert
+          >
+            <div class="audio-lyrics-playback__metadata">
+              <span data-audio-album>Blue Hours</span>
+              <h2 data-audio-title>First Light</h2>
+              <div class="audio-player__artist">
+                <img
+                  data-audio-artist-image
+                  src="https://picsum.photos/seed/marin-vale/160/160"
+                  alt=""
+                />
+                <p data-audio-artist>Marin Vale</p>
+              </div>
+              <div class="audio-player__format" data-audio-format>
+                <span>FLAC</span><span>24-bit</span><span>96 kHz</span><span>Stereo</span>
+              </div>
+            </div>
+
+            <div class="audio-lyrics-playback__controls">
+              <button
+                class="audio-timeline"
+                data-focus
+                data-audio-player-timeline
+                aria-label="Playback position"
+              >
+                <span class="audio-timeline__track">
+                  <i data-audio-progress></i>
+                  <b data-audio-handle></b>
+                </span>
+                <span class="audio-timeline__time">
+                  <span data-audio-elapsed>01:06</span>
+                  <span data-audio-duration>04:12</span>
+                </span>
+              </button>
+
+              <div class="audio-lyrics-playback__actions">
+                <button data-focus data-audio-player-control="shuffle" aria-label="Shuffle">
+                  <span class="material-symbols-rounded">shuffle</span>
+                  <span class="audio-control-label">Shuffle</span>
+                </button>
+                <button data-focus data-audio-player-control="previous" aria-label="Previous track">
+                  <span class="material-symbols-rounded">skip_previous</span>
+                  <span class="audio-control-label">Previous</span>
+                </button>
+                <button
+                  class="audio-lyrics-playback__primary"
+                  data-focus
+                  data-audio-player-control="primary"
+                  aria-label="Pause"
+                >
+                  <span class="material-symbols-rounded">pause</span>
+                  <span class="audio-control-label">Pause</span>
+                </button>
+                <button data-focus data-audio-player-control="next" aria-label="Next track">
+                  <span class="material-symbols-rounded">skip_next</span>
+                  <span class="audio-control-label">Next</span>
+                </button>
+                <button data-focus data-audio-player-control="repeat" aria-label="Repeat">
+                  <span class="material-symbols-rounded">repeat</span>
+                  <span class="audio-control-label">Repeat</span>
+                </button>
+                <button data-focus data-audio-player-control="queue" aria-label="Queue">
+                  <span class="material-symbols-rounded">queue_music</span>
+                  <span class="audio-control-label">Queue</span>
+                </button>
+                <button data-focus data-audio-player-control="lyrics" aria-label="Close lyrics">
+                  <span class="material-symbols-rounded">lyrics</span>
+                  <span class="audio-control-label">Lyrics</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <div class="audio-context-columns" id="audio-context-columns">
+            <section class="audio-context-column" data-audio-context-column="up-next" data-presentation="tracks">
+              <header>
+                <h3>Up next</h3>
+                <button
+                  class="audio-context-view-toggle"
+                  data-focus
+                  data-audio-context-view="up-next"
+                  aria-label="Show Up next as album covers"
+                >
+                  <span class="material-symbols-rounded">grid_view</span>
+                  <span>Covers</span>
+                </button>
+              </header>
+              <div class="audio-context-column__content" id="audio-up-next-content"></div>
+            </section>
+
+            <section class="audio-context-column" data-audio-context-column="suggested" data-presentation="covers">
+              <header>
+                <h3>Suggested</h3>
+                <button
+                  class="audio-context-view-toggle"
+                  data-focus
+                  data-audio-context-view="suggested"
+                  aria-label="Show Suggested as tracks"
+                >
+                  <span class="material-symbols-rounded">view_agenda</span>
+                  <span>Tracks</span>
+                </button>
+              </header>
+              <div class="audio-context-column__content" id="audio-suggested-content"></div>
+            </section>
+          </div>
+
+          <aside
+            class="audio-lyrics-stage"
+            id="audio-player-context"
+            aria-label="Lyrics"
+            aria-hidden="true"
+            inert
+          >
+            <section class="audio-lyrics-panel" id="audio-lyrics-panel">
+              <h3 id="audio-up-next-title">Lyrics</h3>
+              <div class="audio-context__content" id="audio-player-context-content"></div>
+            </section>
+          </aside>
+        </div>
+      </div>
+
+      <div class="player-layer" id="player-layer" tabindex="-1" hidden>
+        <div class="player-layer__image" id="player-image"></div>
+        <div class="player-layer__scrim"></div>
+        <section class="post-play" id="post-play" aria-labelledby="post-play-title" hidden>
+          <div class="post-play__completed">
+            <span id="post-play-series">Night Service</span>
+            <strong id="post-play-completed">Passenger Zero complete</strong>
+          </div>
+          <div class="post-play__wordmark" id="post-play-wordmark" aria-hidden="true">
+            <span>Night</span>
+            <strong>Service</strong>
+          </div>
+          <div class="post-play__next">
+            <span class="post-play__eyebrow">Up next</span>
+            <p class="post-play__episode" id="post-play-episode">S1 E5</p>
+            <h2 id="post-play-title">Red Signal</h2>
+            <p class="post-play__summary" id="post-play-summary">
+              Every signal turns red as the train approaches the old border.
+            </p>
+            <div class="post-play__meta" aria-label="Episode information">
+              <span id="post-play-duration">45 min</span>
+              <span id="post-play-quality">4K HDR</span>
+              <span id="post-play-audio">English 5.1</span>
+            </div>
+            <div class="post-play__actions">
+              <button
+                class="post-play-action post-play-action--primary"
+                data-focus
+                data-post-play-action="next"
+                aria-label="Play next episode"
+              >
+                <span class="material-symbols-rounded">play_arrow</span>
+                <span class="post-play-action__label">Play next</span>
+                <span class="post-play-action__countdown" aria-label="in 12 seconds">12</span>
+              </button>
+              <button
+                class="post-play-action"
+                data-focus
+                data-post-play-action="replay"
+                aria-label="Replay completed episode"
+              >
+                <span class="material-symbols-rounded">replay</span>
+                <span class="post-play-action__label">Replay</span>
+              </button>
+              <button
+                class="post-play-action"
+                data-focus
+                data-post-play-action="details"
+                aria-label="Browse episodes"
+              >
+                <span class="material-symbols-rounded">view_list</span>
+                <span class="post-play-action__label">Episodes</span>
+              </button>
+            </div>
+          </div>
+          <div
+            class="post-play-episodes"
+            id="post-play-episodes"
+            aria-labelledby="post-play-episodes-title"
+            hidden
+          >
+            <div class="post-play-episodes__heading">
+              <button
+                class="post-play-episodes__back"
+                data-focus
+                data-post-play-episodes-back
+                aria-label="Return to up next"
+              >
+                <span class="material-symbols-rounded">arrow_back</span>
+                <span>Up next</span>
+              </button>
+              <p id="post-play-episodes-season">Season 1</p>
+              <h2 id="post-play-episodes-title">Episodes</h2>
+            </div>
+            <div class="post-play-episodes__list" id="post-play-episodes-list"></div>
+            <div class="post-play-episodes__preview" aria-live="polite">
+              <span id="post-play-episodes-number">S1 E5</span>
+              <h3 id="post-play-episodes-preview-title">Red Signal</h3>
+              <p id="post-play-episodes-preview-summary">
+                Every signal turns red as the train approaches the old border.
+              </p>
+              <div class="post-play-episodes__meta">
+                <span id="post-play-episodes-preview-duration">45 min</span>
+                <span id="post-play-episodes-preview-date">4 Apr 2025</span>
+                <span id="post-play-episodes-preview-quality">4K HDR</span>
+              </div>
+            </div>
+          </div>
+          <div class="post-play__countdown" aria-hidden="true"><i></i></div>
+        </section>
+        <section
+          class="player-recovery"
+          id="player-recovery"
+          aria-labelledby="player-recovery-title"
+          hidden
+        >
+          <div class="player-recovery__context">
+            <span>Playback stopped</span>
+            <strong id="player-recovery-media">Night Service, Passenger Zero</strong>
+          </div>
+          <div class="player-recovery__body">
+            <span class="material-symbols-rounded player-recovery__signal" aria-hidden="true">signal_disconnected</span>
+            <h2 id="player-recovery-title">Couldn't continue</h2>
+            <p>The stream stopped responding.</p>
+            <div class="player-recovery__actions">
+              <button
+                class="player-recovery-action"
+                data-focus
+                data-player-recovery-action="back"
+                aria-label="Go back to media details"
+              >
+                <span class="material-symbols-rounded">arrow_back</span>
+                <span class="player-recovery-action__label">Go back</span>
+              </button>
+              <button
+                class="player-recovery-action player-recovery-action--primary"
+                data-focus
+                data-player-recovery-action="retry"
+                aria-label="Retry playback"
+              >
+                <span class="material-symbols-rounded">refresh</span>
+                <span class="player-recovery-action__label">Retry</span>
+              </button>
+            </div>
+          </div>
+        </section>
+        <section
+          class="player-checkin"
+          id="player-checkin"
+          aria-labelledby="player-checkin-title"
+          hidden
+        >
+          <div class="player-checkin__context">
+            <span id="player-checkin-series">Night Service</span>
+            <strong id="player-checkin-media">S1 E5, Red Signal</strong>
+          </div>
+          <div class="player-checkin__body">
+            <h2 id="player-checkin-title">Still watching?</h2>
+            <div class="player-checkin__actions">
+              <button
+                class="player-recovery-action"
+                data-focus
+                data-player-checkin-action="stop"
+                aria-label="Stop playback"
+              >
+                <span class="material-symbols-rounded">stop_circle</span>
+                <span class="player-recovery-action__label">Stop</span>
+              </button>
+              <button
+                class="player-recovery-action player-recovery-action--primary"
+                data-focus
+                data-player-checkin-action="continue"
+                aria-label="Continue watching"
+              >
+                <span class="material-symbols-rounded">play_arrow</span>
+                <span class="player-recovery-action__label">Continue</span>
+              </button>
+            </div>
+          </div>
+        </section>
+        <div class="player-osd">
+          <div class="player-osd__heading">
+            <div>
+              <span id="player-kicker">Now playing</span>
+              <h2 id="player-title">The Last Light</h2>
+            </div>
+            <div class="player-osd__side">
+              <div class="player-wordmark" id="player-wordmark" aria-label="The Last Light">
+                <span>The Last</span><strong>Light</strong>
+              </div>
+              <div class="player-osd__meta">
+                <span id="player-quality">4K HDR</span>
+                <span id="player-audio">English 5.1</span>
+                <span id="player-subtitles">English subtitles</span>
+              </div>
+            </div>
+          </div>
+          <button class="timeline" id="player-timeline" data-focus aria-label="Playback position, 1 hour 20 minutes">
+            <span class="timeline-preview" id="player-timeline-preview" aria-hidden="true">
+              <span class="timeline-preview__frame" id="player-timeline-preview-frame"></span>
+              <span class="timeline-preview__copy">
+                <strong id="player-timeline-preview-time">01:20:16</strong>
+                <small id="player-timeline-preview-chapter">Rear carriage</small>
+              </span>
+            </span>
+            <span class="timeline__track">
+              <i id="player-timeline-progress"></i>
+              <b id="player-timeline-handle"></b>
+              <em style="left: 18%"></em>
+              <em style="left: 46%"></em>
+              <em style="left: 76%"></em>
+            </span>
+            <span class="timeline__time">
+              <span id="player-elapsed">01:20:16</span>
+              <span id="player-remaining">-00:31:44</span>
+            </span>
+          </button>
+          <div class="player-controls">
+            <button class="player-control player-control--exit" data-focus data-player-exit aria-label="Press twice to leave playback">
+              <span class="material-symbols-rounded">arrow_back</span><span class="player-control__label">Back</span>
+            </button>
+            <button class="player-control" data-focus data-player-control="previous" aria-label="Rewind 10 seconds">
+              <span class="material-symbols-rounded">replay_10</span><span class="player-control__label">Rewind</span>
+            </button>
+            <button class="player-control player-control--primary" data-focus data-player-control="primary" aria-label="Pause">
+              <span class="material-symbols-rounded">pause</span><span class="player-control__label">Pause</span>
+            </button>
+            <button class="player-control" data-focus data-player-control="next" aria-label="Forward 10 seconds">
+              <span class="material-symbols-rounded">forward_10</span><span class="player-control__label">Forward</span>
+            </button>
+            <button class="player-control" data-focus data-player-control="previous-item" data-series-only aria-label="Previous episode">
+              <span class="material-symbols-rounded">skip_previous</span><span class="player-control__label">Previous episode</span>
+            </button>
+            <button class="player-control" data-focus data-player-control="next-item" data-series-only aria-label="Next episode">
+              <span class="material-symbols-rounded">skip_next</span><span class="player-control__label">Next episode</span>
+            </button>
+            <span class="player-controls__gap"></span>
+            <button class="player-control" data-focus data-player-control="chapters" data-video-only aria-label="Chapters">
+              <span class="material-symbols-rounded">video_library</span><span class="player-control__label">Chapters</span>
+            </button>
+            <button class="player-control" data-focus data-player-control="secondary-one" aria-label="Subtitles">
+              <span class="material-symbols-rounded">subtitles</span><span class="player-control__label">Subtitles</span>
+            </button>
+            <button class="player-control" data-focus data-player-control="secondary-two" aria-label="Audio tracks">
+              <span class="material-symbols-rounded">graphic_eq</span><span class="player-control__label">Audio</span>
+            </button>
+            <button class="player-control" data-focus data-player-control="more" aria-label="Playback options">
+              <span class="material-symbols-rounded">tune</span><span class="player-control__label">Options</span>
+            </button>
+          </div>
+        </div>
+        <div class="player-mini-seek" id="player-mini-seek" aria-hidden="true">
+          <span id="player-mini-elapsed">19:44</span>
+          <span class="player-mini-seek__track"><i id="player-mini-progress"></i></span>
+          <span id="player-mini-remaining">-27:16</span>
+        </div>
+        <aside class="player-drawer" id="player-drawer" hidden aria-labelledby="player-drawer-title">
+          <button class="player-drawer__back" data-focus data-close-player-drawer aria-label="Close playback options">
+            <span class="material-symbols-rounded">arrow_back</span>
+          </button>
+          <div class="player-drawer__heading">
+            <span class="material-symbols-rounded" id="player-drawer-icon">subtitles</span>
+            <h3 id="player-drawer-title">Subtitles</h3>
+          </div>
+          <div class="player-drawer__options" id="player-drawer-options"></div>
+        </aside>
+      </div>
+
+      <div class="state-layer" id="state-layer" hidden></div>
+      <div class="toast" id="toast" role="status" hidden></div>
+
+      <footer class="remote-help">
+        <span><kbd>←↑↓→</kbd> Navigate</span>
+        <span><kbd>Enter</kbd> Select</span>
+        <span><kbd>Esc</kbd> Back</span>
+      </footer>
+    </div>
+    <script src="./app.js"></script>
+  </body>
+</html>

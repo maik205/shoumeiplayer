@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,6 +48,8 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -88,21 +91,231 @@ private val ResultsStart = Dimens.OverscanHorizontal
 private val KeyUnit = 48.dp
 private val KeyGap = 8.dp
 
-/**
- * §5.6 — Search.
- *
- * There is no text-input field and no IME anywhere on this screen (brief risk 4): the query is a
- * read-only [Text] with a drawn caret, and every character comes from [KeyboardGrid.Default]
- * rendered as real, individually-focusable keys so the platform focus rim is truthful rather than
- * app-painted. D-pad navigation across the grid is driven by the pure [KeyboardGrid.move] reducer
- * so row-to-row travel (the ragged bottom row especially) clamps predictably; an unchanged move
- * means "leave the keyboard" and is left unconsumed for the rail/results focus escape hatches.
- *
- * There is no result count and no searching label: during the 350ms debounce the grid renders
- * skeleton tiles, which *is* the loading state.
- */
+/** Prototype search: TV IME field, media filters, result count, and a fixed five-column grid. */
 @Composable
 fun SearchScreen(
+    onNavigateToDetail: (String) -> Unit,
+    onBack: () -> Unit,
+    onNavigate: (NavRailDestination) -> Unit = {},
+) {
+    val viewModel = containerViewModel { container: AppContainer ->
+        SearchViewModel(container.libraryRepository, container.imageUrlBuilder)
+    }
+    val query by viewModel.query.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
+    var mediaType by rememberSaveable { mutableStateOf(SearchMediaType.All) }
+    val queryFocus = remember { FocusRequester() }
+    val firstResultFocus = remember { FocusRequester() }
+    val filterFocus = remember { SearchMediaType.entries.associateWith { FocusRequester() } }
+    val source = if (query.isBlank()) suggestions else uiState.results
+    val visibleResults = source.filter { mediaType.accepts(it.typeLabel) }
+    val pending = query.trim().length >= MIN_QUERY_LENGTH &&
+        uiState.error == null &&
+        (uiState.searching || uiState.loading)
+
+    BackHandler(onBack = onBack)
+    LaunchedEffect(Unit) { runCatching { queryFocus.requestFocus() } }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink000)
+            .padding(start = Dimens.OverscanHorizontal, end = Dimens.OverscanHorizontal, top = 30.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SearchTextAction(
+                label = "\u2190  Home",
+                onClick = onBack,
+                modifier = Modifier.width(66.dp),
+            )
+            var fieldFocused by remember { mutableStateOf(false) }
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(33.dp)
+                    .border(
+                        1.dp,
+                        Paper.copy(alpha = if (fieldFocused) 1f else 0.56f),
+                        RoundedCornerShape(4.dp),
+                    )
+                    .background(Ink000.copy(alpha = 0.34f), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SearchGlyph(
+                    color = Paper.copy(alpha = 0.72f),
+                    modifier = Modifier.size(14.dp),
+                )
+                BasicTextField(
+                    value = query,
+                    onValueChange = viewModel::onQueryChange,
+                    singleLine = true,
+                    textStyle = TextStyle(
+                        color = Paper,
+                        fontSize = MaterialTheme.typography.titleMedium.fontSize,
+                        fontWeight = FontWeight.Medium,
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .focusRequester(queryFocus)
+                        .onFocusChanged { fieldFocused = it.isFocused },
+                    decorationBox = { inner ->
+                        Box {
+                            if (query.isEmpty()) {
+                                Text(
+                                    "Search your media",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = Paper.copy(alpha = Alpha.TextDisabled),
+                                )
+                            }
+                            inner()
+                        }
+                    },
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(42.dp),
+            horizontalArrangement = Arrangement.spacedBy(22.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SearchMediaType.entries.forEach { type ->
+                SearchTextAction(
+                    label = type.label,
+                    selected = mediaType == type,
+                    focusRequester = filterFocus.getValue(type),
+                    onClick = { mediaType = type },
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp, bottom = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                if (query.isBlank()) "Recommended for you" else "Search results",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "${visibleResults.size} ${if (visibleResults.size == 1) "title" else "titles"}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Paper.copy(alpha = Alpha.TextTertiary),
+            )
+        }
+
+        when {
+            pending -> SkeletonGrid(
+                startPadding = 0.dp,
+                modifier = Modifier.padding(top = 3.dp),
+            )
+
+            uiState.error != null && query.isNotBlank() -> ErrorView(
+                message = uiState.error.orEmpty(),
+                onRetry = viewModel::retry,
+                startPadding = 0.dp,
+                topPadding = 34.dp,
+            )
+
+            query.isNotBlank() && query.trim().length < MIN_QUERY_LENGTH -> Text(
+                text = stringResource(R.string.search_keep_typing),
+                style = MaterialTheme.typography.displaySmall,
+                color = Paper.copy(alpha = Alpha.TextDisabled),
+                modifier = Modifier.padding(top = 34.dp),
+            )
+
+            visibleResults.isEmpty() -> EmptyView(
+                message = if (query.isBlank()) "Nothing recommended yet" else "No matches",
+                actionLabel = if (query.isBlank()) "Refresh" else stringResource(R.string.action_clear_search),
+                onAction = {
+                    if (query.isBlank()) viewModel.retry() else viewModel.onQueryChange("")
+                },
+                startPadding = 0.dp,
+                topPadding = 34.dp,
+            )
+
+            else -> PosterGrid(
+                tiles = visibleResults,
+                onTileClick = onNavigateToDetail,
+                contentPadding = PaddingValues(start = 4.dp, end = 4.dp, top = 3.dp, bottom = 54.dp),
+                firstTileFocus = firstResultFocus,
+                rowZeroUp = filterFocus.getValue(mediaType),
+                modifier = Modifier.fillMaxSize().focusRestorer(),
+            )
+        }
+    }
+}
+
+private enum class SearchMediaType(val label: String) {
+    All("All"),
+    Films("Films"),
+    Series("Series"),
+    Live("Live"),
+    Audio("Audio"),
+    Photos("Photos");
+
+    fun accepts(typeLabel: String?): Boolean {
+        val type = typeLabel.orEmpty().lowercase()
+        return when (this) {
+            All -> true
+            Films -> type == "film" || type == "movie"
+            Series -> type in setOf("series", "season", "episode")
+            Live -> type.contains("live") || type.contains("channel") || type.contains("program")
+            Audio -> type in setOf("audio", "song", "album", "music artist", "artist")
+            Photos -> type in setOf("photo", "image")
+        }
+    }
+}
+
+@Composable
+private fun SearchTextAction(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    focusRequester: FocusRequester? = null,
+) {
+    var focused by remember { mutableStateOf(false) }
+    Box(
+        modifier = modifier
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .onFocusChanged { focused = it.isFocused }
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            )
+            .padding(vertical = 8.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = Paper.copy(alpha = when {
+                focused -> 1f
+                selected -> 0.82f
+                else -> 0.42f
+            }),
+        )
+    }
+}
+
+@Composable
+private fun LegacySearchScreen(
     onNavigateToDetail: (String) -> Unit,
     onBack: () -> Unit,
     onNavigate: (NavRailDestination) -> Unit = {},

@@ -5,6 +5,7 @@ import com.maik205.shoumeiplayer.BuildConfig
 import com.maik205.shoumeiplayer.data.ImageUrlBuilder
 import com.maik205.shoumeiplayer.data.api.JellyfinClient
 import com.maik205.shoumeiplayer.data.repo.AuthRepository
+import com.maik205.shoumeiplayer.data.repo.JellyfinDiscoveryRepository
 import com.maik205.shoumeiplayer.data.repo.LibraryRepository
 import com.maik205.shoumeiplayer.data.repo.PlaybackRepository
 import com.maik205.shoumeiplayer.data.session.SessionStore
@@ -26,9 +27,11 @@ class AppContainer(private val context: Context) {
     val jellyfinClient: JellyfinClient by lazy { JellyfinClient(sessionStore, appName, appVersion) }
     val imageUrlBuilder: ImageUrlBuilder by lazy { ImageUrlBuilder { cachedServerUrl } }
     val authRepository: AuthRepository by lazy { AuthRepository(jellyfinClient, sessionStore) }
+    val discoveryRepository: JellyfinDiscoveryRepository by lazy { JellyfinDiscoveryRepository() }
     val libraryRepository: LibraryRepository by lazy { LibraryRepository(jellyfinClient) }
     val playbackRepository: PlaybackRepository by lazy { PlaybackRepository(jellyfinClient) }
-    // libmpv is the real engine in both build types now. MplayerEngine remains the
+    // Official libmpv via the app-owned JNI bridge is the real engine in both build types.
+    // MplayerEngine remains the
     // planned native successor behind this same PlayerEngine interface (see
     // docs/mplayer-integration.md); SimulatedPlayerEngine stays for JVM unit tests.
     val playerEngine: PlayerEngine by lazy { MpvEngine(context) }

@@ -1,6 +1,7 @@
 package com.maik205.shoumeiplayer.player
 
 import android.view.Surface
+import com.maik205.shoumeiplayer.data.session.ClientSettings
 import kotlinx.coroutines.flow.StateFlow
 
 interface PlayerEngine {
@@ -28,6 +29,10 @@ interface PlayerEngine {
      * output size (libmpv does) need this on every surface change; others may ignore it.
      */
     fun setSurfaceSize(width: Int, height: Int) = Unit
+
+    /** Applies persisted client playback preferences before the next media load. */
+    fun configure(settings: ClientSettings) = Unit
+
     fun load(item: PlayRequest)
     fun play()
     fun pause()
@@ -39,6 +44,22 @@ interface PlayerEngine {
      * not really running at must never be advertised.
      */
     fun setSpeed(speed: Float)
+
+    /** Applies an unbounded audio offset relative to the video timeline. */
+    fun setAudioDelayMs(delayMs: Long) = Unit
+
+    /** Applies an unbounded subtitle offset relative to the video timeline. */
+    fun setSubtitleDelayMs(delayMs: Long) = Unit
+
+    /** Changes how the decoded picture is fitted into the output surface. */
+    fun setFrameMode(mode: String) = Unit
+
+    /** Selects the active HDR output/tone-mapping policy. */
+    fun setHdrMode(mode: String) = Unit
+
+    /** Selects automatic, forced, or disabled deinterlacing for the current stream. */
+    fun setDeinterlaceMode(mode: String) = Unit
+
     fun selectTrack(track: PlayerTrack)
     fun stop()
     fun release()

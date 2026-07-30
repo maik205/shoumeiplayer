@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Television startup and session states. -->
+    <string name="tv_opening_shoumei">Opening Shoumei</string>
+    <string name="tv_session_expired_title">Session expired</string>
+    <string name="tv_session_expired_detail">Sign in again to continue.</string>
+    <string name="tv_sign_in_again">Sign in again</string>
+    <string name="tv_account_locked_title">Account locked</string>
+    <string name="tv_account_locked_detail">Ask your server administrator to unlock it.</string>
+    <string name="tv_profiles">Profiles</string>
+
+    <!-- Television onboarding. -->
+    <string name="tv_choose_media_server">Choose your\nmedia server</string>
+    <string name="tv_available_servers">Available servers</string>
+    <string name="tv_refresh">Refresh</string>
+    <string name="tv_looking_nearby">Looking nearby…</string>
+    <string name="tv_server">Server</string>
+    <string name="tv_server_scheme_hint" translatable="false">http(s)://</string>
+    <string name="tv_server_address_hint" translatable="false">server-address:8096</string>
+    <string name="tv_whos_watching">Who’s\nwatching?</string>
+    <string name="tv_use_another_account">Use another account</string>
+    <string name="tv_welcome_back">Welcome back,\n%1$s</string>
+    <string name="tv_forgot_password">Forgot password</string>
+    <string name="tv_quick_connect">Quick Connect</string>
+    <string name="tv_reset_password">Reset\npassword</string>
+    <string name="tv_request_reset">Request reset</string>
+    <string name="tv_request_again">Request again</string>
+    <string name="tv_enter_server_address">Enter a server address</string>
+    <string name="tv_quick_connect_code_missing">The server didn’t return a Quick Connect code</string>
+    <string name="tv_recovery_pin">Use the reset instructions from your server.</string>
+    <string name="tv_recovery_local_network">Connect to the server’s local network and try again.</string>
+    <string name="tv_recovery_admin">Ask your server administrator to reset this account.</string>
+
+    <!-- Friendly connection failures. Each message is complete so translators can reorder freely. -->
+    <string name="tv_connection_quiet">That server stayed quiet. Try again.</string>
+    <string name="tv_connection_media_room">Couldn’t reach the media room. Try again.</string>
+    <string name="tv_connection_no_answer">The server didn’t answer. Try again.</string>
+    <string name="tv_connection_no_signal">No signal from that address. Try again.</string>
+    <string name="tv_connection_slipped_away">The connection slipped away. Try again.</string>
+    <string name="tv_connection_nowhere">That route led nowhere. Try again.</string>
+    <string name="tv_connection_asleep">The server may be asleep. Try again.</string>
+    <string name="tv_connection_port">Nothing answered on that port. Try again.</string>
+    <string name="tv_connection_not_found">The network couldn’t find it. Try again.</string>
+    <string name="tv_connection_out_of_reach">That address is out of reach. Try again.</string>
+    <string name="tv_connection_closed">The server closed the door. Try again.</string>
+    <string name="tv_connection_handshake">The handshake never arrived. Try again.</string>
+    <string name="tv_connection_timed_out">The connection timed out. Try again.</string>
+    <string name="tv_connection_off_air">The server went off air. Try again.</string>
+    <string name="tv_connection_library">Couldn’t open that library. Try again.</string>
+    <string name="tv_connection_path">The network path is unavailable. Try again.</string>
+    <string name="tv_connection_not_ready">That server isn’t ready yet. Try again.</string>
+    <string name="tv_connection_address">The address didn’t respond. Try again.</string>
+    <string name="tv_connection_signal_faded">The signal faded before connecting. Try again.</string>
+    <string name="tv_connection_session">Couldn’t start a session there. Try again.</string>
+</resources>

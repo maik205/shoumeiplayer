@@ -1,0 +1,44 @@
+- generic [ref=e2]:
+  - main [ref=e3]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]: connected_tv
+        - heading "Choose your media server" [level=1] [ref=e8]
+      - region [ref=e9]:
+        - generic [ref=e10]:
+          - heading "Available servers" [level=2] [ref=e12]
+          - button "Search again" [ref=e13] [cursor=pointer]:
+            - generic [ref=e14]: refresh
+        - list [ref=e15]:
+          - listitem [active] [ref=e16] [cursor=pointer]:
+            - generic [ref=e17]:
+              - strong [ref=e18]: Living room
+              - generic [ref=e19]: 192.168.1.14
+          - listitem [ref=e20] [cursor=pointer]:
+            - generic [ref=e21]:
+              - strong [ref=e22]: Studio
+              - generic [ref=e23]: 192.168.1.28
+        - button "arrow_forward Continue" [ref=e24] [cursor=pointer]:
+          - generic [ref=e25]: arrow_forward
+          - text: Continue
+        - generic [ref=e26]:
+          - generic [ref=e27]:
+            - generic [ref=e28]: add_link
+            - heading "Server address" [level=2] [ref=e29]
+          - generic [ref=e30]:
+            - generic [ref=e31]: language
+            - generic [ref=e32]: http://
+            - textbox "Jellyfin server address" [ref=e33]:
+              - /placeholder: server-address:8096
+            - button "Connect to this address" [ref=e34] [cursor=pointer]:
+              - generic [ref=e35]: arrow_forward
+  - contentinfo:
+    - generic:
+      - generic: ←↑↓→
+      - text: Navigate
+    - generic:
+      - generic: Enter
+      - text: Select
+    - generic:
+      - generic: Esc
+      - text: Back

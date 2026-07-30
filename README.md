@@ -29,14 +29,13 @@ handled by libmpv (see the playback-engine section below).
 
 ## Playback engine
 
-**Playback works.** `MpvEngine` drives libmpv via the prebuilt
-`dev.jdtech.mpv:libmpv` AAR (the same binding Findroid ships) and is used in
-both debug and release builds. It renders through `vo=gpu` /
+`MpvEngine` drives official mpv v0.41.0 directly through the app-owned
+`MpvNative` JNI bridge and is used in both debug and release builds. The mpv
+source is pinned as `native/mpv/upstream`; no player AAR or repackaged mpv
+binding is used. It renders through `vo=gpu` /
 `gpu-context=android` with `hwdec=mediacodec-copy` and `ao=audiotrack`, maps
 mpv properties onto the `PlayerEngine` state/position/duration/track flows,
-and passes Jellyfin auth headers through `http-header-fields`. Note that the
-libmpv AAR bundles mpv + FFmpeg for four ABIs, so the APK is roughly 100 MB
-larger than an engine-less build.
+and passes Jellyfin auth headers through `http-header-fields`.
 
 - `MplayerEngine` remains the *planned* native successor behind the exact same
   `PlayerEngine` interface: it still compiles as a logged no-op stub with
@@ -63,7 +62,7 @@ com.maik205.shoumeiplayer
 │   └── repo/                // AuthRepository, LibraryRepository, PlaybackRepository
 ├── player/
 │   ├── PlayerEngine.kt      // engine-agnostic contract
-│   ├── MpvEngine.kt         // real engine: libmpv (dev.jdtech.mpv:libmpv)
+│   ├── MpvEngine.kt         // real engine: official libmpv via app-owned JNI
 │   ├── MplayerEngine.kt     // stub impl, JNI TODOs → ../mplayer (planned successor)
 │   └── SimulatedPlayerEngine.kt // fake clock for tests / UI work
 └── ui/
@@ -94,8 +93,10 @@ changes.
 
 ## Build & run
 
-Requirements: JDK 17+, Android Studio (or the command line), an Android TV
-emulator or device running API 28 or newer.
+Requirements: JDK 17+, Android Studio (or the command line), Android NDK r28+,
+and an Android TV emulator or device running API 28 or newer. Before assembling
+an APK, build the native libraries from the pinned official source as described
+in `native/mpv/README.md`.
 
 ```
 .\gradlew.bat :app:assembleDebug
@@ -104,9 +105,8 @@ emulator or device running API 28 or newer.
 Install the resulting debug APK on an Android TV emulator/device and launch
 it. On first run it asks for a Jellyfin server URL, then username/password.
 
-- Both debug and release builds use `MpvEngine`, so the APK decodes real
-  video. The bundled libmpv native libraries make the APK large (~130 MB);
-  installs to an emulator or device take correspondingly longer.
+- Both debug and release builds use `MpvEngine`. Gradle deliberately refuses
+  to assemble an APK when the official `libmpv.so` build is absent.
 - Home-lab Jellyfin servers are frequently plain HTTP rather than HTTPS.
   Cleartext traffic is allowed via a scoped network security config, so
   entering `http://192.168.x.x:8096`-style addresses works without any

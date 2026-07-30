@@ -1,0 +1,292 @@
+- generic [ref=f1e2]:
+  - banner:
+    - navigation "Browse" [ref=f1e3]:
+      - button "search Search" [ref=f1e4] [cursor=pointer]:
+        - generic [ref=f1e5]: search
+        - generic [ref=f1e6]: Search
+      - button "home Home" [ref=f1e7] [cursor=pointer]:
+        - generic [ref=f1e8]: home
+        - generic [ref=f1e9]: Home
+      - generic [ref=f1e10]:
+        - button "movie Cinema" [ref=f1e11] [cursor=pointer]:
+          - generic [ref=f1e12]: movie
+          - generic [ref=f1e13]: Cinema
+        - button "tv Shows" [ref=f1e14] [cursor=pointer]:
+          - generic [ref=f1e15]: tv
+          - generic [ref=f1e16]: Shows
+        - button "headphones Music" [ref=f1e17] [cursor=pointer]:
+          - generic [ref=f1e18]: headphones
+          - generic [ref=f1e19]: Music
+        - button "photo_library Family photos" [ref=f1e20] [cursor=pointer]:
+          - generic [ref=f1e21]: photo_library
+          - generic [ref=f1e22]: Family photos
+        - button "live_tv Live TV" [ref=f1e23] [cursor=pointer]:
+          - generic [ref=f1e24]: live_tv
+          - generic [ref=f1e25]: Live TV
+    - generic [ref=f1e26]:
+      - button "Open settings" [ref=f1e27] [cursor=pointer]:
+        - generic [ref=f1e28]: settings
+        - generic: Settings
+      - button "Switch profile" [ref=f1e29] [cursor=pointer]
+  - main [ref=f1e30]:
+    - generic [ref=f1e32]:
+      - generic [ref=f1e33]:
+        - heading "Music" [level=1] [ref=f1e34]
+        - navigation "Music view" [ref=f1e35]:
+          - button "headphones Overview" [ref=f1e36] [cursor=pointer]:
+            - generic [ref=f1e37]: headphones
+            - generic [ref=f1e38]: Overview
+          - button "album Albums" [ref=f1e39] [cursor=pointer]:
+            - generic [ref=f1e40]: album
+            - generic: Albums
+          - button "person Artists" [ref=f1e41] [cursor=pointer]:
+            - generic [ref=f1e42]: person
+            - generic: Artists
+          - button "queue_music Playlists" [ref=f1e43] [cursor=pointer]:
+            - generic [ref=f1e44]: queue_music
+            - generic: Playlists
+      - region [ref=f1e46]:
+        - generic [ref=f1e47]:
+          - text: Marin Vale
+          - heading "Blue Hours" [level=2] [ref=f1e48]
+          - generic [ref=f1e49]:
+            - generic [ref=f1e50]: Album
+            - generic [ref=f1e51]: "2026"
+            - generic [ref=f1e52]: 42 min
+            - generic [ref=f1e53]: Lossless
+          - generic [ref=f1e54]:
+            - button "play_arrow Play" [ref=f1e55] [cursor=pointer]:
+              - generic [ref=f1e56]: play_arrow
+              - generic [ref=f1e57]: Play
+            - button "shuffle Shuffle" [ref=f1e58] [cursor=pointer]:
+              - generic [ref=f1e59]: shuffle
+              - generic: Shuffle
+            - button "More options" [ref=f1e60] [cursor=pointer]:
+              - generic [ref=f1e61]: more_horiz
+              - generic: More
+      - region [ref=f1e62]:
+        - heading "Albums" [level=2] [ref=f1e64]
+        - generic [ref=f1e65]:
+          - button "Blue Hours album artwork placeholder Blue Hours Marin Vale" [ref=f1e66] [cursor=pointer]:
+            - img "Blue Hours album artwork placeholder" [ref=f1e67]
+            - strong [ref=f1e68]: Blue Hours
+            - generic [ref=f1e69]: Marin Vale
+          - button "Soft Current album artwork placeholder Soft Current Jun Vale" [ref=f1e70] [cursor=pointer]:
+            - img "Soft Current album artwork placeholder" [ref=f1e71]
+            - strong [ref=f1e72]: Soft Current
+            - generic [ref=f1e73]: Jun Vale
+          - button "Nocturne Transit album artwork placeholder Nocturne Transit Glass Index" [ref=f1e74] [cursor=pointer]:
+            - img "Nocturne Transit album artwork placeholder" [ref=f1e75]
+            - strong [ref=f1e76]: Nocturne Transit
+            - generic [ref=f1e77]: Glass Index
+          - button "Field Recordings album artwork placeholder Field Recordings Weather Systems" [ref=f1e78] [cursor=pointer]:
+            - img "Field Recordings album artwork placeholder" [ref=f1e79]
+            - strong [ref=f1e80]: Field Recordings
+            - generic [ref=f1e81]: Weather Systems
+          - button "Still Forms album artwork placeholder Still Forms Northern Static" [ref=f1e82] [cursor=pointer]:
+            - img "Still Forms album artwork placeholder" [ref=f1e83]
+            - strong [ref=f1e84]: Still Forms
+            - generic [ref=f1e85]: Northern Static
+          - button "Low Signal album artwork placeholder Low Signal Mara Field" [ref=f1e86] [cursor=pointer]:
+            - img "Low Signal album artwork placeholder" [ref=f1e87]
+            - strong [ref=f1e88]: Low Signal
+            - generic [ref=f1e89]: Mara Field
+      - region [ref=f1e90]:
+        - heading "Artists" [level=2] [ref=f1e92]
+        - generic [ref=f1e93]:
+          - button "Marin Vale artist placeholder Marin Vale 6 albums" [ref=f1e94] [cursor=pointer]:
+            - img "Marin Vale artist placeholder" [ref=f1e95]
+            - strong [ref=f1e96]: Marin Vale
+            - generic [ref=f1e97]: 6 albums
+          - button "Weather Systems artist placeholder Weather Systems 4 albums" [ref=f1e98] [cursor=pointer]:
+            - img "Weather Systems artist placeholder" [ref=f1e99]
+            - strong [ref=f1e100]: Weather Systems
+            - generic [ref=f1e101]: 4 albums
+          - button "Northern Static artist placeholder Northern Static 3 albums" [ref=f1e102] [cursor=pointer]:
+            - img "Northern Static artist placeholder" [ref=f1e103]
+            - strong [ref=f1e104]: Northern Static
+            - generic [ref=f1e105]: 3 albums
+          - button "Glass Index artist placeholder Glass Index 5 albums" [ref=f1e106] [cursor=pointer]:
+            - img "Glass Index artist placeholder" [ref=f1e107]
+            - strong [ref=f1e108]: Glass Index
+            - generic [ref=f1e109]: 5 albums
+          - button "Jun Vale artist placeholder Jun Vale 2 albums" [ref=f1e110] [cursor=pointer]:
+            - img "Jun Vale artist placeholder" [ref=f1e111]
+            - strong [ref=f1e112]: Jun Vale
+            - generic [ref=f1e113]: 2 albums
+      - region [ref=f1e114]:
+        - heading "Playlists" [level=2] [ref=f1e116]
+        - generic [ref=f1e117]:
+          - button "Open Frequency playlist artwork placeholder Open Frequency 28 tracks" [ref=f1e118] [cursor=pointer]:
+            - img "Open Frequency playlist artwork placeholder" [ref=f1e119]
+            - strong [ref=f1e120]: Open Frequency
+            - generic [ref=f1e121]: 28 tracks
+          - button "After Midnight playlist artwork placeholder After Midnight 41 tracks" [ref=f1e122] [cursor=pointer]:
+            - img "After Midnight playlist artwork placeholder" [ref=f1e123]
+            - strong [ref=f1e124]: After Midnight
+            - generic [ref=f1e125]: 41 tracks
+          - button "Quiet Roads playlist artwork placeholder Quiet Roads 22 tracks" [ref=f1e126] [cursor=pointer]:
+            - img "Quiet Roads playlist artwork placeholder" [ref=f1e127]
+            - strong [ref=f1e128]: Quiet Roads
+            - generic [ref=f1e129]: 22 tracks
+          - button "Sunday Room playlist artwork placeholder Sunday Room 35 tracks" [ref=f1e130] [cursor=pointer]:
+            - img "Sunday Room playlist artwork placeholder" [ref=f1e131]
+            - strong [ref=f1e132]: Sunday Room
+            - generic [ref=f1e133]: 35 tracks
+          - button "Deep Focus playlist artwork placeholder Deep Focus 52 tracks" [ref=f1e134] [cursor=pointer]:
+            - img "Deep Focus playlist artwork placeholder" [ref=f1e135]
+            - strong [ref=f1e136]: Deep Focus
+            - generic [ref=f1e137]: 52 tracks
+      - paragraph [ref=f1e139]: End of music
+    - text: Now
+  - text: · · · · · · · · · · · · · · · · · · · · · · · · · · · · · ·
+  - generic [ref=f1e140]:
+    - button "arrow_back Back" [ref=f1e143] [cursor=pointer]:
+      - generic [ref=f1e144]: arrow_back
+      - generic: Back
+    - generic [ref=f1e145]:
+      - main [ref=f1e146]:
+        - img "Blue Hours cover" [ref=f1e147]
+        - region:
+          - text: Blue Hours
+          - heading [level=2]: First Light
+          - generic:
+            - paragraph: Marin Vale
+          - generic:
+            - generic: FLAC
+            - generic: ·24-bit
+            - generic: ·96 kHz
+            - generic: ·Stereo
+          - button:
+            - generic:
+              - generic: 01:06
+              - generic: 04:12
+          - generic:
+            - button:
+              - generic: skip_previous
+            - button:
+              - generic: pause
+            - button:
+              - generic: skip_next
+          - generic:
+            - button:
+              - generic: shuffle
+            - button:
+              - generic: repeat
+            - button:
+              - generic: queue_music
+            - button:
+              - generic: lyrics
+              - generic: Lyrics
+      - generic [ref=f1e230]:
+        - generic [ref=f1e231]:
+          - text: Blue Hours
+          - heading "First Light" [level=2] [ref=f1e232]
+          - generic [ref=f1e233]:
+            - img "Marin Vale portrait" [ref=f1e234]
+            - paragraph [ref=f1e235]: Marin Vale
+          - generic [ref=f1e236]:
+            - generic [ref=f1e237]: FLAC
+            - generic [ref=f1e238]: ·24-bit
+            - generic [ref=f1e239]: ·96 kHz
+            - generic [ref=f1e240]: ·Stereo
+        - generic [ref=f1e241]:
+          - button "Playback position, 26 percent" [ref=f1e242] [cursor=pointer]:
+            - generic [ref=f1e246]:
+              - generic [ref=f1e247]: 01:06
+              - generic [ref=f1e248]: 04:12
+          - generic [ref=f1e249]:
+            - button "Shuffle" [ref=f1e250] [cursor=pointer]:
+              - generic [ref=f1e251]: shuffle
+            - button "Previous track" [ref=f1e252] [cursor=pointer]:
+              - generic [ref=f1e253]: skip_previous
+              - generic: Previous
+            - button "Pause" [ref=f1e254] [cursor=pointer]:
+              - generic [ref=f1e255]: pause
+            - button "Next track" [ref=f1e256] [cursor=pointer]:
+              - generic [ref=f1e257]: skip_next
+              - generic: Next
+            - button "Repeat" [ref=f1e258] [cursor=pointer]:
+              - generic [ref=f1e259]: repeat
+            - button "Queue" [ref=f1e260] [cursor=pointer]:
+              - generic [ref=f1e261]: queue_music
+            - button "Close lyrics" [ref=f1e262] [cursor=pointer]:
+              - generic [ref=f1e263]: lyrics
+              - generic: Lyrics
+      - generic [ref=f1e181]:
+        - generic [ref=f1e182]:
+          - generic [ref=f1e183]:
+            - heading "Up next" [level=3] [ref=f1e184]
+            - button "Show Up next as album covers" [ref=f1e185] [cursor=pointer]:
+              - generic [ref=f1e186]: grid_view
+              - generic: Covers
+          - generic [ref=f1e187]:
+            - button "Play Slow Meridian by Marin Vale" [active] [ref=f1e264] [cursor=pointer]:
+              - generic [ref=f1e265]: "01"
+              - strong [ref=f1e267]: Slow Meridian
+              - time [ref=f1e268]: 5:06
+            - button "Play Blue Hours by Marin Vale feat. Jun Vale" [ref=f1e269] [cursor=pointer]:
+              - generic [ref=f1e270]: "02"
+              - strong [ref=f1e272]: Blue Hours
+              - time [ref=f1e273]: 4:48
+            - button "Play Open Water by Marin Vale" [ref=f1e274] [cursor=pointer]:
+              - generic [ref=f1e275]: "03"
+              - strong [ref=f1e277]: Open Water
+              - time [ref=f1e278]: 5:31
+            - button "Play Still Moving by Marin Vale" [ref=f1e279] [cursor=pointer]:
+              - generic [ref=f1e280]: "04"
+              - strong [ref=f1e282]: Still Moving
+              - time [ref=f1e283]: 4:27
+        - generic [ref=f1e208]:
+          - generic [ref=f1e209]:
+            - heading "Suggested" [level=3] [ref=f1e210]
+            - button "Show Suggested as tracks" [ref=f1e211] [cursor=pointer]:
+              - generic [ref=f1e212]: view_agenda
+              - generic: Tracks
+          - generic [ref=f1e213]:
+            - button "Play Soft Current by Nora Field" [ref=f1e284] [cursor=pointer]:
+              - generic [ref=f1e285]:
+                - strong [ref=f1e286]: Soft Current
+                - generic [ref=f1e287]: Nora Field
+            - button "Play Northbound by Glass Harbour" [ref=f1e288] [cursor=pointer]:
+              - generic [ref=f1e289]:
+                - strong [ref=f1e290]: Northbound
+                - generic [ref=f1e291]: Glass Harbour
+            - button "Play Low Sun by Jun Vale" [ref=f1e292] [cursor=pointer]:
+              - generic [ref=f1e293]:
+                - strong [ref=f1e294]: Low Sun
+                - generic [ref=f1e295]: Jun Vale
+            - button "Play After Rain by Mira North" [ref=f1e296] [cursor=pointer]:
+              - generic [ref=f1e297]:
+                - strong [ref=f1e298]: After Rain
+                - generic [ref=f1e299]: Mira North
+      - complementary "Lyrics" [ref=f1e300]:
+        - generic [ref=f1e301]:
+          - heading "Lyrics" [level=3] [ref=f1e302]
+          - generic [ref=f1e303]:
+            - button [ref=f1e304] [cursor=pointer]:
+              - strong [ref=f1e305]: First light through the station glass
+            - button [ref=f1e306] [cursor=pointer]:
+              - strong [ref=f1e307]: A quiet signal moving west
+            - button [ref=f1e308] [cursor=pointer]:
+              - strong [ref=f1e309]: We held the line until it vanished
+            - button [ref=f1e310] [cursor=pointer]:
+              - strong [ref=f1e311]: Then let the morning do the rest
+            - button [ref=f1e312] [cursor=pointer]:
+              - strong [ref=f1e313]: Open water, open sky
+            - button [ref=f1e314] [cursor=pointer]:
+              - strong [ref=f1e315]: No map between your hand and mine
+            - button [ref=f1e316] [cursor=pointer]:
+              - strong [ref=f1e317]: The northern window catches fire
+            - button [ref=f1e318] [cursor=pointer]:
+              - strong [ref=f1e319]: And every shadow falls behind
+  - contentinfo:
+    - generic:
+      - generic: ←↑↓→
+      - text: Navigate
+    - generic:
+      - generic: Enter
+      - text: Select
+    - generic:
+      - generic: Esc
+      - text: Back

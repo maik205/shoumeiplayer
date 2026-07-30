@@ -1,0 +1,241 @@
+- generic [ref=e2] [box=0,0,1745,982]:
+  - banner [box=0,0,1745,72]:
+    - navigation "Browse" [ref=e3] [box=87,0,835,72]:
+      - button "search Search" [ref=e4] [cursor=pointer] [box=87,14,109,44]:
+        - generic [ref=e5] [box=103,25,21,21]: search
+        - generic [ref=e6] [box=133,26,47,19]: Search
+      - button "home Home" [ref=e7] [cursor=pointer] [box=207,14,101,44]:
+        - generic [ref=e8] [box=222,25,21,21]: home
+        - generic [ref=e9] [box=252,26,40,19]: Home
+      - generic [ref=e10] [box=0,0,0,0]:
+        - button "movie Cinema" [ref=e11] [cursor=pointer] [box=314,14,113,44]:
+          - generic [ref=e12] [box=330,25,21,21]: movie
+          - generic [ref=e13] [box=359,26,52,19]: Cinema
+        - button "tv Shows" [ref=e14] [cursor=pointer] [box=433,14,104,44]:
+          - generic [ref=e15] [box=449,25,21,21]: tv
+          - generic [ref=e16] [box=478,26,43,19]: Shows
+        - button "headphones Music" [ref=e17] [cursor=pointer] [box=544,14,99,44]:
+          - generic [ref=e18] [box=560,25,21,21]: headphones
+          - generic [ref=e19] [box=589,26,38,19]: Music
+        - button "photo_library Family photos" [ref=e20] [cursor=pointer] [box=649,14,156,44]:
+          - generic [ref=e21] [box=665,25,21,21]: photo_library
+          - generic [ref=e22] [box=694,26,95,19]: Family photos
+        - button "live_tv Live TV" [ref=e23] [cursor=pointer] [box=811,14,111,44]:
+          - generic [ref=e24] [box=827,25,21,21]: live_tv
+          - generic [ref=e25] [box=856,26,50,19]: Live TV
+    - generic [ref=e26] [box=1560,14,98,44]:
+      - button "Open settings" [ref=e27] [cursor=pointer] [box=1560,14,44,44]:
+        - generic [ref=e28] [box=1578,23,26,26]: settings
+        - generic [box=1604,27,0,17]: Settings
+      - button "Switch profile" [ref=e29] [cursor=pointer] [box=1616,15,42,42]
+  - main [ref=e30] [box=0,0,1745,982]:
+    - generic [ref=e32] [box=0,0,1745,1872]:
+      - generic [ref=e33] [box=0,126,1745,55]:
+        - heading "Music" [level=1] [ref=e34] [box=87,126,105,55]
+        - navigation "Music view" [ref=e35] [box=240,132,317,44]:
+          - button "headphones Overview" [ref=e36] [cursor=pointer] [box=237,130,100,47]:
+            - generic [ref=e37] [box=237,140,28,28]: headphones
+            - generic [ref=e38] [box=274,145,64,18]: Overview
+          - button "album Albums" [ref=e39] [cursor=pointer] [box=365,132,44,44]:
+            - generic [ref=e40] [box=383,141,26,26]: album
+            - generic [box=409,145,0,17]: Albums
+          - button "person Artists" [ref=e41] [cursor=pointer] [box=439,132,44,44]:
+            - generic [ref=e42] [box=457,141,26,26]: person
+            - generic [box=483,145,0,17]: Artists
+          - button "queue_music Playlists" [ref=e43] [cursor=pointer] [box=513,132,44,44]:
+            - generic [ref=e44] [box=531,141,26,26]: queue_music
+            - generic [box=557,145,0,17]: Playlists
+      - region [ref=e46] [box=0,181,1745,354]:
+        - generic [ref=e47] [box=375,257,1283,207]:
+          - text: Marin Vale
+          - heading "Blue Hours" [level=2] [ref=e48] [box=375,285,1283,79]
+          - generic [ref=e49] [box=375,377,1283,16]:
+            - generic [ref=e50] [box=375,377,37,16]: Album
+            - generic [ref=e51] [box=433,377,30,16]: "2026"
+            - generic [ref=e52] [box=482,377,38,16]: 42 min
+            - generic [ref=e53] [box=541,377,46,16]: Lossless
+          - generic [ref=e54] [box=375,420,1283,44]:
+            - button "play_arrow Play" [ref=e55] [cursor=pointer] [box=373,419,65,47]:
+              - generic [ref=e56] [box=373,428,28,28]: play_arrow
+              - generic [ref=e57] [box=409,433,29,18]: Play
+            - button "shuffle Shuffle" [ref=e58] [cursor=pointer] [box=449,420,44,44]:
+              - generic [ref=e59] [box=467,429,26,26]: shuffle
+              - generic [box=493,433,0,17]: Shuffle
+            - button "More options" [ref=e60] [cursor=pointer] [box=505,420,44,44]:
+              - generic [ref=e61] [box=523,429,26,26]: more_horiz
+              - generic [box=549,433,0,17]: More
+      - region [ref=e62] [box=0,535,1745,387]:
+        - heading "Albums" [level=2] [ref=e64] [box=87,565,79,30]
+        - generic [ref=e65] [box=0,613,1745,285]:
+          - button "Blue Hours album artwork placeholder Blue Hours Marin Vale" [ref=e66] [cursor=pointer] [box=87,618,213,262]:
+            - img "Blue Hours album artwork placeholder" [ref=e67] [box=87,618,213,213]
+            - strong [ref=e68] [box=87,843,213,19]: Blue Hours
+            - generic [ref=e69] [box=87,865,213,15]: Marin Vale
+          - button "Soft Current album artwork placeholder Soft Current Jun Vale" [ref=e70] [cursor=pointer] [box=322,618,213,262]:
+            - img "Soft Current album artwork placeholder" [ref=e71] [box=322,618,213,213]
+            - strong [ref=e72] [box=322,843,213,19]: Soft Current
+            - generic [ref=e73] [box=322,865,213,15]: Jun Vale
+          - button "Nocturne Transit album artwork placeholder Nocturne Transit Glass Index" [ref=e74] [cursor=pointer] [box=557,618,213,262]:
+            - img "Nocturne Transit album artwork placeholder" [ref=e75] [box=557,618,213,213]
+            - strong [ref=e76] [box=557,843,213,19]: Nocturne Transit
+            - generic [ref=e77] [box=557,865,213,15]: Glass Index
+          - button "Field Recordings album artwork placeholder Field Recordings Weather Systems" [ref=e78] [cursor=pointer] [box=792,618,213,262]:
+            - img "Field Recordings album artwork placeholder" [ref=e79] [box=792,618,213,213]
+            - strong [ref=e80] [box=792,843,213,19]: Field Recordings
+            - generic [ref=e81] [box=792,865,213,15]: Weather Systems
+          - button "Still Forms album artwork placeholder Still Forms Northern Static" [ref=e82] [cursor=pointer] [box=1027,618,213,262]:
+            - img "Still Forms album artwork placeholder" [ref=e83] [box=1027,618,213,213]
+            - strong [ref=e84] [box=1027,843,213,19]: Still Forms
+            - generic [ref=e85] [box=1027,865,213,15]: Northern Static
+          - button "Low Signal album artwork placeholder Low Signal Mara Field" [ref=e86] [cursor=pointer] [box=1262,618,213,262]:
+            - img "Low Signal album artwork placeholder" [ref=e87] [box=1262,618,213,213]
+            - strong [ref=e88] [box=1262,843,213,19]: Low Signal
+            - generic [ref=e89] [box=1262,865,213,15]: Mara Field
+      - region [ref=e90] [box=0,922,1745,387]:
+        - heading "Artists" [level=2] [ref=e92] [box=87,952,71,30]
+        - generic [ref=e93] [box=0,1000,1745,285]:
+          - button "Marin Vale artist placeholder Marin Vale 6 albums" [ref=e94] [cursor=pointer] [box=87,1005,213,262]:
+            - img "Marin Vale artist placeholder" [ref=e95] [box=87,1005,213,213]
+            - strong [ref=e96] [box=87,1230,213,19]: Marin Vale
+            - generic [ref=e97] [box=87,1252,213,15]: 6 albums
+          - button "Weather Systems artist placeholder Weather Systems 4 albums" [ref=e98] [cursor=pointer] [box=322,1005,213,262]:
+            - img "Weather Systems artist placeholder" [ref=e99] [box=322,1005,213,213]
+            - strong [ref=e100] [box=322,1230,213,19]: Weather Systems
+            - generic [ref=e101] [box=322,1252,213,15]: 4 albums
+          - button "Northern Static artist placeholder Northern Static 3 albums" [ref=e102] [cursor=pointer] [box=557,1005,213,262]:
+            - img "Northern Static artist placeholder" [ref=e103] [box=557,1005,213,213]
+            - strong [ref=e104] [box=557,1230,213,19]: Northern Static
+            - generic [ref=e105] [box=557,1252,213,15]: 3 albums
+          - button "Glass Index artist placeholder Glass Index 5 albums" [ref=e106] [cursor=pointer] [box=792,1005,213,262]:
+            - img "Glass Index artist placeholder" [ref=e107] [box=792,1005,213,213]
+            - strong [ref=e108] [box=792,1230,213,19]: Glass Index
+            - generic [ref=e109] [box=792,1252,213,15]: 5 albums
+          - button "Jun Vale artist placeholder Jun Vale 2 albums" [ref=e110] [cursor=pointer] [box=1027,1005,213,262]:
+            - img "Jun Vale artist placeholder" [ref=e111] [box=1027,1005,213,213]
+            - strong [ref=e112] [box=1027,1230,213,19]: Jun Vale
+            - generic [ref=e113] [box=1027,1252,213,15]: 2 albums
+      - region [ref=e114] [box=0,1309,1745,387]:
+        - heading "Playlists" [level=2] [ref=e116] [box=87,1339,87,30]
+        - generic [ref=e117] [box=0,1387,1745,285]:
+          - button "Open Frequency playlist artwork placeholder Open Frequency 28 tracks" [ref=e118] [cursor=pointer] [box=87,1392,213,262]:
+            - img "Open Frequency playlist artwork placeholder" [ref=e119] [box=87,1392,213,213]
+            - strong [ref=e120] [box=87,1616,213,19]: Open Frequency
+            - generic [ref=e121] [box=87,1639,213,15]: 28 tracks
+          - button "After Midnight playlist artwork placeholder After Midnight 41 tracks" [ref=e122] [cursor=pointer] [box=322,1392,213,262]:
+            - img "After Midnight playlist artwork placeholder" [ref=e123] [box=322,1392,213,213]
+            - strong [ref=e124] [box=322,1616,213,19]: After Midnight
+            - generic [ref=e125] [box=322,1639,213,15]: 41 tracks
+          - button "Quiet Roads playlist artwork placeholder Quiet Roads 22 tracks" [ref=e126] [cursor=pointer] [box=557,1392,213,262]:
+            - img "Quiet Roads playlist artwork placeholder" [ref=e127] [box=557,1392,213,213]
+            - strong [ref=e128] [box=557,1616,213,19]: Quiet Roads
+            - generic [ref=e129] [box=557,1639,213,15]: 22 tracks
+          - button "Sunday Room playlist artwork placeholder Sunday Room 35 tracks" [ref=e130] [cursor=pointer] [box=792,1392,213,262]:
+            - img "Sunday Room playlist artwork placeholder" [ref=e131] [box=792,1392,213,213]
+            - strong [ref=e132] [box=792,1616,213,19]: Sunday Room
+            - generic [ref=e133] [box=792,1639,213,15]: 35 tracks
+          - button "Deep Focus playlist artwork placeholder Deep Focus 52 tracks" [ref=e134] [cursor=pointer] [box=1027,1392,213,262]:
+            - img "Deep Focus playlist artwork placeholder" [ref=e135] [box=1027,1392,213,213]
+            - strong [ref=e136] [box=1027,1616,213,19]: Deep Focus
+            - generic [ref=e137] [box=1027,1639,213,15]: 52 tracks
+      - paragraph [ref=e139] [box=87,1747,1571,17]: End of music
+    - text: Now
+  - text: · · · · · · · · · · · · · · · · · · · · · · · · · · · · · ·
+  - generic [ref=e140] [box=0,0,1745,982]:
+    - button "arrow_back Back" [ref=e143] [cursor=pointer] [box=87,42,26,48]:
+      - generic [ref=e144] [box=87,53,26,26]: arrow_back
+      - generic [box=113,56,0,21]: Back
+    - generic [ref=e145] [box=0,0,1745,982]:
+      - main [ref=e146] [box=105,108,1553,530]:
+        - img "Blue Hours cover" [ref=e147] [box=105,164,419,419]
+        - region [ref=e148] [box=838,173,820,401]:
+          - text: Blue Hours
+          - heading "First Light" [level=2] [ref=e149] [box=838,201,820,63]
+          - generic [ref=e150] [box=838,273,820,42]:
+            - img "Marin Vale portrait" [ref=e151] [box=838,273,42,42]
+            - paragraph [ref=e152] [box=892,283,85,23]: Marin Vale
+          - generic [ref=e153] [box=838,327,820,15]:
+            - generic [ref=e154] [box=838,327,29,15]: FLAC
+            - generic [ref=e155] [box=881,327,49,15]: ·24-bit
+            - generic [ref=e156] [box=944,327,51,15]: ·96 kHz
+            - generic [ref=e157] [box=1009,327,51,15]: ·Stereo
+          - button "Playback position, 26 percent" [ref=e158] [cursor=pointer] [box=838,372,820,52]:
+            - generic [ref=e162] [box=838,397,820,15]:
+              - generic [ref=e163] [box=838,397,30,15]: 01:06
+              - generic [ref=e164] [box=1629,397,29,15]: 04:12
+          - generic [ref=e165] [box=838,441,820,68]:
+            - button "Previous track" [ref=e166] [cursor=pointer] [box=838,447,56,56]:
+              - generic [ref=e167] [box=847,456,38,38]: skip_previous
+            - button "Pause" [active] [ref=e168] [cursor=pointer] [box=928,441,68,68]:
+              - generic [ref=e169] [box=935,448,54,54]: pause
+            - button "Next track" [ref=e170] [cursor=pointer] [box=1030,447,56,56]:
+              - generic [ref=e171] [box=1039,456,38,38]: skip_next
+          - generic [ref=e172] [box=838,529,820,44]:
+            - button "shuffle Shuffle" [ref=e173] [cursor=pointer] [box=838,529,34,44]:
+              - generic [ref=e174] [box=838,538,26,26]: shuffle
+              - generic [box=872,541,0,21]: Shuffle
+            - button "repeat Repeat" [ref=e175] [cursor=pointer] [box=900,529,34,44]:
+              - generic [ref=e176] [box=900,538,26,26]: repeat
+              - generic [box=934,541,0,21]: Repeat
+            - button "queue_music Queue" [ref=e177] [cursor=pointer] [box=962,529,34,44]:
+              - generic [ref=e178] [box=962,538,26,26]: queue_music
+              - generic [box=996,541,0,21]: Queue
+            - button "lyrics Lyrics" [ref=e179] [cursor=pointer] [box=1024,529,34,44]:
+              - generic [ref=e180] [box=1024,538,26,26]: lyrics
+              - generic [box=1058,541,0,21]: Lyrics
+      - generic [ref=e181] [box=105,677,1536,248]:
+        - generic [ref=e182] [box=105,677,716,196]:
+          - generic [ref=e183] [box=105,677,716,34]:
+            - heading "Up next" [level=3] [ref=e184] [box=105,685,52,19]
+            - button "Show Up next as album covers" [ref=e185] [cursor=pointer] [box=793,677,27,34]:
+              - generic [ref=e186] [box=793,684,20,20]: grid_view
+              - generic [box=820,687,0,15]: Covers
+          - generic [ref=e187] [box=105,721,716,152]:
+            - button "Play Slow Meridian by Marin Vale" [ref=e188] [cursor=pointer] [box=105,721,716,38]:
+              - generic [ref=e189] [box=105,734,30,14]: "01"
+              - strong [ref=e191] [box=147,732,620,16]: Slow Meridian
+              - time [ref=e192] [box=778,734,42,14]: 5:06
+            - button "Play Blue Hours by Marin Vale feat. Jun Vale" [ref=e193] [cursor=pointer] [box=105,759,716,38]:
+              - generic [ref=e194] [box=105,772,30,14]: "02"
+              - strong [ref=e196] [box=147,770,620,16]: Blue Hours
+              - time [ref=e197] [box=778,772,42,14]: 4:48
+            - button "Play Open Water by Marin Vale" [ref=e198] [cursor=pointer] [box=105,797,716,38]:
+              - generic [ref=e199] [box=105,810,30,14]: "03"
+              - strong [ref=e201] [box=147,808,620,16]: Open Water
+              - time [ref=e202] [box=778,810,42,14]: 5:31
+            - button "Play Still Moving by Marin Vale" [ref=e203] [cursor=pointer] [box=105,835,716,38]:
+              - generic [ref=e204] [box=105,848,30,14]: "04"
+              - strong [ref=e206] [box=147,846,620,16]: Still Moving
+              - time [ref=e207] [box=778,848,42,14]: 4:27
+        - generic [ref=e208] [box=925,677,716,248]:
+          - generic [ref=e209] [box=925,677,716,34]:
+            - heading "Suggested" [level=3] [ref=e210] [box=925,685,71,19]
+            - button "Show Suggested as tracks" [ref=e211] [cursor=pointer] [box=1614,677,27,34]:
+              - generic [ref=e212] [box=1614,684,20,20]: view_agenda
+              - generic [box=1641,687,0,15]: Tracks
+          - generic [ref=e213] [box=925,721,716,204]:
+            - button "Play Soft Current by Nora Field" [ref=e214] [cursor=pointer] [box=925,721,162,204]:
+              - generic [ref=e215] [box=925,892,162,34]:
+                - strong [ref=e216] [box=925,892,162,16]: Soft Current
+                - generic [ref=e217] [box=925,912,162,14]: Nora Field
+            - button "Play Northbound by Glass Harbour" [ref=e218] [cursor=pointer] [box=1109,721,162,204]:
+              - generic [ref=e219] [box=1109,892,162,34]:
+                - strong [ref=e220] [box=1109,892,162,16]: Northbound
+                - generic [ref=e221] [box=1109,912,162,14]: Glass Harbour
+            - button "Play Low Sun by Jun Vale" [ref=e222] [cursor=pointer] [box=1294,721,162,204]:
+              - generic [ref=e223] [box=1294,892,162,34]:
+                - strong [ref=e224] [box=1294,892,162,16]: Low Sun
+                - generic [ref=e225] [box=1294,912,162,14]: Jun Vale
+            - button "Play After Rain by Mira North" [ref=e226] [cursor=pointer] [box=1478,721,162,204]:
+              - generic [ref=e227] [box=1478,892,162,34]:
+                - strong [ref=e228] [box=1478,892,162,16]: After Rain
+                - generic [ref=e229] [box=1478,912,162,14]: Mira North
+  - contentinfo [box=1387,940,272,21]:
+    - generic [box=1387,940,100,21]:
+      - generic [box=1387,940,48,21]: ←↑↓→
+      - text: Navigate
+    - generic [box=1505,940,76,21]:
+      - generic [box=1505,940,39,21]: Enter
+      - text: Select
+    - generic [box=1599,940,60,21]:
+      - generic [box=1599,940,28,21]: Esc
+      - text: Back

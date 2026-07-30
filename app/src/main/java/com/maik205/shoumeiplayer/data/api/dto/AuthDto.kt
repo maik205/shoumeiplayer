@@ -9,6 +9,35 @@ data class AuthenticateUserByName(
     @SerialName("Pw") val pw: String,
 )
 
+@Serializable
+data class QuickConnectDto(
+    @SerialName("Secret") val secret: String,
+)
+
+@Serializable
+data class QuickConnectResult(
+    @SerialName("Authenticated") val authenticated: Boolean = false,
+    @SerialName("Secret") val secret: String? = null,
+    @SerialName("Code") val code: String? = null,
+    @SerialName("DeviceId") val deviceId: String? = null,
+    @SerialName("DeviceName") val deviceName: String? = null,
+    @SerialName("AppName") val appName: String? = null,
+    @SerialName("AppVersion") val appVersion: String? = null,
+    @SerialName("DateAdded") val dateAdded: String? = null,
+)
+
+@Serializable
+data class ForgotPasswordDto(
+    @SerialName("EnteredUsername") val enteredUsername: String,
+)
+
+@Serializable
+data class ForgotPasswordResult(
+    @SerialName("Action") val action: String? = null,
+    @SerialName("PinFile") val pinFile: String? = null,
+    @SerialName("PinExpirationDate") val pinExpirationDate: String? = null,
+)
+
 /**
  * `UserConfiguration` — all 16 server-side properties (`additionalProperties: false`
  * on the Jellyfin schema, so an unknown key is a 400).
@@ -46,7 +75,38 @@ data class UserDto(
     @SerialName("Id") val id: String = "",
     @SerialName("Name") val name: String? = null,
     @SerialName("ServerId") val serverId: String? = null,
+    @SerialName("ServerName") val serverName: String? = null,
+    @SerialName("PrimaryImageTag") val primaryImageTag: String? = null,
+    @SerialName("HasPassword") val hasPassword: Boolean = false,
+    @SerialName("HasConfiguredPassword") val hasConfiguredPassword: Boolean = false,
+    @SerialName("HasConfiguredEasyPassword") val hasConfiguredEasyPassword: Boolean = false,
+    @SerialName("EnableAutoLogin") val enableAutoLogin: Boolean? = null,
+    @SerialName("LastLoginDate") val lastLoginDate: String? = null,
+    @SerialName("LastActivityDate") val lastActivityDate: String? = null,
     @SerialName("Configuration") val configuration: UserConfigurationDto? = null,
+    @SerialName("Policy") val policy: UserPolicyDto? = null,
+    @SerialName("PrimaryImageAspectRatio") val primaryImageAspectRatio: Double? = null,
+)
+
+@Serializable
+data class UserPolicyDto(
+    @SerialName("IsAdministrator") val isAdministrator: Boolean = false,
+    @SerialName("IsHidden") val isHidden: Boolean = false,
+    @SerialName("IsDisabled") val isDisabled: Boolean = false,
+    @SerialName("EnableUserPreferenceAccess") val enableUserPreferenceAccess: Boolean = false,
+    @SerialName("EnableRemoteAccess") val enableRemoteAccess: Boolean = false,
+    @SerialName("EnableLiveTvAccess") val enableLiveTvAccess: Boolean = false,
+    @SerialName("EnableMediaPlayback") val enableMediaPlayback: Boolean = false,
+    @SerialName("EnableAudioPlaybackTranscoding") val enableAudioPlaybackTranscoding: Boolean = false,
+    @SerialName("EnableVideoPlaybackTranscoding") val enableVideoPlaybackTranscoding: Boolean = false,
+    @SerialName("EnablePlaybackRemuxing") val enablePlaybackRemuxing: Boolean = false,
+    @SerialName("EnableContentDownloading") val enableContentDownloading: Boolean = false,
+    @SerialName("InvalidLoginAttemptCount") val invalidLoginAttemptCount: Int = 0,
+    @SerialName("LoginAttemptsBeforeLockout") val loginAttemptsBeforeLockout: Int = 0,
+    @SerialName("MaxActiveSessions") val maxActiveSessions: Int = 0,
+    @SerialName("RemoteClientBitrateLimit") val remoteClientBitrateLimit: Int = 0,
+    @SerialName("AuthenticationProviderId") val authenticationProviderId: String = "",
+    @SerialName("PasswordResetProviderId") val passwordResetProviderId: String = "",
 )
 
 @Serializable

@@ -11,9 +11,11 @@ import com.maik205.shoumeiplayer.data.api.dto.ChapterInfoDto
 import com.maik205.shoumeiplayer.data.repo.AuthRepository
 import com.maik205.shoumeiplayer.data.repo.DEFAULT_MAX_STREAMING_BITRATE
 import com.maik205.shoumeiplayer.data.repo.LibraryRepository
+import com.maik205.shoumeiplayer.data.repo.PLAY_METHOD_TRANSCODE
 import com.maik205.shoumeiplayer.data.repo.PlaybackRepository
 import com.maik205.shoumeiplayer.data.repo.ResolvedPlayback
 import com.maik205.shoumeiplayer.data.repo.TrackSelection
+import com.maik205.shoumeiplayer.data.session.SettingsStore
 import com.maik205.shoumeiplayer.player.PlayRequest
 import com.maik205.shoumeiplayer.player.PlaybackProgressReporter
 import com.maik205.shoumeiplayer.player.PlaybackSpeed
@@ -71,6 +73,26 @@ data class CastMemberUi(
     val blurHash: String?,
 )
 
+/**
+ * A compact, player-owned queue row. Keeping this model outside the television package lets the
+ * playback state remain usable by any future presentation without leaking Compose concerns into it.
+ */
+data class AudioQueueItemUi(
+    val itemId: String,
+    val title: String,
+    val artist: String?,
+    val album: String?,
+    val artworkUrl: String?,
+    val durationMs: Long?,
+    val playing: Boolean = false,
+)
+
+data class LyricLineUi(
+    val text: String,
+    /** Jellyfin lyric timestamps converted from ticks to the player timeline. Null means unsynced. */
+    val startMs: Long?,
+)
+
 data class PlayerUiState(
     val loading: Boolean = true,
     val title: String = "",
@@ -88,6 +110,7 @@ data class PlayerUiState(
     val bufferedMs: Long? = null,
     val audioTracks: List<PlayerTrack> = emptyList(),
     val subtitleTracks: List<PlayerTrack> = emptyList(),
+    val videoTracks: List<PlayerTrack> = emptyList(),
     val chapters: List<ChapterMark> = emptyList(),
     // --- §5 features -------------------------------------------------------------------------
     val speed: Float = PlaybackSpeed.Normal,
@@ -106,11 +129,33 @@ data class PlayerUiState(
     val previousEpisodeId: String? = null,
     val nextEpisodeId: String? = null,
     val upNext: UpNextUi? = null,
+    val postPlayEpisodes: List<UpNextUi> = emptyList(),
     /** True once the playhead is inside the Up Next window and the card has not been dismissed. */
     val upNextVisible: Boolean = false,
     val similar: List<MediaCardUi> = emptyList(),
     val cast: List<CastMemberUi> = emptyList(),
     val shelvesLoading: Boolean = false,
+    // --- music playback ------------------------------------------------------------------------
+    val isAudio: Boolean = false,
+    val artist: String? = null,
+    val album: String? = null,
+    val albumArtworkUrl: String? = null,
+    val artistArtworkUrl: String? = null,
+    val queue: List<AudioQueueItemUi> = emptyList(),
+    val suggestedAudio: List<AudioQueueItemUi> = emptyList(),
+    val lyrics: List<LyricLineUi> = emptyList(),
+    val lyricsSynced: Boolean = false,
+    val musicContextLoading: Boolean = false,
+    // --- engine-side playback options ----------------------------------------------------------
+    val audioDelayMs: Long = 0,
+    val subtitleDelayMs: Long = 0,
+    /** Remote and on-screen seek step, loaded from the persisted television playback settings. */
+    val seekIntervalSeconds: Int = 10,
+    val playMethod: String? = null,
+    val container: String? = null,
+    val videoDescription: String? = null,
+    val audioDescription: String? = null,
+    val displayDescription: String? = null,
 )
 
 /**
@@ -167,6 +212,10 @@ class PlayerViewModel(
      * there during teardown would be killed before the request left the device.
      */
     private val teardownScope: CoroutineScope,
+    private val settingsStore: SettingsStore? = null,
+    private val initialAudioStreamIndex: Int? = null,
+    private val initialSubtitleStreamIndex: Int? = null,
+    private val initialQualityLabel: String? = null,
 ) : ViewModel() {
 
     private data class LocalState(
@@ -188,11 +237,30 @@ class PlayerViewModel(
         val previousEpisodeId: String? = null,
         val nextEpisodeId: String? = null,
         val upNext: UpNextUi? = null,
+        val postPlayEpisodes: List<UpNextUi> = emptyList(),
+        val playMethod: String? = null,
+        val container: String? = null,
+        val videoDescription: String? = null,
+        val audioDescription: String? = null,
+        val displayDescription: String? = null,
         val upNextDismissed: Boolean = false,
         val similar: List<MediaCardUi> = emptyList(),
         val cast: List<CastMemberUi> = emptyList(),
         val shelvesLoading: Boolean = false,
         val shelvesLoadedFor: String? = null,
+        val isAudio: Boolean = false,
+        val artist: String? = null,
+        val album: String? = null,
+        val albumArtworkUrl: String? = null,
+        val artistArtworkUrl: String? = null,
+        val queue: List<AudioQueueItemUi> = emptyList(),
+        val suggestedAudio: List<AudioQueueItemUi> = emptyList(),
+        val lyrics: List<LyricLineUi> = emptyList(),
+        val lyricsSynced: Boolean = false,
+        val musicContextLoading: Boolean = false,
+        val audioDelayMs: Long = 0,
+        val subtitleDelayMs: Long = 0,
+        val seekIntervalSeconds: Int = 10,
     )
 
     private val localState = MutableStateFlow(LocalState())
@@ -210,13 +278,19 @@ class PlayerViewModel(
     private val screenGone = AtomicBoolean(false)
     private var selectedAudioIndex: Int? = null
     private var selectedSubtitleIndex: Int? = null
+    /** Bitrate used by Auto quality; explicit quality rungs always replace this with their own cap. */
+    private var automaticMaxStreamingBitrate: Long = DEFAULT_MAX_STREAMING_BITRATE
+    private var initialSelectionPending =
+        initialAudioStreamIndex != null || initialSubtitleStreamIndex != null
 
     /** The item actually on screen — [itemId] only until the first [switchTo]. */
     private var currentItemId: String = itemId
 
     private var reporterJob: Job? = null
+    private var initialJob: Job? = null
     private var swapJob: Job? = null
     private var shelvesJob: Job? = null
+    private var musicContextJob: Job? = null
 
     /** Position + duration + buffered end, grouped so the outer [combine] stays within arity. */
     private data class Timeline(val positionMs: Long, val durationMs: Long?, val bufferedMs: Long?)
@@ -246,10 +320,11 @@ class PlayerViewModel(
             notice = local.notice,
             state = play.state,
             positionMs = time.positionMs,
-            durationMs = time.durationMs,
+            durationMs = duration,
             bufferedMs = time.bufferedMs,
             audioTracks = tracks.filter { it.type == TrackType.AUDIO },
             subtitleTracks = tracks.filter { it.type == TrackType.SUBTITLE },
+            videoTracks = tracks.filter { it.type == TrackType.VIDEO },
             chapters = chapterMarks(local.chapters, duration),
             speed = play.speed,
             quality = local.quality,
@@ -264,23 +339,95 @@ class PlayerViewModel(
             previousEpisodeId = local.previousEpisodeId,
             nextEpisodeId = local.nextEpisodeId,
             upNext = local.upNext,
+            postPlayEpisodes = local.postPlayEpisodes,
             upNextVisible = local.upNext != null &&
                 !local.upNextDismissed &&
                 isUpNextDue(time.positionMs, duration),
             similar = local.similar,
             cast = local.cast,
             shelvesLoading = local.shelvesLoading,
+            isAudio = local.isAudio,
+            artist = local.artist,
+            album = local.album,
+            albumArtworkUrl = local.albumArtworkUrl,
+            artistArtworkUrl = local.artistArtworkUrl,
+            queue = local.queue,
+            suggestedAudio = local.suggestedAudio,
+            lyrics = local.lyrics,
+            lyricsSynced = local.lyricsSynced,
+            musicContextLoading = local.musicContextLoading,
+            audioDelayMs = local.audioDelayMs,
+            subtitleDelayMs = local.subtitleDelayMs,
+            seekIntervalSeconds = local.seekIntervalSeconds,
+            playMethod = local.playMethod,
+            container = local.container,
+            videoDescription = local.videoDescription,
+            audioDescription = local.audioDescription,
+            displayDescription = local.displayDescription,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlayerUiState())
 
     init {
-        viewModelScope.launch {
+        startInitialPlayback()
+    }
+
+    private fun startInitialPlayback() {
+        if (initialJob?.isActive == true || screenGone.get()) return
+        initialJob = viewModelScope.launch {
+            localState.update { it.copy(loading = true, error = null, notice = null) }
+            val settings = settingsStore?.let { runCatching { it.current() }.getOrNull() }
+            val preferredQuality = VideoQuality.forLabel(initialQualityLabel ?: settings?.preferredQuality)
+            val audioDelay = settings?.audioDelayMs?.toLong() ?: 0L
+            val subtitleDelay = settings?.subtitleDelayMs?.toLong() ?: 0L
+            val seekIntervalSeconds = settings?.seekIntervalSeconds?.coerceAtLeast(1) ?: 10
+            automaticMaxStreamingBitrate = settings
+                ?.maxRemoteBitrateMbps
+                ?.takeIf { it > 0 }
+                ?.toLong()
+                ?.times(1_000_000L)
+                ?: DEFAULT_MAX_STREAMING_BITRATE
+            settings?.let(engine::configure)
+            localState.update {
+                it.copy(
+                    quality = preferredQuality,
+                    audioDelayMs = audioDelay,
+                    subtitleDelayMs = subtitleDelay,
+                    seekIntervalSeconds = seekIntervalSeconds,
+                )
+            }
+            engine.setAudioDelayMs(audioDelay)
+            engine.setSubtitleDelayMs(subtitleDelay)
+
             val item = loadItemMetadata(itemId)
-            when (val result = resolveFor(itemId, startPositionTicks, VideoQuality.AUTO)) {
+            if (screenGone.get()) return@launch
+            // Streaming quality is a video concern. Carrying a saved 720p/1080p preference into an
+            // audio item would unnecessarily forbid direct play and can make the server transcode a
+            // track that mpv could have consumed untouched.
+            val quality = if (item?.type == "Audio" || item?.mediaType == "Audio") {
+                VideoQuality.AUTO
+            } else {
+                preferredQuality
+            }
+            if (quality != preferredQuality) localState.update { it.copy(quality = quality) }
+            when (
+                val result = resolveFor(
+                    itemId = itemId,
+                    startPositionTicks = startPositionTicks,
+                    quality = quality,
+                    audioStreamIndex = initialAudioStreamIndex,
+                    subtitleStreamIndex = initialSubtitleStreamIndex,
+                )
+            ) {
                 is ApiResult.Failure -> {
                     localState.update { it.copy(loading = false, error = result.error.displayMessage) }
                 }
                 is ApiResult.Success -> {
+                    if (screenGone.get()) {
+                        teardownScope.launch {
+                            reporter.reportStopped(result.data, Ticks.toMs(startPositionTicks), failed = false)
+                        }
+                        return@launch
+                    }
                     localState.update { it.copy(loading = false, error = null) }
                     attachStream(result.data, item, Ticks.toMs(startPositionTicks), keepTracks = false)
                 }
@@ -301,9 +448,22 @@ class PlayerViewModel(
     fun togglePlayPause() {
         when (engine.state.value) {
             PlayerState.Playing -> engine.pause()
+            PlayerState.Buffering, PlayerState.Loading -> engine.pause()
             PlayerState.Paused -> engine.play()
+            PlayerState.Ended -> {
+                engine.seekTo(0)
+                engine.play()
+            }
             else -> Unit
         }
+    }
+
+    fun play() {
+        engine.play()
+    }
+
+    fun pause() {
+        engine.pause()
     }
 
     fun seekBy(deltaMs: Long) {
@@ -317,16 +477,126 @@ class PlayerViewModel(
     }
 
     fun selectTrack(track: PlayerTrack) {
+        if (track.type == TrackType.VIDEO) {
+            engine.selectTrack(track)
+            return
+        }
+        val current = resolved
+        if (current?.playMethod == PLAY_METHOD_TRANSCODE && swapJob?.isActive == true) return
+        val previousAudioIndex = selectedAudioIndex
+        val previousSubtitleIndex = selectedSubtitleIndex
         when (track.type) {
+            TrackType.VIDEO -> Unit
             TrackType.AUDIO -> selectedAudioIndex = track.id
             TrackType.SUBTITLE -> selectedSubtitleIndex = track.id
         }
-        engine.selectTrack(track)
+        if (current?.playMethod == PLAY_METHOD_TRANSCODE) {
+            val positionMs = engine.positionMs.value
+            swapJob = viewModelScope.launch {
+                val changed = swapStream(
+                    positionMs = positionMs,
+                    resolve = {
+                        resolveFor(
+                            itemId = current.itemId,
+                            startPositionTicks = Ticks.fromMs(positionMs),
+                            quality = localState.value.quality,
+                            mediaSourceId = current.mediaSourceId,
+                            audioStreamIndex = selectedAudioIndex,
+                            subtitleStreamIndex = selectedSubtitleIndex,
+                        )
+                    },
+                    attach = { fresh ->
+                        attachStream(fresh, item = null, startMs = positionMs, keepTracks = true)
+                    },
+                )
+                if (!changed) {
+                    selectedAudioIndex = previousAudioIndex
+                    selectedSubtitleIndex = previousSubtitleIndex
+                }
+            }
+        } else {
+            engine.selectTrack(track)
+            if (current != null) {
+                viewModelScope.launch {
+                    reporter.reportProgressNow(
+                        resolved = current,
+                        positionMs = engine.positionMs.value,
+                        paused = engine.state.value == PlayerState.Paused,
+                        selectedAudioIndex = selectedAudioIndex,
+                        selectedSubtitleIndex = selectedSubtitleIndex,
+                    )
+                }
+            }
+        }
     }
 
     /** §5 — 0.5×…2×. Purely an engine-side rate change; the stream is untouched. */
     fun setSpeed(speed: Float) {
         engine.setSpeed(PlaybackSpeed.clamp(speed))
+    }
+
+    fun setAudioDelayMs(value: Long) {
+        localState.update { it.copy(audioDelayMs = value) }
+        engine.setAudioDelayMs(value)
+        settingsStore?.let { store ->
+            viewModelScope.launch { store.setAudioDelayMs(value.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()) }
+        }
+    }
+
+    fun setSubtitleDelayMs(value: Long) {
+        localState.update { it.copy(subtitleDelayMs = value) }
+        engine.setSubtitleDelayMs(value)
+        settingsStore?.let { store ->
+            viewModelScope.launch {
+                store.setSubtitleDelayMs(value.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt())
+            }
+        }
+    }
+
+    fun setFrameMode(value: String) = engine.setFrameMode(value)
+
+    fun setHdrMode(value: String) = engine.setHdrMode(value)
+
+    fun setDeinterlaceMode(value: String) = engine.setDeinterlaceMode(value)
+
+    fun resetPlaybackDelays() {
+        setAudioDelayMs(0)
+        setSubtitleDelayMs(0)
+    }
+
+    /**
+     * Re-resolves the current item after either a repository failure or an engine failure. The old
+     * resolved session is retired only after a replacement exists, so retry never destroys the last
+     * playable URL before the server has produced another one.
+     */
+    fun retryPlayback() {
+        if (swapJob?.isActive == true) return
+        val positionMs = engine.positionMs.value
+        val current = resolved
+        if (current == null) {
+            screenGone.set(false)
+            startInitialPlayback()
+            return
+        }
+        swapJob = viewModelScope.launch {
+            localState.update { it.copy(error = null, notice = null) }
+            swapStream(
+                positionMs = positionMs,
+                resolve = {
+                    resolveFor(
+                        itemId = current.itemId,
+                        startPositionTicks = Ticks.fromMs(positionMs),
+                        quality = localState.value.quality,
+                        mediaSourceId = current.mediaSourceId,
+                        audioStreamIndex = selectedAudioIndex,
+                        subtitleStreamIndex = selectedSubtitleIndex,
+                    )
+                },
+                attach = { fresh ->
+                    attachStream(fresh, item = null, startMs = positionMs, keepTracks = true)
+                },
+            )
+        }
     }
 
     fun dismissNotice() {
@@ -349,9 +619,9 @@ class PlayerViewModel(
         if (swapJob?.isActive == true) return
         swapJob = viewModelScope.launch {
             val positionMs = engine.positionMs.value
-            // The state's quality rung is derived from the resolve that won, in attachStream — a
-            // request that failed must not leave the chip claiming a quality nothing is playing at.
-            swapStream(
+            // Commit the requested rung only after a replacement resolves. A failed request must
+            // not leave the chip claiming a quality nothing is playing at.
+            val changed = swapStream(
                 positionMs = positionMs,
                 resolve = {
                     resolveFor(
@@ -365,6 +635,10 @@ class PlayerViewModel(
                 },
                 attach = { fresh -> attachStream(fresh, item = null, startMs = positionMs, keepTracks = true) },
             )
+            if (changed) {
+                localState.update { it.copy(quality = quality) }
+                settingsStore?.setPreferredQuality(quality.label)
+            }
         }
     }
 
@@ -376,6 +650,18 @@ class PlayerViewModel(
 
     fun playNextEpisode() {
         localState.value.nextEpisodeId?.let(::switchTo)
+    }
+
+    fun playPreviousAudio() {
+        val queue = localState.value.queue
+        val index = queue.indexOfFirst { it.playing }
+        queue.getOrNull(index - 1)?.itemId?.let(::switchTo)
+    }
+
+    fun playNextAudio() {
+        val queue = localState.value.queue
+        val index = queue.indexOfFirst { it.playing }
+        queue.getOrNull(index + 1)?.itemId?.let(::switchTo)
     }
 
     /**
@@ -407,7 +693,7 @@ class PlayerViewModel(
                     }
                     applyItemMetadata(target)
                     attachStream(fresh, target, startMs, keepTracks = false)
-                    viewModelScope.launch { loadAdjacency(targetItemId, target) }
+                    loadPlaybackContext(targetItemId, target)
                 },
             )
         }
@@ -462,7 +748,7 @@ class PlayerViewModel(
         mediaSourceId = mediaSourceId,
         audioStreamIndex = audioStreamIndex,
         subtitleStreamIndex = subtitleStreamIndex,
-        maxStreamingBitrate = quality.maxStreamingBitrate ?: DEFAULT_MAX_STREAMING_BITRATE,
+        maxStreamingBitrate = quality.maxStreamingBitrate ?: automaticMaxStreamingBitrate,
         forceTranscode = quality.forcesTranscode,
     )
 
@@ -537,16 +823,51 @@ class PlayerViewModel(
                 configuration = configuration,
                 defaultAudioStreamIndex = r.defaultAudioIndex,
             )
-            selectedAudioIndex = audioIndex
-            selectedSubtitleIndex = TrackSelection.selectSubtitleIndex(
+            selectedAudioIndex = if (initialSelectionPending) {
+                initialAudioStreamIndex ?: audioIndex
+            } else {
+                audioIndex
+            }
+            val subtitleIndex = TrackSelection.selectSubtitleIndex(
                 streams = r.mediaStreams,
                 configuration = configuration,
                 defaultSubtitleStreamIndex = r.defaultSubtitleIndex,
-                selectedAudioIndex = audioIndex,
+                selectedAudioIndex = selectedAudioIndex,
             )
+            selectedSubtitleIndex = if (initialSelectionPending) {
+                initialSubtitleStreamIndex ?: subtitleIndex
+            } else {
+                subtitleIndex
+            }
+            initialSelectionPending = false
         }
         resolved = r
-        localState.update { it.copy(quality = VideoQuality.forBitrate(r.maxStreamingBitrate)) }
+        val videoStream = r.mediaStreams.firstOrNull { it.type.equals("Video", ignoreCase = true) }
+        val audioStream = r.mediaStreams.firstOrNull { it.type.equals("Audio", ignoreCase = true) }
+        localState.update {
+            it.copy(
+                playMethod = r.playMethod,
+                container = r.streamUrl
+                    .substringBefore('?')
+                    .substringAfterLast('.', missingDelimiterValue = "")
+                    .uppercase()
+                    .takeIf(String::isNotBlank),
+                videoDescription = listOfNotNull(
+                    videoStream?.codec?.uppercase(),
+                    videoStream?.width?.let { width ->
+                        videoStream.height?.let { height -> "${width}×$height" }
+                    },
+                ).joinToString(" · ").takeIf(String::isNotBlank),
+                audioDescription = listOfNotNull(
+                    audioStream?.codec?.uppercase(),
+                    audioStream?.channels?.let { "$it ch" },
+                    audioStream?.language,
+                ).joinToString(" · ").takeIf(String::isNotBlank),
+                displayDescription = videoStream?.width?.let { width ->
+                    videoStream.height?.let { height -> "${width}×$height" }
+                },
+            )
+        }
 
         // `fields=Trickplay` rides on the item query, so the manifest is only ever available here.
         // A quality swap passes item = null on purpose: trickplay sheets are generated per item and
@@ -568,6 +889,9 @@ class PlayerViewModel(
                 headers = r.headers,
                 startPositionMs = startMs,
                 durationMs = r.runTimeTicks?.let { Ticks.toMs(it) },
+                requiresVideoSurface = item?.let {
+                    it.type != "Audio" && it.mediaType != "Audio"
+                } ?: true,
                 preferredAudioTrackId = selectedAudioIndex,
                 preferredSubtitleTrackId = selectedSubtitleIndex,
                 externalSubtitles = r.externalSubtitles,
@@ -587,11 +911,11 @@ class PlayerViewModel(
 
     // --- item metadata -------------------------------------------------------------------------
 
-    /** Fetches the item detail and folds it into state, then kicks off episode adjacency. */
+    /** Fetches item detail, folds it into state, then starts the matching video/music context. */
     private suspend fun loadItemMetadata(targetItemId: String): BaseItemDto? {
         val item = (libraryRepository.item(targetItemId) as? ApiResult.Success)?.data
         applyItemMetadata(item)
-        viewModelScope.launch { loadAdjacency(targetItemId, item) }
+        loadPlaybackContext(targetItemId, item)
         return item
     }
 
@@ -601,11 +925,21 @@ class PlayerViewModel(
      * swap the replacements arrive a moment later, and stale neighbours are worse than none.
      */
     private fun applyItemMetadata(item: BaseItemDto?) {
+        val isAudio = item?.type == "Audio" || item?.mediaType == "Audio"
+        val artist = item?.artists
+            ?.filter(String::isNotBlank)
+            ?.joinToString(", ")
+            ?.takeIf(String::isNotBlank)
+            ?: item?.albumArtist?.takeIf(String::isNotBlank)
+        val albumArtwork = item?.albumId
+            ?.let { albumId -> imageUrlBuilder.primary(albumId, item.albumPrimaryImageTag, maxWidth = 900) }
+            ?: item?.let { dto -> imageUrlBuilder.primaryWithParentFallback(dto, maxWidth = 900) }
         localState.update {
             it.copy(
                 previousEpisodeId = null,
                 nextEpisodeId = null,
                 upNext = null,
+                postPlayEpisodes = emptyList(),
                 trickplay = null,
                 title = item?.name.orEmpty(),
                 // `fields=Chapters` is requested by LibraryRepository.item(); /PlaybackInfo never
@@ -619,6 +953,16 @@ class PlayerViewModel(
                 seasonNumber = item?.parentIndexNumber,
                 episodeNumber = item?.indexNumber,
                 year = item?.productionYear,
+                isAudio = isAudio,
+                artist = artist,
+                album = item?.album?.takeIf(String::isNotBlank),
+                albumArtworkUrl = albumArtwork,
+                artistArtworkUrl = null,
+                queue = emptyList(),
+                suggestedAudio = emptyList(),
+                lyrics = emptyList(),
+                lyricsSynced = false,
+                musicContextLoading = isAudio,
                 cast = item?.people.orEmpty().take(CAST_LIMIT).map { person ->
                     CastMemberUi(
                         id = person.id,
@@ -631,6 +975,101 @@ class PlayerViewModel(
                 },
             )
         }
+    }
+
+    private fun loadPlaybackContext(targetItemId: String, item: BaseItemDto?) {
+        if (item?.type == "Audio" || item?.mediaType == "Audio") {
+            loadMusicContext(targetItemId, item)
+        } else {
+            musicContextJob?.cancel()
+            viewModelScope.launch { loadAdjacency(targetItemId, item) }
+        }
+    }
+
+    private fun loadMusicContext(targetItemId: String, item: BaseItemDto) {
+        musicContextJob?.cancel()
+        musicContextJob = viewModelScope.launch {
+            val artistId = (item.artistItems + item.albumArtists)
+                .firstOrNull { it.id.isNotBlank() }
+                ?.id
+            val queueItems = when {
+                !item.albumId.isNullOrBlank() ->
+                    (libraryRepository.albumTracks(item.albumId) as? ApiResult.Success)?.data.orEmpty()
+                !artistId.isNullOrBlank() ->
+                    (libraryRepository.artistSongs(artistId) as? ApiResult.Success)?.data.orEmpty()
+                else -> emptyList()
+            }
+            val queueSeed = if (queueItems.any { it.id == targetItemId }) {
+                queueItems
+            } else {
+                listOf(item) + queueItems
+            }
+            val queue = queueSeed
+                .distinctBy { it.id }
+                .map { it.toAudioQueueItem(currentId = targetItemId) }
+
+            val suggested = (libraryRepository.similar(targetItemId, limit = 20) as? ApiResult.Success)
+                ?.data
+                .orEmpty()
+                .filter { it.type == "Audio" || it.mediaType == "Audio" }
+                .filterNot { candidate -> queue.any { queued -> queued.itemId == candidate.id } }
+                .map { it.toAudioQueueItem(currentId = targetItemId) }
+
+            val lyricDto = if (item.hasLyrics) {
+                (libraryRepository.lyrics(targetItemId) as? ApiResult.Success)?.data
+            } else {
+                null
+            }
+            val lyrics = lyricDto?.lyrics
+                .orEmpty()
+                .filter { it.text.isNotBlank() }
+                .map { line ->
+                    LyricLineUi(
+                        text = line.text,
+                        startMs = line.start?.let(Ticks::toMs),
+                    )
+                }
+            val artistArtwork = artistId
+                ?.let { (libraryRepository.item(it) as? ApiResult.Success)?.data }
+                ?.let { imageUrlBuilder.primaryWithParentFallback(it, maxWidth = 480) }
+                ?: item.people
+                    .firstOrNull { person ->
+                        person.id == artistId || person.type.equals("MusicArtist", ignoreCase = true)
+                    }
+                    ?.let { person -> imageUrlBuilder.personPrimary(person.id, person.primaryImageTag, maxWidth = 480) }
+
+            if (targetItemId != currentItemId) return@launch
+            localState.update {
+                it.copy(
+                    queue = queue,
+                    suggestedAudio = suggested,
+                    lyrics = lyrics,
+                    lyricsSynced = lyricDto?.metadata?.isSynced == true || lyrics.any { line -> line.startMs != null },
+                    artistArtworkUrl = artistArtwork,
+                    musicContextLoading = false,
+                )
+            }
+        }
+    }
+
+    private fun BaseItemDto.toAudioQueueItem(currentId: String): AudioQueueItemUi {
+        val displayArtist = artists
+            .filter(String::isNotBlank)
+            .joinToString(", ")
+            .takeIf(String::isNotBlank)
+            ?: albumArtist?.takeIf(String::isNotBlank)
+        val artwork = albumId
+            ?.let { imageUrlBuilder.primary(it, albumPrimaryImageTag, maxWidth = 360) }
+            ?: imageUrlBuilder.primaryWithParentFallback(this, maxWidth = 360)
+        return AudioQueueItemUi(
+            itemId = id,
+            title = name.orEmpty(),
+            artist = displayArtist,
+            album = album,
+            artworkUrl = artwork,
+            durationMs = runTimeTicks?.let(Ticks::toMs),
+            playing = id == currentId,
+        )
     }
 
     /**
@@ -646,7 +1085,10 @@ class PlayerViewModel(
         if (index < 0) return
         val previous = episodes.getOrNull(index - 1)
         val next = episodes.getOrNull(index + 1)
-        val autoPlay = authRepository.userConfiguration()?.enableNextEpisodeAutoPlay ?: true
+        val autoPlay = settingsStore
+            ?.let { runCatching { it.current().autoplayNextEpisode }.getOrNull() }
+            ?: authRepository.userConfiguration()?.enableNextEpisodeAutoPlay
+            ?: true
         // Guard against a slow adjacency response landing after the user already moved on.
         if (targetItemId != currentItemId) return
         localState.update { state ->
@@ -654,6 +1096,17 @@ class PlayerViewModel(
                 previousEpisodeId = previous?.id,
                 nextEpisodeId = next?.id,
                 upNext = next?.let { episode ->
+                    val card = episode.toCardUi(imageUrlBuilder, wide = true)
+                    UpNextUi(
+                        itemId = episode.id,
+                        title = card.title,
+                        subtitle = card.subtitle,
+                        thumbUrl = card.imageUrl,
+                        blurHash = card.blurHash,
+                        autoPlay = autoPlay,
+                    )
+                },
+                postPlayEpisodes = episodes.drop(index + 1).map { episode ->
                     val card = episode.toCardUi(imageUrlBuilder, wide = true)
                     UpNextUi(
                         itemId = episode.id,
@@ -673,24 +1126,31 @@ class PlayerViewModel(
     /**
      * Reports playback stopped and tears down any server-side transcode.
      *
-     * Called from both the screen's `onDispose` and [onCleared] because neither alone is
-     * guaranteed: a back-exit mid-buffer disposes the screen, while process-level teardown may only
-     * clear the ViewModel. The CAS makes the pair idempotent so the server sees exactly one stop.
-     * A session that never finished resolving has nothing to report and nothing to tear down.
+     * Called from explicit user exit and [onCleared]. The CAS makes those teardown paths idempotent
+     * so the server sees exactly one stop. A mere surface loss or recomposition intentionally does
+     * not reach this method. A session that never finished resolving has nothing to report and
+     * nothing to tear down.
      */
     private fun finishPlayback() {
         screenGone.set(true)
         val r = resolved ?: return
         if (!teardownStarted.compareAndSet(false, true)) return
         val position = engine.positionMs.value
+        val failed = engine.state.value is PlayerState.Error
         teardownScope.launch {
-            reporter.reportStopped(r, position, failed = false)
+            reporter.reportStopped(r, position, failed = failed)
         }
     }
 
-    /** Reports playback stopped. Call from the player screen's onDispose. */
+    /** Legacy presentation hook; replacement surfaces should use [stopAndReport] on explicit exit. */
     fun onStopped() {
         finishPlayback()
+    }
+
+    /** Explicit user exit. Recomposition and ordinary surface loss must never call this. */
+    fun stopAndReport() {
+        finishPlayback()
+        engine.stop()
     }
 
     override fun onCleared() {

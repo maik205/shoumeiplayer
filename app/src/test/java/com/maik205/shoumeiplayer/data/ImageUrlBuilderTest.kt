@@ -17,6 +17,7 @@ class ImageUrlBuilderTest {
         assertNull(offline.thumb("item1", "tag1"))
         assertNull(offline.logo("item1", "tag1"))
         assertNull(offline.personPrimary("person1", "tag1"))
+        assertNull(offline.userPrimary("user1", "tag1"))
         assertNull(offline.image("item1", "Primary", "tag1", 400))
         assertNull(offline.imageAtIndex("item1", "Backdrop", 2, "tag1", 1280))
         assertNull(offline.backdropAtIndex("item1", 2, "tag1"))
@@ -73,6 +74,14 @@ class ImageUrlBuilderTest {
     }
 
     @Test
+    fun `public profile portraits use the Jellyfin user image endpoint`() {
+        assertEquals(
+            "http://server/UserImage?userId=user1&tag=portrait",
+            builder.userPrimary("user1", "portrait"),
+        )
+    }
+
+    @Test
     fun `indexed images put the index in the path segment`() {
         assertEquals(
             "http://server/Items/item1/Images/Backdrop/2?maxWidth=1280&quality=90&tag=t",
@@ -89,6 +98,33 @@ class ImageUrlBuilderTest {
     }
 
     // --- fallback chains -------------------------------------------------------------------
+
+    @Test
+    fun `episode preview prefers the episode primary still over inherited artwork`() {
+        val item = episode.copy(
+            imageTags = mapOf("Primary" to "episode-still"),
+            parentThumbItemId = "season-1",
+            parentThumbImageTag = "season-thumb",
+            seriesId = "series-1",
+            seriesThumbImageTag = "series-thumb",
+        )
+        assertEquals(
+            "http://server/Items/ep-1/Images/Primary?maxWidth=720&quality=90&tag=episode-still",
+            builder.episodePreview(item),
+        )
+    }
+
+    @Test
+    fun `episode preview falls back to a paired parent thumb when no episode still exists`() {
+        val item = episode.copy(
+            parentThumbItemId = "season-1",
+            parentThumbImageTag = "season-thumb",
+        )
+        assertEquals(
+            "http://server/Items/season-1/Images/Thumb?maxWidth=720&quality=90&tag=season-thumb",
+            builder.episodePreview(item),
+        )
+    }
 
     @Test
     fun `thumb chain prefers the items own thumb`() {
@@ -215,6 +251,20 @@ class ImageUrlBuilderTest {
             builder.primaryWithParentFallback(
                 episode.copy(seriesId = null, seriesPrimaryImageTag = "series", parentPrimaryImageItemId = null, parentPrimaryImageTag = "parent"),
             ),
+        )
+    }
+
+    @Test
+    fun `primary chain uses an audio tracks album cover`() {
+        val track = BaseItemDto(
+            id = "song-1",
+            type = "Audio",
+            albumId = "album-1",
+            albumPrimaryImageTag = "cover",
+        )
+        assertEquals(
+            "http://server/Items/album-1/Images/Primary?maxWidth=320&quality=90&tag=cover",
+            builder.primaryWithParentFallback(track),
         )
     }
 

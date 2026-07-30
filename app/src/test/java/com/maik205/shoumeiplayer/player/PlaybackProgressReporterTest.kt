@@ -24,6 +24,7 @@ class PlaybackProgressReporterTest {
     private class FakeReporting : PlaybackReporting {
         val startCalls = mutableListOf<Long>()
         val progressCalls = mutableListOf<Pair<Long, Boolean>>()
+        val progressSelections = mutableListOf<Pair<Int?, Int?>>()
         var stoppedCall: Pair<Long, Boolean>? = null
 
         override suspend fun reportStart(
@@ -44,6 +45,7 @@ class PlaybackProgressReporterTest {
             subtitleIndex: Int?,
         ): ApiResult<Unit> {
             progressCalls += positionTicks to isPaused
+            progressSelections += audioIndex to subtitleIndex
             return ApiResult.Success(Unit)
         }
 
@@ -196,6 +198,26 @@ class PlaybackProgressReporterTest {
         reporter.reportStopped(resolved, positionMs = 42_500L, failed = false)
 
         assertEquals(42_500L * 10_000L to false, reporting.stoppedCall)
+    }
+
+    @Test
+    fun `track-only progress update reports selected indices immediately`() = runTest {
+        val reporting = FakeReporting()
+        val reporter = PlaybackProgressReporter(reporting)
+
+        reporter.reportProgressNow(
+            resolved = resolved,
+            positionMs = 7_250L,
+            paused = true,
+            selectedAudioIndex = 4,
+            selectedSubtitleIndex = -1,
+        )
+
+        assertEquals(listOf(Ticks.fromMs(7_250L) to true), reporting.progressCalls)
+        assertEquals(
+            listOf<Pair<Int?, Int?>>(4 to -1),
+            reporting.progressSelections,
+        )
     }
 
     @Test

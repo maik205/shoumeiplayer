@@ -7,8 +7,10 @@ import com.maik205.shoumeiplayer.data.TrickplaySource
 import com.maik205.shoumeiplayer.data.api.JellyfinClient
 import com.maik205.shoumeiplayer.data.api.ShoumeiDeviceProfile
 import com.maik205.shoumeiplayer.data.api.dto.ChapterInfoDto
+import com.maik205.shoumeiplayer.data.api.dto.LiveStreamResponse
 import com.maik205.shoumeiplayer.data.api.dto.MediaSourceInfoDto
 import com.maik205.shoumeiplayer.data.api.dto.MediaStreamDto
+import com.maik205.shoumeiplayer.data.api.dto.OpenLiveStreamDto
 import com.maik205.shoumeiplayer.data.api.dto.PlaybackInfoDto
 import com.maik205.shoumeiplayer.data.api.dto.PlaybackInfoResponse
 import com.maik205.shoumeiplayer.data.api.dto.PlaybackProgressBody
@@ -21,6 +23,7 @@ import com.maik205.shoumeiplayer.player.TrackType
 
 /** `PlayMethod` values Jellyfin reporting understands. */
 const val PLAY_METHOD_DIRECT = "DirectPlay"
+const val PLAY_METHOD_DIRECT_STREAM = "DirectStream"
 const val PLAY_METHOD_TRANSCODE = "Transcode"
 
 /**
@@ -52,6 +55,8 @@ data class ResolvedPlayback(
      */
     val externalSubtitles: List<ExternalSubtitle> = emptyList(),
     val headers: Map<String, String>,
+    val liveStreamId: String? = null,
+    val requiresLiveStreamClose: Boolean = false,
     /**
      * The `MaxStreamingBitrate` this resolve was made with. Carried so the OSD can show which
      * quality rung the running stream belongs to without keeping a second copy of that state.
@@ -112,6 +117,7 @@ class PlaybackRepository(private val client: JellyfinClient) : PlaybackReporting
             startTimeTicks = startPositionTicks,
             maxStreamingBitrate = maxStreamingBitrate,
             mediaSourceId = mediaSourceId,
+            autoOpenLiveStream = false,
             enableDirectPlay = !forceTranscode,
             enableDirectStream = !forceTranscode,
             enableTranscoding = true,
@@ -131,26 +137,62 @@ class PlaybackRepository(private val client: JellyfinClient) : PlaybackReporting
             is ApiResult.Success -> infoResult.data
         }
 
-        val source = if (forceTranscode) {
+        var source = if (forceTranscode) {
             info.mediaSources.firstOrNull { !it.transcodingUrl.isNullOrBlank() }
         } else {
-            info.mediaSources.firstOrNull { it.supportsDirectPlay || it.supportsDirectStream }
+            info.mediaSources.firstOrNull { it.supportsDirectPlay }
+                ?: info.mediaSources.firstOrNull { it.supportsDirectStream }
         }
             ?: info.mediaSources.firstOrNull()
             ?: return ApiResult.Failure(ApiError.Unknown("No playable media source returned"))
-        val sourceId = source.id ?: return ApiResult.Failure(ApiError.Unknown("Media source missing id"))
         val playSessionId = info.playSessionId ?: ""
 
+        if (source.requiresOpening) {
+            val opened = openLiveStream(
+                OpenLiveStreamDto(
+                    openToken = source.openToken,
+                    userId = session.userId,
+                    playSessionId = playSessionId.takeIf(String::isNotBlank),
+                    maxStreamingBitrate = maxStreamingBitrate.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+                    startTimeTicks = startPositionTicks,
+                    audioStreamIndex = audioStreamIndex,
+                    subtitleStreamIndex = subtitleStreamIndex,
+                    itemId = itemId,
+                    enableDirectPlay = !forceTranscode,
+                    enableDirectStream = !forceTranscode,
+                    deviceProfile = ShoumeiDeviceProfile.build(),
+                ),
+            )
+            source = when (opened) {
+                is ApiResult.Failure -> return opened
+                is ApiResult.Success -> opened.data
+            }
+        }
+
+        val sourceId = source.id ?: return ApiResult.Failure(ApiError.Unknown("Media source missing id"))
         // A server that answers a forced-transcode request with direct-play flags anyway would
         // otherwise get a `static=true` URL and quietly ignore the bitrate cap.
-        val transcoding = forceTranscode || !(source.supportsDirectPlay || source.supportsDirectStream)
+        val directPlay = !forceTranscode && source.supportsDirectPlay
+        val directStream = !directPlay && !forceTranscode && source.supportsDirectStream
+        val transcoding = !directPlay && !directStream
+        if (directStream && source.transcodingUrl.isNullOrBlank()) {
+            return ApiResult.Failure(ApiError.Unknown("Server offered no direct-stream URL"))
+        }
         if (transcoding && source.transcodingUrl.isNullOrBlank()) {
             return ApiResult.Failure(ApiError.Unknown("Server offered no transcode for this quality"))
         }
-        val streamUrl = buildStreamUrl(itemId, source, sourceId, playSessionId, session, transcoding)
+        val streamUrl = buildStreamUrl(itemId, source, sourceId, playSessionId, session, directPlay)
             ?: return ApiResult.Failure(ApiError.Network("No server configured"))
         val externalSubtitles = externalSubtitles(source.mediaStreams, session)
-        val playMethod = if (transcoding) PLAY_METHOD_TRANSCODE else PLAY_METHOD_DIRECT
+        val playMethod = when {
+            directPlay -> PLAY_METHOD_DIRECT
+            directStream -> PLAY_METHOD_DIRECT_STREAM
+            else -> PLAY_METHOD_TRANSCODE
+        }
+        val requiredHeaders = source.requiredHttpHeaders
+            .orEmpty()
+            .mapNotNull { (name, value) -> value?.let { name to it } }
+            .toMap()
 
         return ApiResult.Success(
             ResolvedPlayback(
@@ -166,7 +208,9 @@ class PlaybackRepository(private val client: JellyfinClient) : PlaybackReporting
                 defaultSubtitleIndex = source.defaultSubtitleStreamIndex,
                 mediaStreams = source.mediaStreams,
                 externalSubtitles = externalSubtitles,
-                headers = mapOf("Authorization" to client.authHeader()),
+                headers = requiredHeaders + ("Authorization" to client.authHeader()),
+                liveStreamId = source.liveStreamId,
+                requiresLiveStreamClose = source.requiresClosing && !source.liveStreamId.isNullOrBlank(),
                 maxStreamingBitrate = maxStreamingBitrate,
             ),
         )
@@ -201,10 +245,17 @@ class PlaybackRepository(private val client: JellyfinClient) : PlaybackReporting
         sourceId: String,
         playSessionId: String,
         session: Session,
-        transcoding: Boolean,
-    ): String? = if (!transcoding) {
+        directPlay: Boolean,
+    ): String? = if (directPlay) {
+        val isAudioOnly = source.mediaStreams.any { it.type.equals("Audio", ignoreCase = true) } &&
+            source.mediaStreams.none { it.type.equals("Video", ignoreCase = true) }
+        val streamPath = if (isAudioOnly) {
+            "/Audio/$itemId/stream"
+        } else {
+            "/Videos/$itemId/stream"
+        }
         client.resolveUrl(
-            "/Videos/$itemId/stream",
+            streamPath,
             mapOf(
                 "static" to "true",
                 "mediaSourceId" to sourceId,
@@ -218,6 +269,29 @@ class PlaybackRepository(private val client: JellyfinClient) : PlaybackReporting
         val extraParams = if (transcodingUrl.contains("api_key")) emptyMap() else mapOf("api_key" to session.accessToken)
         client.resolveUrl(transcodingUrl, extraParams)
     }
+
+    suspend fun openLiveStream(request: OpenLiveStreamDto): ApiResult<MediaSourceInfoDto> =
+        when (val result = client.post<LiveStreamResponse>("/LiveStreams/Open", request)) {
+            is ApiResult.Failure -> result
+            is ApiResult.Success -> result.data.mediaSource
+                ?.let { ApiResult.Success(it) }
+                ?: ApiResult.Failure(ApiError.Unknown("Live stream response missing media source"))
+        }
+
+    suspend fun closeLiveStream(liveStreamId: String): ApiResult<Unit> {
+        if (liveStreamId.isBlank()) return ApiResult.Success(Unit)
+        return client.postEmpty(
+            "/LiveStreams/Close",
+            params = mapOf("liveStreamId" to liveStreamId),
+        )
+    }
+
+    suspend fun closeLiveStream(r: ResolvedPlayback): ApiResult<Unit> =
+        if (r.requiresLiveStreamClose) {
+            closeLiveStream(r.liveStreamId.orEmpty())
+        } else {
+            ApiResult.Success(Unit)
+        }
 
     /**
      * Resolves `DeliveryUrl` for every subtitle the server marks as externally delivered. The URL is
@@ -261,6 +335,7 @@ class PlaybackRepository(private val client: JellyfinClient) : PlaybackReporting
             itemId = r.itemId,
             mediaSourceId = r.mediaSourceId,
             playSessionId = r.playSessionId,
+            liveStreamId = r.liveStreamId,
             positionTicks = positionTicks,
             playMethod = r.playMethod,
             isPaused = false,
@@ -281,6 +356,7 @@ class PlaybackRepository(private val client: JellyfinClient) : PlaybackReporting
             itemId = r.itemId,
             mediaSourceId = r.mediaSourceId,
             playSessionId = r.playSessionId,
+            liveStreamId = r.liveStreamId,
             positionTicks = positionTicks,
             playMethod = r.playMethod,
             isPaused = isPaused,
@@ -299,6 +375,7 @@ class PlaybackRepository(private val client: JellyfinClient) : PlaybackReporting
             itemId = r.itemId,
             mediaSourceId = r.mediaSourceId,
             playSessionId = r.playSessionId,
+            liveStreamId = r.liveStreamId,
             positionTicks = positionTicks,
             failed = failed,
         ),
@@ -322,13 +399,14 @@ class PlaybackRepository(private val client: JellyfinClient) : PlaybackReporting
      * every caller gets it rather than each having to remember.
      */
     override suspend fun stopTranscode(r: ResolvedPlayback): ApiResult<Unit> {
-        if (r.playMethod != PLAY_METHOD_TRANSCODE || r.playSessionId.isBlank()) {
-            return ApiResult.Success(Unit)
+        if (r.playMethod != PLAY_METHOD_DIRECT && r.playSessionId.isNotBlank()) {
+            val session = client.currentSession() ?: return ApiResult.Failure(ApiError.Unauthorized)
+            val stopped = client.deleteEmpty(
+                "/Videos/ActiveEncodings",
+                mapOf("deviceId" to session.deviceId, "playSessionId" to r.playSessionId),
+            )
+            if (stopped is ApiResult.Failure) return stopped
         }
-        val session = client.currentSession() ?: return ApiResult.Failure(ApiError.Unauthorized)
-        return client.deleteEmpty(
-            "/Videos/ActiveEncodings",
-            mapOf("deviceId" to session.deviceId, "playSessionId" to r.playSessionId),
-        )
+        return closeLiveStream(r)
     }
 }

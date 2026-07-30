@@ -1,0 +1,184 @@
+- generic [ref=e2]:
+  - banner:
+    - navigation "Browse" [ref=e3]:
+      - button "search Search" [ref=e4] [cursor=pointer]:
+        - generic [ref=e5]: search
+        - generic [ref=e6]: Search
+      - button "home Home" [ref=e7] [cursor=pointer]:
+        - generic [ref=e8]: home
+        - generic [ref=e9]: Home
+      - generic [ref=e10]:
+        - button "movie Cinema" [ref=e11] [cursor=pointer]:
+          - generic [ref=e12]: movie
+          - generic [ref=e13]: Cinema
+        - button "tv Shows" [ref=e14] [cursor=pointer]:
+          - generic [ref=e15]: tv
+          - generic [ref=e16]: Shows
+        - button "headphones Music" [ref=e17] [cursor=pointer]:
+          - generic [ref=e18]: headphones
+          - generic [ref=e19]: Music
+        - button "photo_library Family photos" [ref=e20] [cursor=pointer]:
+          - generic [ref=e21]: photo_library
+          - generic [ref=e22]: Family photos
+        - button "live_tv Live TV" [ref=e23] [cursor=pointer]:
+          - generic [ref=e24]: live_tv
+          - generic [ref=e25]: Live TV
+    - generic [ref=e26]:
+      - button "Open settings" [ref=e27] [cursor=pointer]:
+        - generic [ref=e28]: settings
+        - generic: Settings
+      - button "Switch profile" [ref=e29] [cursor=pointer]
+  - main [ref=e30]:
+    - generic [ref=e31]:
+      - generic [ref=e33]:
+        - generic "The Last Light" [ref=e34]:
+          - generic [ref=e35]: The Last
+          - strong [ref=e36]: Light
+        - generic [ref=e37]:
+          - heading "The Last Light" [level=1] [ref=e38]
+          - generic [ref=e39]:
+            - generic [ref=e40]: "2026"
+            - generic [ref=e41]: 1h 52m
+            - generic [ref=e42]: 4K
+            - generic [ref=e43]: Drama
+        - generic [ref=e44]:
+          - button "play_arrow Play" [active] [ref=e45] [cursor=pointer]:
+            - generic [ref=e46]: play_arrow
+            - generic [ref=e47]: Play
+          - button "info Details" [ref=e48] [cursor=pointer]:
+            - generic [ref=e49]: info
+            - text: Details
+          - button "add My list" [ref=e50] [cursor=pointer]:
+            - generic [ref=e51]: add
+            - text: My list
+      - region [ref=e52]:
+        - heading "Continue watching" [level=2] [ref=e54]
+        - generic [ref=e55]:
+          - button "Stormy coast beside a lighthouse The Last Light 32 min left" [ref=e56] [cursor=pointer]:
+            - img "Stormy coast beside a lighthouse" [ref=e57]
+            - generic [ref=e59]:
+              - strong [ref=e60]: The Last Light
+              - generic [ref=e61]: 32 min left
+          - button "Night train crossing a foggy bridge Night Service S1 E4 · 18 min left" [ref=e64] [cursor=pointer]:
+            - img "Night train crossing a foggy bridge" [ref=e65]
+            - generic [ref=e67]:
+              - strong [ref=e68]: Night Service
+              - generic [ref=e69]: S1 E4 · 18 min left
+      - region [ref=e72]:
+        - heading "Recommended" [level=2] [ref=e74]
+        - generic [ref=e75]:
+          - button "Observatory beneath a solar eclipse Solaris County 2026" [ref=e76] [cursor=pointer]:
+            - img "Observatory beneath a solar eclipse" [ref=e77]
+            - generic [ref=e78]:
+              - strong [ref=e79]: Solaris County
+              - generic [ref=e80]: "2026"
+          - button "Still Water poster placeholder Still Water 2024" [ref=e81] [cursor=pointer]:
+            - img "Still Water poster placeholder" [ref=e82]
+            - generic [ref=e83]:
+              - strong [ref=e84]: Still Water
+              - generic [ref=e85]: "2024"
+          - button "Orchard Road poster placeholder Orchard Road Series" [ref=e86] [cursor=pointer]:
+            - img "Orchard Road poster placeholder" [ref=e87]
+            - generic [ref=e88]:
+              - strong [ref=e89]: Orchard Road
+              - generic [ref=e90]: Series
+          - button "The Quiet Season poster placeholder The Quiet Season 2023" [ref=e91] [cursor=pointer]:
+            - img "The Quiet Season poster placeholder" [ref=e92]
+            - generic [ref=e93]:
+              - strong [ref=e94]: The Quiet Season
+              - generic [ref=e95]: "2023"
+          - button "Signal Fire poster placeholder Signal Fire 2026" [ref=e96] [cursor=pointer]:
+            - img "Signal Fire poster placeholder" [ref=e97]
+            - generic [ref=e98]:
+              - strong [ref=e99]: Signal Fire
+              - generic [ref=e100]: "2026"
+      - region [ref=e101]:
+        - heading "Live and recorded" [level=2] [ref=e103]
+        - generic [ref=e104]:
+          - button "World News live channel placeholder World News Live now" [ref=e105] [cursor=pointer]:
+            - img "World News live channel placeholder" [ref=e106]
+            - generic [ref=e108]:
+              - strong [ref=e109]: World News
+              - generic [ref=e110]: Live now
+          - button "Coastal League live event placeholder Coastal League Live · 38 min remaining" [ref=e111] [cursor=pointer]:
+            - img "Coastal League live event placeholder" [ref=e112]
+            - generic [ref=e114]:
+              - strong [ref=e115]: Coastal League
+              - generic [ref=e116]: Live · 38 min remaining
+          - button "Grand Prix recording placeholder Grand Prix Replay Recording" [ref=e117] [cursor=pointer]:
+            - img "Grand Prix recording placeholder" [ref=e118]
+            - generic [ref=e120]:
+              - strong [ref=e121]: Grand Prix Replay
+              - generic [ref=e122]: Recording
+      - region [ref=e123]:
+        - heading "Listen next" [level=2] [ref=e125]
+        - generic [ref=e126]:
+          - button "Blue Hours album artwork placeholder Blue Hours Marin Vale · Album" [ref=e127] [cursor=pointer]:
+            - img "Blue Hours album artwork placeholder" [ref=e128]
+            - generic [ref=e129]:
+              - strong [ref=e130]: Blue Hours
+              - generic [ref=e131]: Marin Vale · Album
+          - button "Late Night Drive playlist artwork placeholder Late Night Drive 34 tracks · Playlist" [ref=e132] [cursor=pointer]:
+            - img "Late Night Drive playlist artwork placeholder" [ref=e133]
+            - generic [ref=e134]:
+              - strong [ref=e135]: Late Night Drive
+              - generic [ref=e136]: 34 tracks · Playlist
+          - button "The Cartographer's Sleep audiobook cover placeholder The Cartographer's Sleep Audiobook · 3h left" [ref=e137] [cursor=pointer]:
+            - img "The Cartographer's Sleep audiobook cover placeholder" [ref=e138]
+            - generic [ref=e139]:
+              - strong [ref=e140]: The Cartographer's Sleep
+              - generic [ref=e141]: Audiobook · 3h left
+          - button "Northern Static artist image placeholder Northern Static Artist" [ref=e142] [cursor=pointer]:
+            - img "Northern Static artist image placeholder" [ref=e143]
+            - generic [ref=e144]:
+              - strong [ref=e145]: Northern Static
+              - generic [ref=e146]: Artist
+      - region [ref=e147]:
+        - heading "Photo memories" [level=2] [ref=e149]
+        - generic [ref=e150]:
+          - button "Saigon in July photo album placeholder Saigon in July 84 photos" [ref=e151] [cursor=pointer]:
+            - img "Saigon in July photo album placeholder" [ref=e152]
+            - generic [ref=e154]:
+              - strong [ref=e155]: Saigon in July
+              - generic [ref=e156]: 84 photos
+          - button "North Coast photo album placeholder North Coast 126 photos" [ref=e157] [cursor=pointer]:
+            - img "North Coast photo album placeholder" [ref=e158]
+            - generic [ref=e160]:
+              - strong [ref=e161]: North Coast
+              - generic [ref=e162]: 126 photos
+          - button "Family Archive photo album placeholder Family Archive 302 photos" [ref=e163] [cursor=pointer]:
+            - img "Family Archive photo album placeholder" [ref=e164]
+            - generic [ref=e166]:
+              - strong [ref=e167]: Family Archive
+              - generic [ref=e168]: 302 photos
+      - region [ref=e169]:
+        - heading "Recently added" [level=2] [ref=e171]
+        - generic [ref=e172]:
+          - button "Low Country poster placeholder Low Country 2025" [ref=e173] [cursor=pointer]:
+            - img "Low Country poster placeholder" [ref=e174]
+            - generic [ref=e175]:
+              - strong [ref=e176]: Low Country
+              - generic [ref=e177]: "2025"
+          - button "Afterimage poster placeholder Afterimage 2024" [ref=e178] [cursor=pointer]:
+            - img "Afterimage poster placeholder" [ref=e179]
+            - generic [ref=e180]:
+              - strong [ref=e181]: Afterimage
+              - generic [ref=e182]: "2024"
+          - button "Paper Moon poster placeholder Paper Moon Series" [ref=e183] [cursor=pointer]:
+            - img "Paper Moon poster placeholder" [ref=e184]
+            - generic [ref=e185]:
+              - strong [ref=e186]: Paper Moon
+              - generic [ref=e187]: Series
+      - paragraph [ref=e189]: You've reached the end
+    - text: Now
+  - text: · · ·
+  - contentinfo:
+    - generic:
+      - generic: ←↑↓→
+      - text: Navigate
+    - generic:
+      - generic: Enter
+      - text: Select
+    - generic:
+      - generic: Esc
+      - text: Back

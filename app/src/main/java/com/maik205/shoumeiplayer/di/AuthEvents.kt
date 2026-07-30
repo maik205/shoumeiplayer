@@ -1,5 +1,6 @@
 package com.maik205.shoumeiplayer.di
 
+import com.maik205.shoumeiplayer.di.AuthEvents.emitUnauthorized
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 

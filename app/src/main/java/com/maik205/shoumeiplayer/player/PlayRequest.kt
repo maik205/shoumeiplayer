@@ -22,6 +22,8 @@ data class PlayRequest(
     val headers: Map<String, String> = emptyMap(),
     val startPositionMs: Long = 0,
     val durationMs: Long? = null,
+    /** Video requests wait for an attached Android Surface before opening MediaCodec. */
+    val requiresVideoSurface: Boolean = true,
     /** Jellyfin `MediaStream.Index` of the audio track to start on. */
     val preferredAudioTrackId: Int? = null,
     /** Jellyfin `MediaStream.Index` of the subtitle to start on, or -1 for off. */

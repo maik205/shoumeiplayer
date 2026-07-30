@@ -49,6 +49,29 @@ class PlaybackRepositoryTest {
         assertEquals(1, resolved.defaultAudioIndex)
     }
 
+    @Test
+    fun `audio resolve advertises native audio support and gives mpv the original file`() = runTest {
+        val recorder = RequestRecorder()
+        val client = FakeJellyfin.client(
+            routes = mapOf(
+                "/Items/song-1/PlaybackInfo" to
+                    fakeRoute(FakeJellyfin.fixture("playback_info_audio.json")),
+            ),
+            sessions = StaticSessionProvider(session),
+            recorder = recorder,
+        )
+
+        val result = PlaybackRepository(client).resolve("song-1")
+
+        val resolved = (result as ApiResult.Success).data
+        assertEquals(PLAY_METHOD_DIRECT, resolved.playMethod)
+        assertTrue(resolved.streamUrl.contains("/Audio/song-1/stream"))
+        assertTrue(resolved.streamUrl.contains("static=true"))
+        assertEquals("flac", resolved.audioTracks.single().label)
+        assertTrue(recorder.body().contains(""""Type":"Audio""""))
+        assertTrue(recorder.body().contains(""""EnableDirectPlay":true"""))
+    }
+
     // --- §5 quality re-resolve -----------------------------------------------------------------
 
     @Test

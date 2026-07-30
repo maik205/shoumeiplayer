@@ -88,6 +88,27 @@ class PlaybackProgressReporter(
     }
 
     /**
+     * Sends an out-of-band progress update after a direct-play track switch. The normal reporting
+     * loop only observes state and position, so a track-only change would otherwise remain invisible
+     * to the Jellyfin session until the next timed bucket.
+     */
+    suspend fun reportProgressNow(
+        resolved: ResolvedPlayback,
+        positionMs: Long,
+        paused: Boolean,
+        selectedAudioIndex: Int?,
+        selectedSubtitleIndex: Int?,
+    ) {
+        repository.reportProgress(
+            resolved,
+            Ticks.fromMs(positionMs),
+            paused,
+            selectedAudioIndex,
+            selectedSubtitleIndex,
+        )
+    }
+
+    /**
      * Final report for a session. Also tears down the server-side transcode — the two belong
      * together, and keeping them in one call means no caller can report a stop while leaking an
      * encoder. [PlaybackReporting.stopTranscode] is a no-op for direct play.

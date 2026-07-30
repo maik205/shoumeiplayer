@@ -2,9 +2,12 @@ package com.maik205.shoumeiplayer.ui.screens.home
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +24,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,6 +61,7 @@ import com.maik205.shoumeiplayer.ui.theme.Ease
 import com.maik205.shoumeiplayer.ui.theme.Ink000
 import com.maik205.shoumeiplayer.ui.theme.Paper
 import com.maik205.shoumeiplayer.ui.theme.Scrims
+import kotlin.math.abs
 
 private const val ROW_MY_MEDIA = "my_media"
 
@@ -78,18 +83,33 @@ private const val HERO_BACKDROP_ALPHA = 0.55f
 /** The blurhash placeholder fades up from the item's own colour, a shade under the art it replaces. */
 private const val HERO_BLURHASH_ALPHA = 0.45f
 
-/**
- * §5.1 — the hero owns the top ~52% of the 540dp canvas; the first row title is anchored to its
- * lower edge. 280dp is that 52%, and it is exactly the copy column's worst-case height plus the gap
- * below it, so a 96dp logo over a three-line overview still lands inside the safe area.
- */
-private val HeroBlockHeight = 280.dp
+/** Compact top stage: logo, one metadata line and actions, followed immediately by the first row. */
+private val HeroBlockHeight = 232.dp
 
 /** §5.2 rhythm, borrowed: logo art never grows past the display line it replaces. */
-private val HeroLogoMaxHeight = 96.dp
+private val HeroLogoMaxHeight = 72.dp
 
-/** Gap between the action slabs and the first row title. */
-private val HeroBottomGap = 16.dp
+/**
+ * Android TV's default focus relocation pins a focused child at 30% of its scroll container. On
+ * Home that pulls row zero over the hero even though the row already fits. Use minimum-distance
+ * relocation here: visible rows do not move, while lower rows still scroll into view.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+private object HomeBringIntoViewSpec : BringIntoViewSpec {
+    override fun calculateScrollDistance(
+        offset: Float,
+        size: Float,
+        containerSize: Float,
+    ): Float {
+        val trailingEdge = offset + size
+        return when {
+            offset >= 0f && trailingEdge <= containerSize -> 0f
+            offset < 0f && trailingEdge > containerSize -> 0f
+            abs(offset) < abs(trailingEdge - containerSize) -> offset
+            else -> trailingEdge - containerSize
+        }
+    }
+}
 
 /**
  * Which branch of the content `when` owns `contentFocusRequester` this frame. M6.3 — the requester
@@ -108,6 +128,7 @@ private enum class ContentFocusTarget { Loading, Error, Empty, Rows }
  * [HeroCopy] collect it, so a card focus recomposes those two subtrees and nothing else. The rows
  * are a `LazyColumn` of `LazyRow`s and stay entirely out of it.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     onNavigateToDetail: (String) -> Unit,
@@ -202,41 +223,49 @@ fun HomeScreen(
                     topPadding = HeroBlockHeight,
                 )
 
-                else -> LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        // Anti-trap: LEFT out of the row list opens the rail. A card inside a row
-                        // resolves its own LEFT neighbour first, so this only fires at the edge.
-                        .focusProperties { left = railFocusRequester },
-                    // Each row already carries RowGlowBleed above and below its cards; subtract it
-                    // so the *visual* rhythm is RowSpacing (§5).
-                    verticalArrangement = Arrangement.spacedBy(
-                        (Dimens.RowSpacing - RowGlowBleed * 2).coerceAtLeast(0.dp),
-                    ),
-                    contentPadding = PaddingValues(
-                        // The hero owns the top of the canvas; row 0's title starts under it.
-                        top = (HeroBlockHeight - RowGlowBleed).coerceAtLeast(0.dp),
-                        bottom = Dimens.OverscanVertical,
-                    ),
+                else -> CompositionLocalProvider(
+                    LocalBringIntoViewSpec provides HomeBringIntoViewSpec,
                 ) {
-                    itemsIndexed(uiState.rows, key = { _, row -> row.key }) { index, row ->
-                        MediaRow(
-                            title = row.resolveTitle(),
-                            items = row.items,
-                            onItemClick = { id ->
-                                if (row.key == ROW_MY_MEDIA) {
-                                    viewModel.libraryRouteFor(id)?.let { target ->
-                                        onNavigateToLibrary(target.id, target.name, target.collectionType)
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            // Anti-trap: LEFT out of the row list opens the rail. A card inside a row
+                            // resolves its own LEFT neighbour first, so this only fires at the edge.
+                            .focusProperties { left = railFocusRequester },
+                        // Each row already carries RowGlowBleed above and below its cards; subtract it
+                        // so the *visual* rhythm is RowSpacing (§5).
+                        verticalArrangement = Arrangement.spacedBy(
+                            (Dimens.RowSpacing - RowGlowBleed * 2).coerceAtLeast(0.dp),
+                        ),
+                        contentPadding = PaddingValues(
+                            // The hero owns the top of the canvas; row 0's title starts under it.
+                            top = (HeroBlockHeight - RowGlowBleed).coerceAtLeast(0.dp),
+                            bottom = Dimens.OverscanVertical,
+                        ),
+                    ) {
+                        itemsIndexed(uiState.rows, key = { _, row -> row.key }) { index, row ->
+                            MediaRow(
+                                title = row.resolveTitle(),
+                                items = row.items,
+                                onItemClick = { id ->
+                                    if (row.key == ROW_MY_MEDIA) {
+                                        viewModel.libraryRouteFor(id)?.let { target ->
+                                            onNavigateToLibrary(
+                                                target.id,
+                                                target.name,
+                                                target.collectionType,
+                                            )
+                                        }
+                                    } else {
+                                        onNavigateToDetail(id)
                                     }
-                                } else {
-                                    onNavigateToDetail(id)
-                                }
-                            },
-                            // Guardrail 7 — one lambda per row, never one per card, and it writes
-                            // to a flow no row observes.
-                            onItemFocused = { viewModel.onCardFocused(row.key, it.id) },
-                            firstItemFocusRequester = if (index == 0) firstCard else null,
-                        )
+                                },
+                                // Guardrail 7 — one lambda per row, never one per card, and it writes
+                                // to a flow no row observes.
+                                onItemFocused = { viewModel.onCardFocused(row.key, it.id) },
+                                firstItemFocusRequester = if (index == 0) firstCard else null,
+                            )
+                        }
                     }
                 }
             }
@@ -298,9 +327,8 @@ private fun HeroBackdrop(viewModel: HomeViewModel) {
 }
 
 /**
- * §5.1 — the hero copy: logo art (or the title) over the spec line, three lines of overview and the
- * two action slabs. Bottom-anchored inside the hero block, so the slabs always land the same
- * distance above the first row title however tall the logo is.
+ * Compact hero copy matching the Home hierarchy: logo (or title), a single title/metadata strip,
+ * then the two actions. Long synopsis copy belongs on Detail and no longer competes with row zero.
  *
  * Guardrail 7 — like [HeroBackdrop], this collects `hero` itself.
  */
@@ -322,35 +350,41 @@ private fun HeroCopy(
             animationSpec = tween(Dur.HeroCross, easing = Ease.Decel),
             label = "homeHeroCopy",
             modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = Dimens.OverscanHorizontal, bottom = HeroBottomGap)
+                .align(Alignment.TopStart)
+                .padding(
+                    start = Dimens.OverscanHorizontal,
+                    top = Dimens.OverscanVertical,
+                )
                 .width(Dimens.BodyMaxWidth),
         ) { current ->
             if (current != null) {
                 Column {
                     HeroTitle(title = current.title, logoUrl = current.logoUrl)
-                    if (current.specLine.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = current.specLine,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Ash600,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        if (current.logoUrl != null) {
+                            Text(
+                                text = current.title,
+                                style = MaterialTheme.typography.titleLarge,
+                                color = Paper,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        if (current.specLine.isNotBlank()) {
+                            Text(
+                                text = current.specLine,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Ash600,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     }
-                    val overview = current.overview
-                    if (!overview.isNullOrBlank()) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = overview,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Paper,
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         SlabButton(
                             text = stringResource(

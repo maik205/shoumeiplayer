@@ -313,6 +313,33 @@ class PlayerViewModelTest {
         finish(viewModel, engine)
     }
 
+    @Test
+    fun `detail playback selections are applied to the initial prepare`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val recorder = RequestRecorder()
+        val engine = SimulatedPlayerEngine(scope = this)
+        val viewModel = viewModel(
+            engine = engine,
+            recorder = recorder,
+            initialAudioStreamIndex = 1,
+            initialSubtitleStreamIndex = -1,
+            initialQualityLabel = "720p",
+        )
+        backgroundScope.launch { viewModel.uiState.collect { } }
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        val prepareIndex = recorder.paths().indexOf("/Items/item-1/PlaybackInfo")
+        assertTrue("PlaybackInfo prepare was not recorded", prepareIndex >= 0)
+        val body = recorder.bodyAt(prepareIndex)
+        assertTrue(body.contains("\"AudioStreamIndex\":1"))
+        assertTrue(body.contains("\"SubtitleStreamIndex\":-1"))
+        assertTrue(body.contains("\"MaxStreamingBitrate\":8000000"))
+        assertEquals(VideoQuality.HD, viewModel.uiState.value.quality)
+
+        finish(viewModel, engine)
+    }
+
     // --- helpers -----------------------------------------------------------------------------------
 
     /**
@@ -352,6 +379,9 @@ class PlayerViewModelTest {
         recorder: RequestRecorder? = null,
         playbackInfo: String = "playback_info.json",
         extraRoutes: Map<String, FakeRoute> = emptyMap(),
+        initialAudioStreamIndex: Int? = null,
+        initialSubtitleStreamIndex: Int? = null,
+        initialQualityLabel: String? = null,
     ): PlayerViewModel {
         val client = FakeJellyfin.client(
             routes = mapOf(
@@ -378,6 +408,9 @@ class PlayerViewModelTest {
             itemId = "item-1",
             startPositionTicks = 0,
             teardownScope = backgroundScope,
+            initialAudioStreamIndex = initialAudioStreamIndex,
+            initialSubtitleStreamIndex = initialSubtitleStreamIndex,
+            initialQualityLabel = initialQualityLabel,
         )
     }
 }

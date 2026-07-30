@@ -23,10 +23,18 @@ data class MediaStreamDto(
 @Serializable
 data class MediaSourceInfoDto(
     @SerialName("Id") val id: String? = null,
+    @SerialName("Name") val name: String? = null,
+    @SerialName("Path") val path: String? = null,
     @SerialName("Container") val container: String? = null,
     @SerialName("Protocol") val protocol: String? = null,
     @SerialName("RunTimeTicks") val runTimeTicks: Long? = null,
     @SerialName("Bitrate") val bitrate: Long? = null,
+    @SerialName("IsInfiniteStream") val isInfiniteStream: Boolean = false,
+    @SerialName("RequiresOpening") val requiresOpening: Boolean = false,
+    @SerialName("OpenToken") val openToken: String? = null,
+    @SerialName("RequiresClosing") val requiresClosing: Boolean = false,
+    @SerialName("LiveStreamId") val liveStreamId: String? = null,
+    @SerialName("RequiredHttpHeaders") val requiredHttpHeaders: Map<String, String?>? = null,
     @SerialName("SupportsDirectPlay") val supportsDirectPlay: Boolean = false,
     @SerialName("SupportsDirectStream") val supportsDirectStream: Boolean = false,
     @SerialName("SupportsTranscoding") val supportsTranscoding: Boolean = false,
@@ -50,6 +58,8 @@ data class PlaybackInfoDto(
     @SerialName("StartTimeTicks") val startTimeTicks: Long? = null,
     @SerialName("MaxStreamingBitrate") val maxStreamingBitrate: Long? = null,
     @SerialName("MediaSourceId") val mediaSourceId: String? = null,
+    @SerialName("LiveStreamId") val liveStreamId: String? = null,
+    @SerialName("AutoOpenLiveStream") val autoOpenLiveStream: Boolean? = null,
     @SerialName("EnableDirectPlay") val enableDirectPlay: Boolean = true,
     @SerialName("EnableDirectStream") val enableDirectStream: Boolean = true,
     @SerialName("EnableTranscoding") val enableTranscoding: Boolean = true,
@@ -59,12 +69,36 @@ data class PlaybackInfoDto(
     @SerialName("SubtitleStreamIndex") val subtitleStreamIndex: Int? = null,
 )
 
+@Serializable
+data class OpenLiveStreamDto(
+    @SerialName("OpenToken") val openToken: String? = null,
+    @SerialName("UserId") val userId: String? = null,
+    @SerialName("PlaySessionId") val playSessionId: String? = null,
+    @SerialName("MaxStreamingBitrate") val maxStreamingBitrate: Int? = null,
+    @SerialName("StartTimeTicks") val startTimeTicks: Long? = null,
+    @SerialName("AudioStreamIndex") val audioStreamIndex: Int? = null,
+    @SerialName("SubtitleStreamIndex") val subtitleStreamIndex: Int? = null,
+    @SerialName("MaxAudioChannels") val maxAudioChannels: Int? = null,
+    @SerialName("ItemId") val itemId: String? = null,
+    @SerialName("EnableDirectPlay") val enableDirectPlay: Boolean? = null,
+    @SerialName("EnableDirectStream") val enableDirectStream: Boolean? = null,
+    @SerialName("AlwaysBurnInSubtitleWhenTranscoding") val alwaysBurnInSubtitleWhenTranscoding: Boolean? = null,
+    @SerialName("DeviceProfile") val deviceProfile: DeviceProfileDto? = null,
+    @SerialName("DirectPlayProtocols") val directPlayProtocols: List<String> = emptyList(),
+)
+
+@Serializable
+data class LiveStreamResponse(
+    @SerialName("MediaSource") val mediaSource: MediaSourceInfoDto? = null,
+)
+
 // Playback reporting bodies (one class serves Start and Progress).
 @Serializable
 data class PlaybackProgressBody(
     @SerialName("ItemId") val itemId: String,
     @SerialName("MediaSourceId") val mediaSourceId: String? = null,
     @SerialName("PlaySessionId") val playSessionId: String? = null,
+    @SerialName("LiveStreamId") val liveStreamId: String? = null,
     @SerialName("PositionTicks") val positionTicks: Long = 0,
     @SerialName("PlayMethod") val playMethod: String? = null,
     @SerialName("IsPaused") val isPaused: Boolean = false,
@@ -79,6 +113,7 @@ data class PlaybackStopBody(
     @SerialName("ItemId") val itemId: String,
     @SerialName("MediaSourceId") val mediaSourceId: String? = null,
     @SerialName("PlaySessionId") val playSessionId: String? = null,
+    @SerialName("LiveStreamId") val liveStreamId: String? = null,
     @SerialName("PositionTicks") val positionTicks: Long = 0,
     @SerialName("Failed") val failed: Boolean = false,
 )

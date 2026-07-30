@@ -20,6 +20,13 @@ class ImageUrlBuilder(private val serverUrlProvider: () -> String?) {
     fun personPrimary(personId: String, tag: String?, maxWidth: Int = 240): String? =
         image(personId, "Primary", tag, maxWidth)
 
+    /** Public profile image endpoint (`GET /UserImage`), distinct from item artwork. */
+    fun userPrimary(userId: String, tag: String?): String? {
+        val server = serverUrlProvider() ?: return null
+        val base = "$server/UserImage?userId=$userId"
+        return if (tag != null) "$base&tag=$tag" else base
+    }
+
     /** `/Items/{id}/Images/Backdrop/{index}` — the indexed path form (§6 of the API surface). */
     fun backdropAtIndex(itemId: String, index: Int, tag: String?, maxWidth: Int = 1280): String? =
         imageAtIndex(itemId, "Backdrop", index, tag, maxWidth)
@@ -43,6 +50,24 @@ class ImageUrlBuilder(private val serverUrlProvider: () -> String?) {
     // --- DTO-aware fallback chains. Each returns the first link that has BOTH an id and a tag. ---
 
     /** Episode → season/series thumb. Never pairs a parent tag with the child's id. */
+    /**
+     * Episode preview still.
+     *
+     * Jellyfin maps an episode-local `SxxExx-thumb` file to the episode item's `Primary` image,
+     * despite the filename. Prefer that real still before any `Thumb`/backdrop inherited from the
+     * season or series, and never fall back to a portrait series poster for a 16:9 preview.
+     */
+    fun episodePreview(item: BaseItemDto, maxWidth: Int = 720): String? =
+        item.imageTags["Primary"]?.let { primary(item.id, it, maxWidth) }
+            ?: item.imageTags["Thumb"]?.let { thumb(item.id, it, maxWidth) }
+            ?: item.backdropImageTags.firstOrNull()?.let { backdrop(item.id, it, maxWidth) }
+            ?: item.parentThumbImageTag
+                ?.let { tag -> item.parentThumbItemId?.let { thumb(it, tag, maxWidth) } }
+            ?: item.seriesThumbImageTag
+                ?.let { tag -> item.seriesId?.let { thumb(it, tag, maxWidth) } }
+            ?: item.parentBackdropImageTags.firstOrNull()
+                ?.let { tag -> item.parentBackdropItemId?.let { backdrop(it, tag, maxWidth) } }
+
     fun thumbWithSeriesFallback(item: BaseItemDto, maxWidth: Int = 640): String? =
         item.imageTags["Thumb"]?.let { thumb(item.id, it, maxWidth) }
             ?: item.parentThumbImageTag?.let { t -> item.parentThumbItemId?.let { thumb(it, t, maxWidth) } }
@@ -57,6 +82,7 @@ class ImageUrlBuilder(private val serverUrlProvider: () -> String?) {
     /** Own poster → series poster → parent poster. Replaces the three ad-hoc copies of this chain. */
     fun primaryWithParentFallback(item: BaseItemDto, maxWidth: Int = 320): String? =
         item.imageTags["Primary"]?.let { primary(item.id, it, maxWidth) }
+            ?: item.albumPrimaryImageTag?.let { t -> item.albumId?.let { primary(it, t, maxWidth) } }
             ?: item.seriesPrimaryImageTag?.let { t -> item.seriesId?.let { primary(it, t, maxWidth) } }
             ?: item.parentPrimaryImageTag
                 ?.let { t -> item.parentPrimaryImageItemId?.let { primary(it, t, maxWidth) } }

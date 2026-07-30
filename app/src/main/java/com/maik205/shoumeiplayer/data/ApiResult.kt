@@ -2,6 +2,8 @@ package com.maik205.shoumeiplayer.data
 
 sealed interface ApiError {
     data object Unauthorized : ApiError
+    /** Authentication failed before a session existed; this is not an expired stored session. */
+    data object InvalidCredentials : ApiError
     data class Network(val message: String) : ApiError
     data class Http(val code: Int, val message: String) : ApiError
     data class Serialization(val message: String) : ApiError
@@ -10,6 +12,7 @@ sealed interface ApiError {
     val displayMessage: String
         get() = when (this) {
             is Unauthorized -> "Session expired. Please sign in again."
+            is InvalidCredentials -> "The username or password is incorrect."
             is Network -> "Network error: $message"
             is Http -> "Server error ($code): $message"
             is Serialization -> "Failed to parse server response: $message"

@@ -86,6 +86,16 @@ class SessionStore(private val store: DataStore<Preferences>) : SessionProvider 
         }
     }
 
+    /** Forget the selected server and credentials while retaining the stable device id. */
+    suspend fun clearServer() {
+        store.edit { prefs ->
+            prefs.remove(SessionKeys.SERVER_URL)
+            prefs.remove(SessionKeys.ACCESS_TOKEN)
+            prefs.remove(SessionKeys.USER_ID)
+            prefs.remove(SessionKeys.USER_NAME)
+        }
+    }
+
     suspend fun clearAll() {
         store.edit { prefs -> prefs.clear() }
     }

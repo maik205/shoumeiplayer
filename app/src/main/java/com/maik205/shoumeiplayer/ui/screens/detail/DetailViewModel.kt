@@ -232,9 +232,8 @@ private fun BaseItemDto.toEpisodeUi(images: ImageUrlBuilder): EpisodeUi =
         badge = "S${parentIndexNumber ?: 0}:E${(indexNumber ?: 0).toString().padStart(2, '0')}",
         title = name.orEmpty(),
         runtime = runTimeTicks?.let { formatRuntime(it) },
-        // Episode thumb → season/series thumb → poster chain. Never pairs a parent tag with this id.
-        imageUrl = images.thumbWithSeriesFallback(this, EPISODE_THUMB_WIDTH)
-            ?: images.primaryWithParentFallback(this, EPISODE_THUMB_WIDTH),
+        // Jellyfin's SxxExx-thumb file is exposed as the episode item's Primary image.
+        imageUrl = images.episodePreview(this, EPISODE_THUMB_WIDTH),
         watched = userData?.played == true,
         progressFraction = userData?.playedPercentage
             ?.toFloat()

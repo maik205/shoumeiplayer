@@ -28,7 +28,7 @@ internal data class MpvTrack(
 /**
  * Pure translation between mpv's `track-list` and the app's [PlayerTrack] model.
  *
- * Kept free of MPVLib so it is unit-testable on the JVM — the native library is device-only.
+ * Kept free of MpvNative so it is unit-testable on the JVM — the native library is device-only.
  */
 internal object MpvTrackList {
 
@@ -41,6 +41,7 @@ internal object MpvTrackList {
         for (i in 0 until array.length()) {
             val entry = array.optJSONObject(i) ?: continue
             val type = when (entry.optString("type")) {
+                "video" -> TrackType.VIDEO
                 "audio" -> TrackType.AUDIO
                 "sub" -> TrackType.SUBTITLE
                 else -> continue

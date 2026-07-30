@@ -57,12 +57,18 @@ android {
         compose = true
         buildConfig = true
     }
+    sourceSets.getByName("main") {
+        // The approved redesign artwork is bundled as an Android asset so onboarding has a
+        // deliberate offline backdrop before a Jellyfin server is available.
+        assets.srcDir(rootProject.file("prototype/assets"))
+    }
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
 }
 
 dependencies {
+    implementation(project(":mpvroid"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
@@ -89,8 +95,6 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.androidx.datastore.preferences)
-    implementation(libs.libmpv)
-
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 

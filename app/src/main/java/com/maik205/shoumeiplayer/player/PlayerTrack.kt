@@ -1,6 +1,6 @@
 package com.maik205.shoumeiplayer.player
 
-enum class TrackType { AUDIO, SUBTITLE }
+enum class TrackType { VIDEO, AUDIO, SUBTITLE }
 
 data class PlayerTrack(
     val id: Int,                 // Jellyfin MediaStream.Index (or -1 for "Off")
