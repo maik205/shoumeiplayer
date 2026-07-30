@@ -25,13 +25,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.maik205.shoumeiplayer.R
-import com.maik205.shoumeiplayer.di.AuthEvents
+import com.maik205.shoumeiplayer.data.session.SessionEvent
 import com.maik205.shoumeiplayer.di.LocalAppContainer
 import com.maik205.shoumeiplayer.ui.navigation.containerViewModel
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingShape
-import com.maik205.shoumeiplayer.ui.television.model.LibraryDestinationUi
-import com.maik205.shoumeiplayer.ui.television.model.MediaItemUi
+import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
+import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import com.maik205.shoumeiplayer.ui.television.screens.browse.TelevisionHomeScreen
 import com.maik205.shoumeiplayer.ui.television.screens.browse.TelevisionHomeViewModel
 import com.maik205.shoumeiplayer.ui.television.screens.browse.TelevisionLibraryScreen
@@ -98,7 +98,7 @@ fun TelevisionNavGraph(
     val shellViewModel = containerViewModel { container ->
         TelevisionShellViewModel(
             sessionStore = container.sessionStore,
-            libraryRepository = container.libraryRepository,
+            mediaCatalog = container.mediaCatalog,
             libraryCacheStore = container.libraryCacheStore,
             settingsStore = container.settingsStore,
             authRepository = container.authRepository,
@@ -115,9 +115,11 @@ fun TelevisionNavGraph(
     }
 
     LaunchedEffect(navController) {
-        AuthEvents.unauthorized.collect {
-            navController.navigate(SessionExpiredRoute) {
-                popUpTo(0) { inclusive = true }
+        container.sessionManager.events.collect { event ->
+            if (event == SessionEvent.Expired) {
+                navController.navigate(SessionExpiredRoute) {
+                    popUpTo(0) { inclusive = true }
+                }
             }
         }
     }
@@ -282,8 +284,7 @@ fun TelevisionNavGraph(
         composable<HomeRoute> {
             val viewModel = containerViewModel { container ->
                 TelevisionHomeViewModel(
-                    repository = container.libraryRepository,
-                    images = container.imageUrlBuilder,
+                    catalog = container.mediaCatalog,
                     sessionStore = container.sessionStore,
                     settingsStore = container.settingsStore,
                     libraryCacheStore = container.libraryCacheStore,
@@ -313,7 +314,7 @@ fun TelevisionNavGraph(
 
         composable<SearchRoute> {
             val viewModel = containerViewModel { container ->
-                TelevisionSearchViewModel(container.libraryRepository, container.imageUrlBuilder)
+                TelevisionSearchViewModel(container.mediaCatalog)
             }
             val state by viewModel.state.collectAsStateWithLifecycle()
             TelevisionSearchScreen(
@@ -340,8 +341,7 @@ fun TelevisionNavGraph(
             val route = entry.toRoute<LibraryRoute>()
             val viewModel = containerViewModel { container ->
                 TelevisionLibraryViewModel(
-                    repository = container.libraryRepository,
-                    images = container.imageUrlBuilder,
+                    catalog = container.mediaCatalog,
                     sessionStore = container.sessionStore,
                     settingsStore = container.settingsStore,
                     libraryCacheStore = container.libraryCacheStore,
@@ -424,6 +424,7 @@ fun TelevisionNavGraph(
                     sessionStore = container.sessionStore,
                     authRepository = container.authRepository,
                     artworkCache = container.artworkCache,
+                    capabilities = container.devicePlaybackCapabilities.current(),
                 )
             }
             val state by viewModel.state.collectAsStateWithLifecycle()
@@ -494,8 +495,7 @@ private fun DetailDestination(
 ) {
     val viewModel = containerViewModel { container ->
         TelevisionDetailViewModel(
-            repository = container.libraryRepository,
-            images = container.imageUrlBuilder,
+            repository = container.mediaDetailsRepository,
             itemId = itemId,
         )
     }

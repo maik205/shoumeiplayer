@@ -3,19 +3,19 @@ package com.maik205.shoumeiplayer.ui.television.screens.browse
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.maik205.shoumeiplayer.data.ApiResult
-import com.maik205.shoumeiplayer.data.ImageUrlBuilder
+import com.maik205.shoumeiplayer.domain.result.ApiResult
 import com.maik205.shoumeiplayer.data.cache.LibraryCacheStore
-import com.maik205.shoumeiplayer.data.api.dto.BaseItemDto
-import com.maik205.shoumeiplayer.data.api.dto.QueryResult
-import com.maik205.shoumeiplayer.data.repo.LibraryRepository
 import com.maik205.shoumeiplayer.data.session.SessionStore
 import com.maik205.shoumeiplayer.data.session.SettingsStore
+import com.maik205.shoumeiplayer.domain.model.MediaPage
+import com.maik205.shoumeiplayer.domain.model.MediaPageRequest
+import com.maik205.shoumeiplayer.domain.model.MediaSort
+import com.maik205.shoumeiplayer.domain.model.MediaView
+import com.maik205.shoumeiplayer.domain.repository.MediaCatalog
 import com.maik205.shoumeiplayer.ui.television.model.HeroUi
-import com.maik205.shoumeiplayer.ui.television.model.LibraryDestinationUi
-import com.maik205.shoumeiplayer.ui.television.model.MediaItemUi
-import com.maik205.shoumeiplayer.ui.television.model.MediaShelfUi
-import com.maik205.shoumeiplayer.ui.television.model.toTelevisionUi
+import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
+import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
+import com.maik205.shoumeiplayer.domain.model.MediaShelf as MediaShelfUi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -25,8 +25,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.temporal.ChronoUnit
 
 @Immutable
 data class TelevisionHomeState(
@@ -39,8 +37,7 @@ data class TelevisionHomeState(
 )
 
 class TelevisionHomeViewModel(
-    private val repository: LibraryRepository,
-    private val images: ImageUrlBuilder,
+    private val catalog: MediaCatalog,
     private val sessionStore: SessionStore,
     private val settingsStore: SettingsStore,
     private val libraryCacheStore: LibraryCacheStore,
@@ -72,7 +69,7 @@ class TelevisionHomeViewModel(
         viewModelScope.launch {
             _state.update { it.copy(refreshing = !it.loading, error = null) }
             try {
-                val viewsResult = repository.userViews()
+                val viewsResult = catalog.libraries()
                 val views = (viewsResult as? ApiResult.Success)?.data.orEmpty()
                 if (viewsResult is ApiResult.Failure && _state.value.shelves.isEmpty()) {
                     _state.update {
@@ -84,35 +81,24 @@ class TelevisionHomeViewModel(
                     }
                     return@launch
                 }
-                val visibleViews = views.filterNot { view ->
-                    view.collectionType.equals("photos", ignoreCase = true)
-                }
-
                 val shelves = coroutineScope {
-                    val resume = async { repository.resumeItems(24).asItems() }
-                    val nextUp = async { repository.nextUp(24).asItems() }
+                    val resume = async { catalog.resumeItems(24).asItems() }
+                    val nextUp = async { catalog.nextUp(24).asItems() }
                     val favorites = async {
-                        when (
-                            val result = repository.items(
-                                filters = listOf("IsFavorite"),
-                                sortBy = "DateCreated",
-                                sortOrder = "Descending",
-                                limit = 24,
-                            )
-                        ) {
+                        when (val result = catalog.favoriteItems(24)) {
                             is ApiResult.Failure -> emptyList()
-                            is ApiResult.Success -> result.data.items
+                            is ApiResult.Success -> result.data
                         }
                     }
-                    val latest = visibleViews
+                    val latest = views
                         .take(MAX_LATEST_LIBRARIES)
                         .map { view ->
                             async {
-                                val items = repository.latest(view.id, 24).asItems()
+                                val items = catalog.latest(view.id, 24).asItems()
                                 MediaShelfUi(
                                     id = "latest:${view.id}",
-                                    title = view.name?.let { "Latest in $it" } ?: "Latest",
-                                    items = items.map { item -> item.toTelevisionUi(images) },
+                                    title = "Latest in ${view.title}",
+                                    items = items,
                                 )
                             }
                         }
@@ -124,7 +110,7 @@ class TelevisionHomeViewModel(
                                 MediaShelfUi(
                                     id = "continue",
                                     title = "Continue watching",
-                                    items = resumeItems.map { it.toTelevisionUi(images) },
+                                    items = resumeItems,
                                 ),
                             )
                         }
@@ -134,7 +120,7 @@ class TelevisionHomeViewModel(
                                 MediaShelfUi(
                                     id = "next-up",
                                     title = "Next up",
-                                    items = nextItems.map { it.toTelevisionUi(images) },
+                                    items = nextItems,
                                 ),
                             )
                         }
@@ -144,7 +130,7 @@ class TelevisionHomeViewModel(
                                 MediaShelfUi(
                                     id = "my-list",
                                     title = "My list",
-                                    items = favoriteItems.map { it.toTelevisionUi(images) },
+                                    items = favoriteItems,
                                 ),
                             )
                         }
@@ -159,13 +145,7 @@ class TelevisionHomeViewModel(
                 val freshState = TelevisionHomeState(
                     loading = false,
                     refreshing = false,
-                    libraries = visibleViews.map {
-                        LibraryDestinationUi(
-                            id = it.id,
-                            title = it.name.orEmpty(),
-                            collectionType = it.collectionType,
-                        )
-                    },
+                    libraries = views,
                     shelves = shelves,
                     hero = currentHero?.let(::HeroUi),
                     error = null,
@@ -202,7 +182,7 @@ class TelevisionHomeViewModel(
 
     fun toggleFavorite(item: MediaItemUi) {
         viewModelScope.launch {
-            when (repository.setFavorite(item.id, !item.favorite)) {
+            when (catalog.setFavorite(item.id, !item.favorite)) {
                 is ApiResult.Failure -> Unit
                 is ApiResult.Success -> _state.update { state ->
                     val nowFavorite = !item.favorite
@@ -246,7 +226,7 @@ class TelevisionHomeViewModel(
         }
     }
 
-    private fun ApiResult<List<BaseItemDto>>.asItems(): List<BaseItemDto> =
+    private fun ApiResult<List<MediaItemUi>>.asItems(): List<MediaItemUi> =
         (this as? ApiResult.Success)?.data.orEmpty()
 
     private companion object {
@@ -255,18 +235,22 @@ class TelevisionHomeViewModel(
 }
 
 @Immutable
-enum class BrowseSort(val api: String, val label: String) {
-    Name("SortName", "Name"),
-    Recent("DateLastContentAdded", "Recent"),
-    Premiere("PremiereDate", "Release date"),
-    CommunityRating("CommunityRating", "Rating"),
+enum class BrowseSort(
+    val domain: MediaSort,
+    val cacheKey: String,
+    val label: String,
+) {
+    Name(MediaSort.Name, "name", "Name"),
+    Recent(MediaSort.Recent, "recent", "Recent"),
+    Premiere(MediaSort.PremiereDate, "premiere", "Release date"),
+    CommunityRating(MediaSort.CommunityRating, "rating", "Rating"),
 }
 
 @Immutable
-enum class LibraryViewMode {
-    All,
-    New,
-    Favorites,
+enum class LibraryViewMode(val domain: MediaView, val cacheKey: String) {
+    All(MediaView.All, "all"),
+    New(MediaView.New, "new"),
+    Favorites(MediaView.Favorites, "favorites"),
 }
 
 @Immutable
@@ -284,8 +268,7 @@ data class TelevisionLibraryState(
 )
 
 class TelevisionLibraryViewModel(
-    private val repository: LibraryRepository,
-    private val images: ImageUrlBuilder,
+    private val catalog: MediaCatalog,
     private val sessionStore: SessionStore,
     private val settingsStore: SettingsStore,
     private val libraryCacheStore: LibraryCacheStore,
@@ -299,10 +282,6 @@ class TelevisionLibraryViewModel(
     val state: StateFlow<TelevisionLibraryState> = _state.asStateFlow()
 
     private var nextIndex = 0
-    private val newItemsCutoff = Instant.now()
-        .minus(365, ChronoUnit.DAYS)
-        .toString()
-
     init {
         viewModelScope.launch {
             val session = sessionStore.current()
@@ -311,8 +290,8 @@ class TelevisionLibraryViewModel(
                     session.serverUrl,
                     session.userId,
                     libraryId,
-                    _state.value.sort.api,
-                    _state.value.view.name,
+                    _state.value.sort.cacheKey,
+                    _state.value.view.cacheKey,
                 )?.let { cached ->
                     nextIndex = cached.items.size
                     _state.update {
@@ -359,12 +338,12 @@ class TelevisionLibraryViewModel(
 
                 is ApiResult.Success -> {
                     nextIndex = result.data.items.size
-                    val freshItems = result.data.items.map { item -> item.toTelevisionUi(images) }
+                    val freshItems = result.data.items
                     _state.update {
                         it.copy(
                             loading = false,
                             items = freshItems,
-                            totalCount = result.data.totalRecordCount,
+                            totalCount = result.data.totalCount,
                             exhausted = result.data.items.size < PAGE_SIZE,
                         )
                     }
@@ -374,10 +353,10 @@ class TelevisionLibraryViewModel(
                             serverUrl = session.serverUrl,
                             userId = session.userId,
                             libraryId = libraryId,
-                            sort = sort.api,
-                            view = view.name,
+                            sort = sort.cacheKey,
+                            view = view.cacheKey,
                             items = freshItems,
-                            totalCount = result.data.totalRecordCount,
+                            totalCount = result.data.totalCount,
                             exhausted = result.data.items.size < PAGE_SIZE,
                         )
                     }
@@ -409,8 +388,8 @@ class TelevisionLibraryViewModel(
                     _state.update {
                         it.copy(
                             loadingMore = false,
-                            items = it.items + result.data.items.map { item -> item.toTelevisionUi(images) },
-                            totalCount = result.data.totalRecordCount,
+                            items = it.items + result.data.items,
+                            totalCount = result.data.totalCount,
                             exhausted = result.data.items.size < PAGE_SIZE,
                         )
                     }
@@ -423,49 +402,20 @@ class TelevisionLibraryViewModel(
         startIndex: Int,
         sort: BrowseSort,
         view: LibraryViewMode,
-    ): ApiResult<QueryResult<BaseItemDto>> {
-        return repository.items(
-            parentId = libraryId.ifBlank { null },
-            includeItemTypes = collectionItemTypes(collectionType),
-            recursive = true,
-            sortBy = sort.api,
-            sortOrder = if (sort == BrowseSort.Name) "Ascending" else "Descending",
-            filters = if (view == LibraryViewMode.Favorites) listOf("IsFavorite") else emptyList(),
-            minDateLastSavedForUser = newItemsCutoff.takeIf { view == LibraryViewMode.New },
-            startIndex = startIndex,
-            limit = PAGE_SIZE,
+    ): ApiResult<MediaPage> {
+        return catalog.page(
+            MediaPageRequest(
+                libraryId = libraryId,
+                collectionType = collectionType,
+                sort = sort.domain,
+                view = view.domain,
+                startIndex = startIndex,
+                limit = PAGE_SIZE,
+            ),
         )
     }
 
     private companion object {
         const val PAGE_SIZE = 60
     }
-}
-
-internal fun collectionItemTypes(collectionType: String?): List<String> = when (
-    collectionType?.lowercase()
-) {
-    "movies" -> listOf("Movie")
-    "tvshows" -> listOf("Series")
-    "music" -> listOf("MusicAlbum", "MusicArtist", "Audio", "Playlist")
-    "musicvideos" -> listOf("MusicVideo")
-    "books" -> listOf("AudioBook", "Book")
-    "boxsets" -> listOf("BoxSet")
-    "playlists" -> listOf("Playlist")
-    "livetv" -> listOf("LiveTvChannel", "Recording")
-    "photos" -> listOf("PhotoAlbum")
-    else -> listOf(
-        "Movie",
-        "Series",
-        "Episode",
-        "Video",
-        "MusicAlbum",
-        "MusicArtist",
-        "Audio",
-        "AudioBook",
-        "Book",
-        "BoxSet",
-        "Playlist",
-        "Recording",
-    )
 }

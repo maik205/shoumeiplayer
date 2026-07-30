@@ -6,13 +6,17 @@ import com.maik205.shoumeiplayer.data.ImageUrlBuilder
 import com.maik205.shoumeiplayer.data.api.JellyfinClient
 import com.maik205.shoumeiplayer.data.cache.ArtworkCache
 import com.maik205.shoumeiplayer.data.cache.LibraryCacheStore
+import com.maik205.shoumeiplayer.data.platform.AndroidDevicePlaybackCapabilityProvider
 import com.maik205.shoumeiplayer.data.repo.AuthRepository
 import com.maik205.shoumeiplayer.data.repo.JellyfinDiscoveryRepository
+import com.maik205.shoumeiplayer.data.repo.JellyfinMediaCatalog
+import com.maik205.shoumeiplayer.data.repo.JellyfinMediaDetailsRepository
 import com.maik205.shoumeiplayer.data.repo.LibraryRepository
 import com.maik205.shoumeiplayer.data.repo.PlaybackRepository
 import com.maik205.shoumeiplayer.data.session.SessionStore
+import com.maik205.shoumeiplayer.data.session.SessionManager
 import com.maik205.shoumeiplayer.data.session.SettingsStore
-import com.maik205.shoumeiplayer.player.MpvEngine
+import com.maik205.shoumeiplayer.player.PlayerEngineFactory
 import com.maik205.shoumeiplayer.player.PlaybackProgressReporter
 import com.maik205.shoumeiplayer.player.PlayerEngine
 import kotlinx.coroutines.CoroutineScope
@@ -29,9 +33,20 @@ class AppContainer(
     val appName: String = "Shoumei Player"
     val appVersion: String = BuildConfig.VERSION_NAME
     val sessionStore: SessionStore by lazy { SessionStore(context) }
+    val sessionManager: SessionManager by lazy { SessionManager(sessionStore) }
     val settingsStore: SettingsStore by lazy { SettingsStore(context) }
+    val devicePlaybackCapabilities by lazy {
+        AndroidDevicePlaybackCapabilityProvider(context)
+    }
     val libraryCacheStore: LibraryCacheStore by lazy { LibraryCacheStore(context) }
-    val jellyfinClient: JellyfinClient by lazy { JellyfinClient(sessionStore, appName, appVersion) }
+    val jellyfinClient: JellyfinClient by lazy {
+        JellyfinClient(
+            sessions = sessionStore,
+            appName = appName,
+            appVersion = appVersion,
+            onUnauthorized = sessionManager::expireSession,
+        )
+    }
     val imageUrlBuilder: ImageUrlBuilder by lazy {
         ImageUrlBuilder(
             serverUrlProvider = { cachedServerUrl },
@@ -41,12 +56,16 @@ class AppContainer(
     val authRepository: AuthRepository by lazy { AuthRepository(jellyfinClient, sessionStore) }
     val discoveryRepository: JellyfinDiscoveryRepository by lazy { JellyfinDiscoveryRepository() }
     val libraryRepository: LibraryRepository by lazy { LibraryRepository(jellyfinClient) }
+    val mediaCatalog by lazy { JellyfinMediaCatalog(libraryRepository, imageUrlBuilder) }
+    val mediaDetailsRepository by lazy {
+        JellyfinMediaDetailsRepository(libraryRepository, imageUrlBuilder)
+    }
     val playbackRepository: PlaybackRepository by lazy { PlaybackRepository(jellyfinClient) }
     // Official libmpv via the app-owned JNI bridge is the real engine in both build types.
     // MplayerEngine remains the
     // planned native successor behind this same PlayerEngine interface (see
     // docs/mplayer-integration.md); SimulatedPlayerEngine stays for JVM unit tests.
-    val playerEngine: PlayerEngine by lazy { MpvEngine(context) }
+    val playerEngine: PlayerEngine by lazy { PlayerEngineFactory.create(context) }
     val progressReporter: PlaybackProgressReporter by lazy {
         PlaybackProgressReporter(playbackRepository)
     }

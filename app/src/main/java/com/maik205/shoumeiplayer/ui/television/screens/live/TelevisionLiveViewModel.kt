@@ -3,11 +3,11 @@ package com.maik205.shoumeiplayer.ui.television.screens.live
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.maik205.shoumeiplayer.data.ApiResult
+import com.maik205.shoumeiplayer.domain.result.ApiResult
 import com.maik205.shoumeiplayer.data.ImageUrlBuilder
 import com.maik205.shoumeiplayer.data.api.dto.BaseItemDto
 import com.maik205.shoumeiplayer.data.repo.LibraryRepository
-import com.maik205.shoumeiplayer.ui.television.model.MediaItemUi
+import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import com.maik205.shoumeiplayer.ui.television.model.toTelevisionUi
 import java.time.Instant
 import java.time.OffsetDateTime

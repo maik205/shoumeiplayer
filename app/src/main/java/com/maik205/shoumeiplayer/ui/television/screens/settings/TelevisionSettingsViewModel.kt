@@ -3,12 +3,13 @@ package com.maik205.shoumeiplayer.ui.television.screens.settings
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.maik205.shoumeiplayer.data.ApiResult
+import com.maik205.shoumeiplayer.domain.result.ApiResult
 import com.maik205.shoumeiplayer.data.cache.ArtworkCache
 import com.maik205.shoumeiplayer.data.repo.AuthRepository
-import com.maik205.shoumeiplayer.data.session.ClientSettings
+import com.maik205.shoumeiplayer.domain.settings.ClientSettings
 import com.maik205.shoumeiplayer.data.session.SessionStore
 import com.maik205.shoumeiplayer.data.session.SettingsStore
+import com.maik205.shoumeiplayer.domain.settings.DevicePlaybackCapabilities
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -29,6 +30,7 @@ import kotlinx.coroutines.withContext
 @Immutable
 data class TelevisionSettingsState(
     val settings: ClientSettings = ClientSettings(),
+    val capabilities: DevicePlaybackCapabilities = DevicePlaybackCapabilities(),
     val userName: String = "",
     val serverUrl: String = "",
     val serverName: String? = null,
@@ -63,6 +65,7 @@ class TelevisionSettingsViewModel(
     private val sessionStore: SessionStore,
     private val authRepository: AuthRepository,
     private val artworkCache: ArtworkCache,
+    private val capabilities: DevicePlaybackCapabilities = DevicePlaybackCapabilities(),
 ) : ViewModel() {
     private val supplement = MutableStateFlow(TelevisionSettingsSupplement())
     private var quickConnectJob: Job? = null
@@ -76,6 +79,7 @@ class TelevisionSettingsViewModel(
     ) { settings, session, serverUrl, supplement ->
         TelevisionSettingsState(
             settings = settings,
+            capabilities = capabilities,
             userName = session?.userName.orEmpty(),
             serverUrl = serverUrl.orEmpty(),
             serverName = supplement.serverName,
@@ -90,7 +94,7 @@ class TelevisionSettingsViewModel(
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = TelevisionSettingsState(),
+        initialValue = TelevisionSettingsState(capabilities = capabilities),
     )
 
     private val _events = MutableSharedFlow<TelevisionSettingsEvent>()
