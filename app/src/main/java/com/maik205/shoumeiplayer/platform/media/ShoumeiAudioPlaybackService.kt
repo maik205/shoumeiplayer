@@ -186,9 +186,12 @@ private class AudioServicePlayer(
         startIndex: Int,
         startPositionMs: Long,
     ): ListenableFuture<*> {
+        val previousItemId = items.getOrNull(currentIndex)?.mediaId
         items = mediaItems.filter { it.mediaId.isNotBlank() }
         currentIndex = startIndex.coerceIn(0, items.lastIndex.coerceAtLeast(0))
-        loadCurrent(startPositionMs.coerceAtLeast(0L), playWhenReady = true)
+        if (previousItemId != items.getOrNull(currentIndex)?.mediaId || engine.state.value == PlayerState.Idle) {
+            loadCurrent(startPositionMs.coerceAtLeast(0L), playWhenReady = true)
+        }
         invalidateState()
         return Futures.immediateVoidFuture()
     }

@@ -901,6 +901,7 @@ class PlayerViewModel(
                     musicContextLoading = false,
                 )
             }
+            engine.setQueue(context.queue.map(AudioQueueItemUi::itemId), targetItemId)
         }
     }
 

@@ -37,6 +37,7 @@ interface PlayerEngine {
     fun configure(settings: ClientSettings) = Unit
 
     fun load(item: PlayRequest)
+    fun setQueue(itemIds: List<String>, currentItemId: String) = Unit
     fun play()
     fun pause()
     fun seekTo(ms: Long)

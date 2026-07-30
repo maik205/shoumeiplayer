@@ -35,6 +35,7 @@ internal class AudioServicePlayerEngine(context: Context) : PlayerEngine {
     ).buildAsync()
     private var controller: MediaController? = null
     private var pendingRequest: PlayRequest? = null
+    private var pendingQueue: Pair<List<String>, String>? = null
 
     private val _state = MutableStateFlow<PlayerState>(PlayerState.Idle)
     override val state: StateFlow<PlayerState> = _state
@@ -63,6 +64,10 @@ internal class AudioServicePlayerEngine(context: Context) : PlayerEngine {
                     pendingRequest?.also {
                         pendingRequest = null
                         load(it)
+                    }
+                    pendingQueue?.also { (ids, currentId) ->
+                        pendingQueue = null
+                        setQueue(ids, currentId)
                     }
                     refresh(result)
                 }
@@ -106,6 +111,22 @@ internal class AudioServicePlayerEngine(context: Context) : PlayerEngine {
         )
         current.prepare()
         current.play()
+    }
+
+    override fun setQueue(itemIds: List<String>, currentItemId: String) {
+        val ids = itemIds.filter(String::isNotBlank).distinct()
+        val index = ids.indexOf(currentItemId)
+        if (index < 0) return
+        val current = controller
+        if (current == null) {
+            pendingQueue = ids to currentItemId
+            return
+        }
+        current.setMediaItems(
+            ids.map { MediaItem.Builder().setMediaId(it).build() },
+            index,
+            current.currentPosition.coerceAtLeast(0L),
+        )
     }
 
     override fun play() { controller?.play() }
