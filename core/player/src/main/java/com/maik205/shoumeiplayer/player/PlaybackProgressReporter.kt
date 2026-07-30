@@ -4,6 +4,8 @@ import com.maik205.shoumeiplayer.util.Ticks
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -36,9 +38,15 @@ class PlaybackProgressReporter(
         var lastState: PlayerState? = null
         var lastBucket: Long? = null
 
-        combine(engine.state, engine.positionMs) { state, positionMs -> state to positionMs }
-            .collect { (state, positionMs) ->
-                val bucket = positionMs / intervalMs
+        // Keep the exact position in the engine for seeks and explicit track-switch reports, but
+        // do not dispatch a combined flow event for every mpv time-pos callback. State changes
+        // remain immediate; position-only events are reduced to the reporting bucket.
+        val positionBuckets = engine.positionMs
+            .map { it / intervalMs }
+            .distinctUntilChanged()
+        combine(engine.state, positionBuckets) { state, bucket -> state to bucket }
+            .collect { (state, bucket) ->
+                val positionMs = engine.positionMs.value
                 val positionTicks = Ticks.fromMs(positionMs)
 
                 if (!started) {
