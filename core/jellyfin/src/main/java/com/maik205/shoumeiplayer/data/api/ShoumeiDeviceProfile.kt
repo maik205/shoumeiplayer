@@ -4,6 +4,7 @@ import com.maik205.shoumeiplayer.data.api.dto.DeviceProfileDto
 import com.maik205.shoumeiplayer.data.api.dto.DirectPlayProfileDto
 import com.maik205.shoumeiplayer.data.api.dto.SubtitleProfileDto
 import com.maik205.shoumeiplayer.data.api.dto.TranscodingProfileDto
+import com.maik205.shoumeiplayer.domain.settings.DevicePlaybackCapabilities
 
 /**
  * Permissive mpv device profile: declares broad native video and audio support so Jellyfin hands
@@ -43,7 +44,7 @@ object ShoumeiDeviceProfile {
     private const val VIDEO_CODECS = "h264,hevc,av1,vp9,mpeg4,mpeg2video,vc1"
     private const val AUDIO_CODECS = "aac,ac3,eac3,opus,flac,mp3,dts,truehd,vorbis,pcm"
 
-    fun build(): DeviceProfileDto = DeviceProfileDto(
+    fun build(capabilities: DevicePlaybackCapabilities = DevicePlaybackCapabilities()): DeviceProfileDto = DeviceProfileDto(
         name = "Shoumei Player",
         maxStreamingBitrate = 400_000_000,
         directPlayProfiles = buildList {
@@ -52,7 +53,12 @@ object ShoumeiDeviceProfile {
                     DirectPlayProfileDto(
                         container = container,
                         type = "Video",
-                        videoCodec = VIDEO_CODECS,
+                        videoCodec = capabilities.videoCodecs
+                            .mapNotNull { it.mimeType.toJellyfinVideoCodec() }
+                            .distinct()
+                            .takeIf(List<String>::isNotEmpty)
+                            ?.joinToString(",")
+                            ?: VIDEO_CODECS,
                         audioCodec = AUDIO_CODECS,
                     ),
                 )
@@ -94,4 +100,15 @@ object ShoumeiDeviceProfile {
         ),
         codecProfiles = emptyList(),
     )
+
+    private fun String.toJellyfinVideoCodec(): String? = when (lowercase()) {
+        "video/avc" -> "h264"
+        "video/hevc" -> "hevc"
+        "video/av01" -> "av1"
+        "video/x-vnd.on2.vp9" -> "vp9"
+        "video/x-vnd.on2.vp8" -> "vp8"
+        "video/mp4v-es" -> "mpeg4"
+        "video/mpeg2" -> "mpeg2video"
+        else -> null
+    }
 }

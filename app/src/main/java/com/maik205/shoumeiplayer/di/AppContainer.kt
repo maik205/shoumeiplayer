@@ -42,7 +42,10 @@ class AppContainer(
     val sessionManager: SessionManager by lazy { SessionManager(sessionStore) }
     val settingsStore: SettingsStore by lazy { SettingsStore(context) }
     val devicePlaybackCapabilities by lazy {
-        AndroidDevicePlaybackCapabilityProvider(context)
+        devicePlaybackProfile.capabilities
+    }
+    val devicePlaybackProfile by lazy {
+        AndroidDevicePlaybackCapabilityProvider(context).profile()
     }
     val libraryCacheStore: LibraryCacheStore by lazy { LibraryCacheStore(context) }
     val jellyfinClient: JellyfinClient by lazy {
@@ -67,7 +70,9 @@ class AppContainer(
     val mediaDetailsRepository by lazy {
         JellyfinMediaDetailsRepository(libraryRepository, imageUrlBuilder)
     }
-    val playbackRepository: PlaybackRepository by lazy { PlaybackRepository(jellyfinClient) }
+    val playbackRepository: PlaybackRepository by lazy {
+        PlaybackRepository(jellyfinClient) { devicePlaybackProfile.capabilities }
+    }
     // Official libmpv via the app-owned JNI bridge is the real engine in both build types.
     // MplayerEngine remains the
     // planned native successor behind this same PlayerEngine interface (see

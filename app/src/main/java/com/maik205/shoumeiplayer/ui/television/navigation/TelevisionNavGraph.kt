@@ -424,7 +424,7 @@ fun TelevisionNavGraph(
                     sessionStore = container.sessionStore,
                     authRepository = container.authRepository,
                     artworkCache = container.artworkCache,
-                    capabilities = container.devicePlaybackCapabilities.current(),
+                    capabilities = container.devicePlaybackCapabilities,
                 )
             }
             val state by viewModel.state.collectAsStateWithLifecycle()
