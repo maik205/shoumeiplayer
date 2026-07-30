@@ -1,5 +1,7 @@
 package com.maik205.shoumeiplayer.ui.television.screens.player
 
+import android.os.Build
+import android.os.PowerManager
 import android.view.KeyEvent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
@@ -151,7 +153,7 @@ internal fun TelevisionAudioPlayer(
         label = "audioContextOpacity",
     )
     val lyricsStageBlur by animateDpAsState(
-        targetValue = if (lyricsVisible) 0.dp else 1.65.dp,
+        targetValue = if (lyricsVisible || !thermalAllowsOptionalWork()) 0.dp else 1.65.dp,
         animationSpec = tween(180, easing = AudioCssEase),
         label = "audioLyricsStageBlur",
     )
@@ -285,4 +287,13 @@ internal fun TelevisionAudioPlayer(
                 .alpha(railAlpha),
         )
     }
+}
+
+@Composable
+private fun thermalAllowsOptionalWork(): Boolean {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val powerManager = context.getSystemService(PowerManager::class.java)
+    return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+        (powerManager?.currentThermalStatus ?: PowerManager.THERMAL_STATUS_NONE) <
+        PowerManager.THERMAL_STATUS_MODERATE
 }

@@ -1,5 +1,7 @@
 package com.maik205.shoumeiplayer.ui.television.components
 
+import android.os.Build
+import android.os.PowerManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -306,13 +308,22 @@ fun TelevisionArtworkPrefetch(
     val context = LocalPlatformContext.current
     val density = LocalDensity.current
     val imageLoader = SingletonImageLoader.get(context)
+    val powerManager = context.getSystemService(PowerManager::class.java)
     val currentShapeForItem by rememberUpdatedState(shapeForItem)
 
     LaunchedEffect(items, listState, tileWidth, tileHeight, density, imageLoader) {
-        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
+        snapshotFlow {
+            listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index to
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    powerManager?.currentThermalStatus ?: PowerManager.THERMAL_STATUS_NONE
+                } else {
+                    PowerManager.THERMAL_STATUS_NONE
+                }
+        }
             .distinctUntilChanged()
-            .collectLatest { lastVisibleIndex ->
+            .collectLatest { (lastVisibleIndex, thermalStatus) ->
                 if (lastVisibleIndex == null) return@collectLatest
+                if (!thermalAllowsOptionalWork(thermalStatus)) return@collectLatest
                 coroutineScope {
                     artworkPrefetchIndices(lastVisibleIndex, items.size).forEach { index ->
                         launch {
@@ -334,6 +345,9 @@ fun TelevisionArtworkPrefetch(
             }
     }
 }
+
+internal fun thermalAllowsOptionalWork(status: Int): Boolean =
+    status < PowerManager.THERMAL_STATUS_MODERATE
 
 internal fun artworkPrefetchIndices(
     lastVisibleIndex: Int,
