@@ -14,10 +14,61 @@
 //     to the last release lines whose AAR metadata declares minCompileSdk <= 36
 //     (core-ktx 1.18.0 -> 36, lifecycle 2.10.0 -> 35), keeping the plan's
 //     compileSdk { release(36) { minorApiLevel = 1 } } block untouched.
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+}
+
+data class ShoumeiVersion(
+    val name: String,
+    val code: Int,
+)
+
+fun parseShoumeiVersion(value: String): ShoumeiVersion {
+    val match = Regex("""^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$""")
+        .matchEntire(value)
+        ?: error("Shoumei versions must use MAJOR.MINOR.PATCH; received '$value'")
+    val (major, minor, patch) = match.destructured.toList().map(String::toLong)
+    require(minor <= 999 && patch <= 999) {
+        "Minor and patch components must each be between 0 and 999"
+    }
+    val code = major * 1_000_000L + minor * 1_000L + patch
+    require(code in 1..2_100_000_000L) {
+        "Version '$value' maps to invalid Android versionCode $code"
+    }
+    return ShoumeiVersion(name = value, code = code.toInt())
+}
+
+val releaseTag = providers.environmentVariable("SHOUMEI_RELEASE_TAG")
+    .orNull
+    ?.trim()
+    ?.takeIf(String::isNotEmpty)
+val releaseVersion = releaseTag?.let { tag ->
+    require(Regex("""^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$""").matches(tag)) {
+        "Release tags must use vMAJOR.MINOR.PATCH; received '$tag'"
+    }
+    parseShoumeiVersion(tag.removePrefix("v"))
+}
+val developmentVersion = parseShoumeiVersion(
+    providers.gradleProperty("shoumei.versionName").getOrElse("0.1.0"),
+)
+val appVersion = releaseVersion ?: developmentVersion
+val mpvVersion = providers.gradleProperty("shoumei.mpvVersion").get()
+parseShoumeiVersion(mpvVersion)
+
+val signingEnvironment = mapOf(
+    "path" to providers.environmentVariable("SHOUMEI_KEYSTORE_PATH").orNull,
+    "storePassword" to providers.environmentVariable("SHOUMEI_KEYSTORE_PASSWORD").orNull,
+    "keyAlias" to providers.environmentVariable("SHOUMEI_KEY_ALIAS").orNull,
+    "keyPassword" to providers.environmentVariable("SHOUMEI_KEY_PASSWORD").orNull,
+)
+val hasAnySigningValue = signingEnvironment.values.any { !it.isNullOrBlank() }
+val hasCompleteSigningConfiguration = signingEnvironment.values.all { !it.isNullOrBlank() }
+require(!hasAnySigningValue || hasCompleteSigningConfiguration) {
+    "Release signing requires SHOUMEI_KEYSTORE_PATH, SHOUMEI_KEYSTORE_PASSWORD, " +
+        "SHOUMEI_KEY_ALIAS, and SHOUMEI_KEY_PASSWORD together"
 }
 
 android {
@@ -32,9 +83,22 @@ android {
         applicationId = "com.maik205.shoumeiplayer"
         minSdk = 28
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersion.code
+        versionName = if (releaseVersion != null) appVersion.name else "${appVersion.name}-dev"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "RELEASE_TAG", "\"${releaseTag.orEmpty()}\"")
+        buildConfigField("String", "MPV_VERSION", "\"$mpvVersion\"")
+    }
+
+    signingConfigs {
+        if (hasCompleteSigningConfiguration) {
+            create("release") {
+                storeFile = file(signingEnvironment.getValue("path")!!)
+                storePassword = signingEnvironment.getValue("storePassword")
+                keyAlias = signingEnvironment.getValue("keyAlias")
+                keyPassword = signingEnvironment.getValue("keyPassword")
+            }
+        }
     }
 
     buildTypes {
@@ -43,6 +107,9 @@ android {
         }
         release {
             isMinifyEnabled = false
+            if (hasCompleteSigningConfiguration) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

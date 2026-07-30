@@ -1,0 +1,91 @@
+name: Tagged release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      SHOUMEI_RELEASE_TAG: ${{ github.ref_name }}
+      SHOUMEI_KEYSTORE_PATH: ${{ runner.temp }}/shoumei-upload.jks
+      SHOUMEI_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      SHOUMEI_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      SHOUMEI_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+    steps:
+      - name: Check out the pinned release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Validate immutable release pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SHOUMEI_RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          test "$(git cat-file -t "$SHOUMEI_RELEASE_TAG")" = "tag"
+          test "$(git rev-list -n 1 "$SHOUMEI_RELEASE_TAG")" = "$GITHUB_SHA"
+          MPV_VERSION="$(sed -n 's/^shoumei\.mpvVersion=//p' gradle.properties)"
+          test -n "$MPV_VERSION"
+          test "$(git -C native/mpv/upstream describe --tags --exact-match)" = "v$MPV_VERSION"
+          test "$(git ls-tree HEAD native/mpv/upstream | awk '{print $3}')" = \
+            "$(git -C native/mpv/upstream rev-parse HEAD)"
+
+      - name: Decode the upload keystore
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$SHOUMEI_KEYSTORE_PATH"
+
+      - name: Set up Java
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6
+
+      - name: Build the signed release bundle
+        run: ./gradlew --no-daemon :app:bundleRelease
+
+      - name: Create checksums
+        shell: bash
+        run: |
+          cd app/build/outputs/bundle/release
+          sha256sum app-release.aab > app-release.aab.sha256
+
+      - name: Preserve workflow artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: shoumei-player-${{ github.ref_name }}
+          path: |
+            app/build/outputs/bundle/release/app-release.aab
+            app/build/outputs/bundle/release/app-release.aab.sha256
+          if-no-files-found: error
+
+      - name: Publish the immutable GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release create "$SHOUMEI_RELEASE_TAG" \
+            --verify-tag \
+            --generate-notes \
+            --title "Shoumei Player ${SHOUMEI_RELEASE_TAG#v}" \
+            app/build/outputs/bundle/release/app-release.aab \
+            app/build/outputs/bundle/release/app-release.aab.sha256
