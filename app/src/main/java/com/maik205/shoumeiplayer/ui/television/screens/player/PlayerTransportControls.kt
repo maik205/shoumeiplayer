@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.player.PlaybackSpeed
 import com.maik205.shoumeiplayer.player.PlayerTrack
@@ -63,6 +64,7 @@ import com.maik205.shoumeiplayer.player.VideoQuality
 import com.maik205.shoumeiplayer.feature.player.PlayerShelfItem
 import com.maik205.shoumeiplayer.feature.player.CastMemberUi
 import com.maik205.shoumeiplayer.feature.player.ChapterMark
+import com.maik205.shoumeiplayer.feature.player.PlayerTimelineState
 import com.maik205.shoumeiplayer.feature.player.PlayerUiState
 import com.maik205.shoumeiplayer.feature.player.UpNextUi
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
@@ -72,6 +74,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealB
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import java.util.Locale
+import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 internal fun PlayerActionButton(
@@ -377,4 +380,17 @@ internal fun MiniPlayerTimeline(
             )
         }
     }
+}
+
+@Composable
+internal fun MiniPlayerTimelineHost(
+    timelineState: StateFlow<PlayerTimelineState>,
+    modifier: Modifier = Modifier,
+) {
+    val timeline by timelineState.collectAsStateWithLifecycle()
+    MiniPlayerTimeline(
+        positionMs = timeline.positionMs,
+        durationMs = timeline.durationMs,
+        modifier = modifier,
+    )
 }

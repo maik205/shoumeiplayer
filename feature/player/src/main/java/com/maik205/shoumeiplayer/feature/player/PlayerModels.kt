@@ -42,6 +42,13 @@ data class LyricLineUi(
     val startMs: Long?,
 )
 
+data class PlayerTimelineState(
+    val positionMs: Long = 0,
+    val durationMs: Long? = null,
+    val bufferedMs: Long? = null,
+    val upNextVisible: Boolean = false,
+)
+
 data class PlayerShelfItem(
     val id: String,
     val title: String,
@@ -55,9 +62,7 @@ data class PlayerUiState(
     val error: String? = null,
     val notice: String? = null,
     val state: PlayerState = PlayerState.Idle,
-    val positionMs: Long = 0,
     val durationMs: Long? = null,
-    val bufferedMs: Long? = null,
     val audioTracks: List<PlayerTrack> = emptyList(),
     val subtitleTracks: List<PlayerTrack> = emptyList(),
     val videoTracks: List<PlayerTrack> = emptyList(),
@@ -76,7 +81,6 @@ data class PlayerUiState(
     val nextEpisodeId: String? = null,
     val upNext: UpNextUi? = null,
     val postPlayEpisodes: List<UpNextUi> = emptyList(),
-    val upNextVisible: Boolean = false,
     val similar: List<PlayerShelfItem> = emptyList(),
     val cast: List<CastMemberUi> = emptyList(),
     val shelvesLoading: Boolean = false,

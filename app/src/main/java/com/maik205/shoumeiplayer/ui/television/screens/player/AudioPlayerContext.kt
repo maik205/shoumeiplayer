@@ -74,10 +74,12 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.player.PlayerState
 import com.maik205.shoumeiplayer.feature.player.AudioQueueItemUi
 import com.maik205.shoumeiplayer.feature.player.LyricLineUi
+import com.maik205.shoumeiplayer.feature.player.PlayerTimelineState
 import com.maik205.shoumeiplayer.feature.player.PlayerUiState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
@@ -85,6 +87,7 @@ import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWr
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 internal fun LyricsPane(
@@ -176,6 +179,22 @@ internal fun LyricsPane(
             }
         }
     }
+}
+
+@Composable
+internal fun LyricsPaneHost(
+    lyrics: List<LyricLineUi>,
+    timelineState: StateFlow<PlayerTimelineState>,
+    synced: Boolean,
+    focusRequester: FocusRequester,
+) {
+    val timeline by timelineState.collectAsStateWithLifecycle()
+    LyricsPane(
+        lyrics = lyrics,
+        positionMs = timeline.positionMs,
+        synced = synced,
+        focusRequester = focusRequester,
+    )
 }
 
 @Composable

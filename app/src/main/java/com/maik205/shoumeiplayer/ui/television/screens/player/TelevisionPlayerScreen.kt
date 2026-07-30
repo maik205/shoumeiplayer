@@ -64,9 +64,11 @@ import com.maik205.shoumeiplayer.player.PlayerState
 import com.maik205.shoumeiplayer.player.PlayerTrack
 import com.maik205.shoumeiplayer.player.TrackType
 import com.maik205.shoumeiplayer.feature.player.PlayerUiState
+import com.maik205.shoumeiplayer.feature.player.PlayerTimelineState
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.StateFlow
 
 private const val PLAYER_OSD_TIMEOUT_MS = 5_000L
 private const val MINI_SEEK_TIMEOUT_MS = 1_500L
@@ -82,6 +84,7 @@ private const val POST_PLAY_SECONDS = 10
 @Composable
 internal fun TelevisionPlayerContent(
     state: PlayerUiState,
+    timelineState: StateFlow<PlayerTimelineState>,
     controller: TelevisionPlayerController,
     audioOnly: Boolean,
     onExit: () -> Unit,
@@ -423,6 +426,7 @@ internal fun TelevisionPlayerContent(
             LaunchedEffect(Unit) { controller.setSurface(null) }
             TelevisionAudioPlayer(
                 state = state,
+                timelineState = timelineState,
                 timelineFocus = timelineFocus,
                 playPauseFocus = playPauseFocus,
                 exitArmed = exitArmed,
@@ -493,6 +497,7 @@ internal fun TelevisionPlayerContent(
             if (osdVisible) {
                 VideoPlayerChrome(
                     state = state,
+                    timelineState = timelineState,
                     dimmed = panel != null,
                     timelineFocus = timelineFocus,
                     playPauseFocus = playPauseFocus,
@@ -520,9 +525,8 @@ internal fun TelevisionPlayerContent(
                 ),
                 modifier = Modifier.align(Alignment.BottomCenter),
             ) {
-                MiniPlayerTimeline(
-                    positionMs = state.positionMs,
-                    durationMs = state.durationMs,
+                MiniPlayerTimelineHost(
+                    timelineState = timelineState,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

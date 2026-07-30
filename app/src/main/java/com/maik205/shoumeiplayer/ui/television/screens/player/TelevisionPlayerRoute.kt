@@ -50,6 +50,7 @@ fun TelevisionPlayerScreen(
     val controller = remember(viewModel) { PlayerViewModelController(viewModel) }
     TelevisionPlayerContent(
         state = viewModel.uiState.collectAsStateWithLifecycle().value,
+        timelineState = viewModel.timelineState,
         controller = controller,
         audioOnly = audioOnly,
         onExit = onExit,

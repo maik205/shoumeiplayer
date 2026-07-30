@@ -77,6 +77,7 @@ import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.player.PlayerState
 import com.maik205.shoumeiplayer.feature.player.AudioQueueItemUi
 import com.maik205.shoumeiplayer.feature.player.LyricLineUi
+import com.maik205.shoumeiplayer.feature.player.PlayerTimelineState
 import com.maik205.shoumeiplayer.feature.player.PlayerUiState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
@@ -84,10 +85,12 @@ import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWr
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 internal fun AudioNormalPlayback(
     state: PlayerUiState,
+    timelineState: StateFlow<PlayerTimelineState>,
     lyricsVisible: Boolean,
     timelineFocus: FocusRequester,
     playPauseFocus: FocusRequester,
@@ -147,7 +150,8 @@ internal fun AudioNormalPlayback(
         AudioMetadata(state = state, titleSize = 35.sp, titleLineHeight = 34.sp)
         Spacer(Modifier.height(15.dp))
         AudioTimeline(
-            state = state,
+            timelineState = timelineState,
+            seekIntervalSeconds = state.seekIntervalSeconds,
             focusRequester = timelineFocus,
             enabled = !lyricsVisible,
             onSeekBy = onSeekBy,
@@ -185,6 +189,7 @@ internal fun AudioNormalPlayback(
 @Composable
 internal fun AudioLyricsPlayback(
     state: PlayerUiState,
+    timelineState: StateFlow<PlayerTimelineState>,
     visible: Boolean,
     timelineFocus: FocusRequester,
     playPauseFocus: FocusRequester,
@@ -231,7 +236,8 @@ internal fun AudioLyricsPlayback(
     ) {
         Column {
             AudioTimeline(
-                state = state,
+                timelineState = timelineState,
+                seekIntervalSeconds = state.seekIntervalSeconds,
                 focusRequester = timelineFocus,
                 onSeekBy = onSeekBy,
                 onTogglePlayPause = onTogglePlayPause,

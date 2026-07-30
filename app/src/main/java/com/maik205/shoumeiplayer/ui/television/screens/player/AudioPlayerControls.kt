@@ -74,10 +74,12 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.player.PlayerState
 import com.maik205.shoumeiplayer.feature.player.AudioQueueItemUi
 import com.maik205.shoumeiplayer.feature.player.LyricLineUi
+import com.maik205.shoumeiplayer.feature.player.PlayerTimelineState
 import com.maik205.shoumeiplayer.feature.player.PlayerUiState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
@@ -85,6 +87,7 @@ import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWr
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 internal fun AudioCover(
@@ -181,7 +184,8 @@ private fun audioFormatLabels(state: PlayerUiState): List<String> = buildList {
 
 @Composable
 internal fun AudioTimeline(
-    state: PlayerUiState,
+    timelineState: StateFlow<PlayerTimelineState>,
+    seekIntervalSeconds: Int,
     focusRequester: FocusRequester,
     enabled: Boolean = true,
     onSeekBy: (Long) -> Unit,
@@ -189,6 +193,7 @@ internal fun AudioTimeline(
     onInteraction: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val state by timelineState.collectAsStateWithLifecycle()
     var focused by remember { mutableStateOf(false) }
     val duration = state.durationMs?.takeIf { it > 0L }
     val fraction = duration?.let { (state.positionMs.toFloat() / it).coerceIn(0f, 1f) } ?: 0f
@@ -210,7 +215,7 @@ internal fun AudioTimeline(
             .height(29.dp)
             .onPreviewKeyEvent { event ->
                 if (event.nativeKeyEvent.action != KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false
-                val step = state.seekIntervalSeconds.toLong() * 1_000L
+                val step = seekIntervalSeconds.toLong() * 1_000L
                 when (event.nativeKeyEvent.keyCode) {
                     KeyEvent.KEYCODE_DPAD_LEFT -> {
                         onInteraction()

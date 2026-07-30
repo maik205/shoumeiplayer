@@ -61,25 +61,27 @@ class PlayerViewModelTest {
     }
 
     @Test
-    fun `uiState carries the engine buffered position`() = runTest {
+    fun `timelineState carries the engine buffered position`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val engine = SimulatedPlayerEngine(scope = this)
         val viewModel = viewModel(engine = engine)
 
         // uiState is WhileSubscribed, so it only runs while something collects it.
         backgroundScope.launch { viewModel.uiState.collect { } }
+        backgroundScope.launch { viewModel.timelineState.collect { } }
 
         // Let resolve + configuration + engine.load settle, then run the ticker a few seconds.
         advanceTimeBy(5_000)
         runCurrent()
 
-        val state = viewModel.uiState.value
-        assertEquals(false, state.loading)
-        assertEquals(null, state.error)
-        val buffered = state.bufferedMs
+        val uiState = viewModel.uiState.value
+        val timeline = viewModel.timelineState.value
+        assertEquals(false, uiState.loading)
+        assertEquals(null, uiState.error)
+        val buffered = timeline.bufferedMs
         assertNotNull("bufferedMs should reach the UI once the engine reports it", buffered)
         // SimulatedPlayerEngine buffers a fixed window ahead of the playhead.
-        assertEquals(state.positionMs + 30_000L, buffered)
+        assertEquals(timeline.positionMs + 30_000L, buffered)
 
         finish(viewModel, engine)
     }
@@ -165,9 +167,10 @@ class PlayerViewModelTest {
         // The direct-play fixture offers no transcoding url, so a capped re-resolve cannot be served.
         val viewModel = viewModel(engine = engine, recorder = recorder)
         backgroundScope.launch { viewModel.uiState.collect { } }
+        backgroundScope.launch { viewModel.timelineState.collect { } }
         advanceTimeBy(5_000)
         runCurrent()
-        val positionBefore = viewModel.uiState.value.positionMs
+        val positionBefore = viewModel.timelineState.value.positionMs
 
         viewModel.setQuality(VideoQuality.SD)
         advanceTimeBy(1_000)
@@ -179,7 +182,7 @@ class PlayerViewModelTest {
         assertEquals(VideoQuality.AUTO, state.quality)
         assertEquals(null, state.error)
         assertEquals(false, state.swapping)
-        assertTrue(state.positionMs >= positionBefore)
+        assertTrue(viewModel.timelineState.value.positionMs >= positionBefore)
         assertEquals(0, recorder.paths().count { it == "/Sessions/Playing/Stopped" })
 
         finish(viewModel, engine)
@@ -193,6 +196,7 @@ class PlayerViewModelTest {
         val engine = SimulatedPlayerEngine(scope = this)
         val viewModel = viewModel(engine = engine, extraRoutes = mapOf("/Shows/series-1/Episodes" to fakeRoute(EPISODES)))
         backgroundScope.launch { viewModel.uiState.collect { } }
+        backgroundScope.launch { viewModel.timelineState.collect { } }
         advanceTimeBy(5_000)
         runCurrent()
 
@@ -204,10 +208,10 @@ class PlayerViewModelTest {
         // user_me.json omits EnableNextEpisodeAutoPlay, whose server default is on.
         assertEquals(true, state.upNext?.autoPlay)
         // Far from the end, so the card is data-only until the last 30s.
-        assertEquals(false, state.upNextVisible)
+        assertEquals(false, viewModel.timelineState.value.upNextVisible)
 
         viewModel.dismissUpNext()
-        assertEquals(false, viewModel.uiState.value.upNextVisible)
+        assertEquals(false, viewModel.timelineState.value.upNextVisible)
 
         finish(viewModel, engine)
     }

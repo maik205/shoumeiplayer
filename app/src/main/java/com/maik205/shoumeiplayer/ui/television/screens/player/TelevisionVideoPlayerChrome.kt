@@ -59,14 +59,18 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.player.PlayerState
 import com.maik205.shoumeiplayer.player.PlayerTrack
 import com.maik205.shoumeiplayer.player.TrackType
+import com.maik205.shoumeiplayer.feature.player.ChapterMark
+import com.maik205.shoumeiplayer.feature.player.PlayerTimelineState
 import com.maik205.shoumeiplayer.feature.player.PlayerUiState
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 internal fun VideoSurface(
@@ -105,6 +109,7 @@ internal fun VideoSurface(
 @Composable
 internal fun VideoPlayerChrome(
     state: PlayerUiState,
+    timelineState: StateFlow<PlayerTimelineState>,
     dimmed: Boolean,
     timelineFocus: FocusRequester,
     playPauseFocus: FocusRequester,
@@ -159,10 +164,8 @@ internal fun VideoPlayerChrome(
             )
         }
         Spacer(Modifier.height(12.dp))
-        PlayerTimeline(
-            positionMs = state.positionMs,
-            durationMs = state.durationMs,
-            bufferedMs = state.bufferedMs,
+        VideoPlayerTimeline(
+            timelineState = timelineState,
             chapters = state.chapters,
             seekIntervalMs = state.seekIntervalSeconds.toLong() * 1_000L,
             focusRequester = timelineFocus,
@@ -285,6 +288,32 @@ internal fun VideoPlayerChrome(
             )
         }
     }
+}
+
+@Composable
+private fun VideoPlayerTimeline(
+    timelineState: StateFlow<PlayerTimelineState>,
+    chapters: List<ChapterMark>,
+    seekIntervalMs: Long,
+    focusRequester: FocusRequester,
+    onSeekBy: (Long) -> Unit,
+    onClick: () -> Unit,
+    onNavigateUp: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val timeline by timelineState.collectAsStateWithLifecycle()
+    PlayerTimeline(
+        positionMs = timeline.positionMs,
+        durationMs = timeline.durationMs,
+        bufferedMs = timeline.bufferedMs,
+        chapters = chapters,
+        seekIntervalMs = seekIntervalMs,
+        focusRequester = focusRequester,
+        onSeekBy = onSeekBy,
+        onClick = onClick,
+        onNavigateUp = onNavigateUp,
+        modifier = modifier,
+    )
 }
 
 private fun videoMetadata(state: PlayerUiState): String? {

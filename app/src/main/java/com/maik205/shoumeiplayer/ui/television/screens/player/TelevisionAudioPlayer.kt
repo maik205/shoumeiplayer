@@ -78,6 +78,7 @@ import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.player.PlayerState
 import com.maik205.shoumeiplayer.feature.player.AudioQueueItemUi
 import com.maik205.shoumeiplayer.feature.player.LyricLineUi
+import com.maik205.shoumeiplayer.feature.player.PlayerTimelineState
 import com.maik205.shoumeiplayer.feature.player.PlayerUiState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
@@ -85,6 +86,7 @@ import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWr
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.StateFlow
 
 internal val AudioLeft = 58.dp
 internal val AudioTop = 59.dp
@@ -101,6 +103,7 @@ internal val AudioCssEase = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)
 @Composable
 internal fun TelevisionAudioPlayer(
     state: PlayerUiState,
+    timelineState: StateFlow<PlayerTimelineState>,
     timelineFocus: FocusRequester,
     playPauseFocus: FocusRequester,
     exitArmed: Boolean,
@@ -209,6 +212,7 @@ internal fun TelevisionAudioPlayer(
         ) {
             AudioNormalPlayback(
                 state = state,
+                timelineState = timelineState,
                 lyricsVisible = lyricsVisible,
                 timelineFocus = timelineFocus,
                 playPauseFocus = playPauseFocus,
@@ -227,6 +231,7 @@ internal fun TelevisionAudioPlayer(
             )
             AudioLyricsPlayback(
                 state = state,
+                timelineState = timelineState,
                 visible = lyricsVisible,
                 timelineFocus = lyricsTimelineFocus,
                 playPauseFocus = lyricsPlayPauseFocus,
@@ -254,9 +259,9 @@ internal fun TelevisionAudioPlayer(
                 .height(324.dp)
                 .blur(lyricsStageBlur),
         ) {
-            LyricsPane(
+            LyricsPaneHost(
                 lyrics = state.lyrics,
-                positionMs = state.positionMs,
+                timelineState = timelineState,
                 synced = state.lyricsSynced,
                 focusRequester = lyricsFocus,
             )

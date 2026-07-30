@@ -134,7 +134,7 @@ class PlayerViewModel(
     /** Position + duration + buffered end, grouped so the outer [combine] stays within arity. */
     private data class Timeline(val positionMs: Long, val durationMs: Long?, val bufferedMs: Long?)
 
-    private val timeline = combine(
+    private val sampledTimeline = combine(
         engine.positionMs,
         engine.durationMs,
         engine.bufferedMs,
@@ -142,6 +142,21 @@ class PlayerViewModel(
         // mpv can emit position updates much faster than a TV display can present them. Keep
         // exact values on the engine flows for seeking/reporting, but bound UI state churn.
         .sample(100)
+
+    val timelineState: StateFlow<PlayerTimelineState> = combine(
+        sampledTimeline,
+        localState,
+    ) { timeline, local ->
+        val duration = timeline.durationMs ?: local.itemDurationMs
+        PlayerTimelineState(
+            positionMs = timeline.positionMs,
+            durationMs = duration,
+            bufferedMs = timeline.bufferedMs,
+            upNextVisible = local.upNext != null &&
+                !local.upNextDismissed &&
+                isUpNextDue(timeline.positionMs, duration),
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlayerTimelineState())
 
     private val trackGroups = engine.tracks
         .map { tracks ->
@@ -166,20 +181,18 @@ class PlayerViewModel(
 
     val uiState: StateFlow<PlayerUiState> = combine(
         playback,
-        timeline,
+        engine.durationMs,
         trackGroups,
         localState,
-    ) { play, time, tracks, local ->
-        val duration = time.durationMs ?: local.itemDurationMs
+    ) { play, engineDurationMs, tracks, local ->
+        val duration = engineDurationMs ?: local.itemDurationMs
         PlayerUiState(
             loading = local.loading,
             title = local.title,
             error = local.error,
             notice = local.notice,
             state = play.state,
-            positionMs = time.positionMs,
             durationMs = duration,
-            bufferedMs = time.bufferedMs,
             audioTracks = tracks.audio,
             subtitleTracks = tracks.subtitles,
             videoTracks = tracks.video,
@@ -198,9 +211,6 @@ class PlayerViewModel(
             nextEpisodeId = local.nextEpisodeId,
             upNext = local.upNext,
             postPlayEpisodes = local.postPlayEpisodes,
-            upNextVisible = local.upNext != null &&
-                !local.upNextDismissed &&
-                isUpNextDue(time.positionMs, duration),
             similar = local.similar,
             cast = local.cast,
             shelvesLoading = local.shelvesLoading,
