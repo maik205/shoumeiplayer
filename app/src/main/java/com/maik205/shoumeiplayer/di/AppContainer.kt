@@ -27,6 +27,8 @@ import com.maik205.shoumeiplayer.platform.media.AndroidFrameRatePlayerEngine
 import com.maik205.shoumeiplayer.platform.media.AndroidCaptionPreferencesPlayerEngine
 import com.maik205.shoumeiplayer.platform.media.AndroidHdrPolicyPlayerEngine
 import com.maik205.shoumeiplayer.platform.media.AndroidPlaybackMetricsSink
+import com.maik205.shoumeiplayer.platform.media.AudioServicePlayerEngine
+import com.maik205.shoumeiplayer.platform.media.AudioResumptionStore
 import com.maik205.shoumeiplayer.platform.network.AndroidNetworkMonitor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -114,6 +116,7 @@ class AppContainer(
             .stateIn(applicationScope, SharingStarted.Eagerly, hdrEngine.effectiveMode.value.label)
     }
     val playerEngine: PlayerEngine by lazy { AndroidAudioFocusPlayerEngine(context, captionEngine) }
+    fun newAudioServicePlayerEngine(): PlayerEngine = AudioServicePlayerEngine(context)
     val progressReporter: PlaybackProgressReporter by lazy {
         PlaybackProgressReporter(playbackRepository)
     }
@@ -134,7 +137,10 @@ class AppContainer(
             .onEach { cachedServerUrl = it }
             .launchIn(applicationScope)
         sessionStore.session
-            .onEach { cachedAccessToken = it?.accessToken }
+            .onEach {
+                cachedAccessToken = it?.accessToken
+                if (it == null) AudioResumptionStore(context).clear()
+            }
             .launchIn(applicationScope)
     }
 

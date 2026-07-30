@@ -17,6 +17,7 @@ data class ExternalSubtitle(
 )
 
 data class PlayRequest(
+    val itemId: String? = null,
     val url: String,
     val title: String = "",
     val headers: Map<String, String> = emptyMap(),
@@ -30,3 +31,20 @@ data class PlayRequest(
     val preferredSubtitleTrackId: Int? = null,
     val externalSubtitles: List<ExternalSubtitle> = emptyList(),
 )
+
+object AudioPlaybackHandoff {
+    private val requests = java.util.concurrent.ConcurrentHashMap<String, PlayRequest>()
+    private val resolvedItems = java.util.concurrent.ConcurrentHashMap<String, ResolvedPlayback>()
+
+    fun offer(request: PlayRequest) {
+        request.itemId?.let { requests[it] = request }
+    }
+
+    fun take(itemId: String): PlayRequest? = requests.remove(itemId)
+
+    fun offerResolved(resolved: ResolvedPlayback) {
+        resolvedItems[resolved.itemId] = resolved
+    }
+
+    fun takeResolved(itemId: String): ResolvedPlayback? = resolvedItems.remove(itemId)
+}

@@ -18,6 +18,7 @@ import com.maik205.shoumeiplayer.player.PlayerEngine
 import com.maik205.shoumeiplayer.player.PlayerState
 import com.maik205.shoumeiplayer.player.PlayerTrack
 import com.maik205.shoumeiplayer.player.PlaybackMetricsEvent
+import com.maik205.shoumeiplayer.player.AudioPlaybackHandoff
 import com.maik205.shoumeiplayer.player.PlaybackMetricsSink
 import com.maik205.shoumeiplayer.player.toPlaybackMetricsState
 import com.maik205.shoumeiplayer.player.TrackType
@@ -72,6 +73,7 @@ class PlayerViewModel(
     private val networkAvailable: StateFlow<Boolean> = MutableStateFlow(true),
     private val metricsSink: PlaybackMetricsSink? = null,
     private val userDataMutator: PlaybackUserDataMutator? = null,
+    private val backgroundAudio: Boolean = false,
 ) : ViewModel() {
 
     private data class LocalState(
@@ -795,8 +797,12 @@ class PlayerViewModel(
             }
         }
 
+        if (backgroundAudio && item?.isAudio == true) {
+            AudioPlaybackHandoff.offerResolved(r)
+        }
         engine.load(
             PlayRequest(
+                itemId = r.itemId,
                 url = r.streamUrl,
                 title = localState.value.title,
                 headers = r.headers,
@@ -809,12 +815,14 @@ class PlayerViewModel(
             ),
         )
 
-        sessionCoordinator.attach(
-            resolved = r,
-            engine = engine,
-            selectedAudioIndex = { trackController.selectedAudioIndex },
-            selectedSubtitleIndex = { trackController.selectedSubtitleIndex },
-        )
+        if (!backgroundAudio || item?.isAudio != true) {
+            sessionCoordinator.attach(
+                resolved = r,
+                engine = engine,
+                selectedAudioIndex = { trackController.selectedAudioIndex },
+                selectedSubtitleIndex = { trackController.selectedSubtitleIndex },
+            )
+        }
     }
 
     // --- item metadata -------------------------------------------------------------------------
@@ -940,8 +948,10 @@ class PlayerViewModel(
     }
 
     override fun onCleared() {
-        finishPlayback()
-        engine.stop()
+        if (!backgroundAudio || !localState.value.isAudio) {
+            finishPlayback()
+            engine.stop()
+        }
         metricsSink?.close()
     }
 }

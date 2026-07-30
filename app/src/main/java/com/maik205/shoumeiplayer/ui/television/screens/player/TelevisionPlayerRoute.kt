@@ -34,7 +34,7 @@ fun TelevisionPlayerScreen(
 ) {
     val viewModel = containerViewModel { container ->
         PlayerViewModel(
-            engine = container.playerEngine,
+            engine = if (audioOnly) container.newAudioServicePlayerEngine() else container.playerEngine,
             playbackResolver = container.playbackRepository,
             trackController = TrackController(
                 preferenceProvider = container.authRepository,
@@ -75,10 +75,11 @@ fun TelevisionPlayerScreen(
                         ?.data
                         ?.played == played
             },
+            backgroundAudio = audioOnly,
         )
     }
     val controller = remember(viewModel) { PlayerViewModelController(viewModel) }
-    PlayerMediaSession(viewModel, controller)
+    if (!audioOnly) PlayerMediaSession(viewModel, controller)
     TelevisionPlayerContent(
         state = viewModel.uiState.collectAsStateWithLifecycle().value,
         timelineState = viewModel.timelineState,
