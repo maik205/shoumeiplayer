@@ -103,6 +103,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingShape
 import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionMediaTile
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionArtworkPrefetch
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionRowHeader
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
 import com.maik205.shoumeiplayer.domain.model.ArtworkShape
@@ -356,6 +357,13 @@ private fun MusicShelf(
         }
     }
     val railState = rememberLazyListState()
+    TelevisionArtworkPrefetch(
+        items = items,
+        listState = railState,
+        tileWidth = 146.dp,
+        tileHeight = 146.dp,
+        shapeForItem = { ArtworkShape.Square },
+    )
 
     Column(
         modifier = Modifier.padding(

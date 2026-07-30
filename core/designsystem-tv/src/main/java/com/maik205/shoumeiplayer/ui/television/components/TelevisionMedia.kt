@@ -12,11 +12,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,6 +30,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
@@ -35,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
@@ -43,9 +50,14 @@ import com.maik205.shoumeiplayer.domain.model.ArtworkShape
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 
 private const val ARTWORK_CROSSFADE_MS = 180
 private const val ITEM_TITLE_SCALE = 0.70f
+private const val ARTWORK_PREFETCH_COUNT = 2
 
 fun TextStyle.televisionItemTitle(): TextStyle = copy(
     fontSize = fontSize.scaledItemTitleUnit(),
@@ -241,10 +253,14 @@ private fun TelevisionArtwork(
     height: Dp,
 ) {
     val context = LocalPlatformContext.current
-    val request = remember(imageUrl, context) {
+    val density = LocalDensity.current
+    val widthPx = with(density) { width.roundToPx() }
+    val heightPx = with(density) { height.roundToPx() }
+    val request = remember(imageUrl, context, widthPx, heightPx) {
         imageUrl?.let {
             ImageRequest.Builder(context)
                 .data(it)
+                .size(widthPx, heightPx)
                 .crossfade(ARTWORK_CROSSFADE_MS)
                 .build()
         }
@@ -277,6 +293,55 @@ private fun TelevisionArtwork(
             modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
+}
+
+@Composable
+fun TelevisionArtworkPrefetch(
+    items: List<MediaItemUi>,
+    listState: LazyListState,
+    tileWidth: Dp? = null,
+    tileHeight: Dp? = null,
+    shapeForItem: (MediaItemUi) -> ArtworkShape = { it.shape },
+) {
+    val context = LocalPlatformContext.current
+    val density = LocalDensity.current
+    val imageLoader = SingletonImageLoader.get(context)
+    val currentShapeForItem by rememberUpdatedState(shapeForItem)
+
+    LaunchedEffect(items, listState, tileWidth, tileHeight, density, imageLoader) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
+            .distinctUntilChanged()
+            .collectLatest { lastVisibleIndex ->
+                if (lastVisibleIndex == null) return@collectLatest
+                coroutineScope {
+                    artworkPrefetchIndices(lastVisibleIndex, items.size).forEach { index ->
+                        launch {
+                            val item = items[index]
+                            val dimensions = currentShapeForItem(item).dimensions()
+                            val widthPx = with(density) { (tileWidth ?: dimensions.width).roundToPx() }
+                            val heightPx = with(density) { (tileHeight ?: dimensions.height).roundToPx() }
+                            item.imageUrl?.let { imageUrl ->
+                                imageLoader.execute(
+                                    ImageRequest.Builder(context)
+                                        .data(imageUrl)
+                                        .size(widthPx, heightPx)
+                                        .build(),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+    }
+}
+
+internal fun artworkPrefetchIndices(
+    lastVisibleIndex: Int,
+    itemCount: Int,
+): IntRange {
+    val firstPrefetchIndex = lastVisibleIndex + 1
+    if (firstPrefetchIndex !in 0 until itemCount) return IntRange.EMPTY
+    return firstPrefetchIndex..minOf(lastVisibleIndex + ARTWORK_PREFETCH_COUNT, itemCount - 1)
 }
 
 @Composable

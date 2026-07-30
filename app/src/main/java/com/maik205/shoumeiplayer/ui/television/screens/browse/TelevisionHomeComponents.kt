@@ -103,6 +103,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingShape
 import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionMediaTile
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionArtworkPrefetch
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionRowHeader
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
 import com.maik205.shoumeiplayer.domain.model.ArtworkShape
@@ -308,6 +309,7 @@ internal fun HomeShelf(
         }
     }
     val railState = rememberLazyListState()
+    TelevisionArtworkPrefetch(shelf.items, railState)
     Column(
         modifier = Modifier
             .fillMaxWidth()

@@ -7,23 +7,19 @@
 
 ## Current state
 
-The performance pass is substantially complete. The tracked worktree is clean; the only untracked paths are generated Gradle/build outputs and must not be treated as source changes. No Gradle build, compile, install, or test command was run in this pass because the project convention is to leave verification to the user unless explicitly requested.
+The non-Live-TV performance pass is complete. The only untracked paths are generated Gradle/build outputs and must not be treated as source changes. No Gradle build, compile, install, or test command was run in this pass because the project convention is to leave verification to the user unless explicitly requested.
 
 The durable checklist is [docs/performance-checklist.md](../performance-checklist.md). It is the source of truth for the backlog and intentionally excludes Live TV.
 
-## Remaining GitHub issues
+## Completed final issues
 
-Two performance issues remain open and require implementation before the backlog can be called complete:
+The final two performance issues have been implemented:
 
 1. [#1 — Isolate high-frequency playback timeline state from the full player UI](https://github.com/maik205/shoumeiplayer/issues/1)
-   - Already completed: 100 ms UI timeline sampling in `PlayerViewModel` and native mpv throttling for high-frequency `time-pos` / `demuxer-cache-time` callbacks.
-   - Remaining: split the player composables/state so timeline ticks do not recompose the static player chrome, controls, metadata, or track UI. Preserve exact position reads for explicit seek/report paths.
-   - Acceptance: timeline updates only invalidate the progress-dependent slice; controls and static content remain stable during playback; seek, pause, end, and track changes remain immediate.
+   - Completed: sampled timeline values now live in `PlayerTimelineState`; only video/audio progress and synchronized lyrics collect that flow. Static player state no longer contains position or buffered values. Exact engine reads remain in seek/report paths.
 
 2. [#42 — Add size-aware artwork decoding and TV prefetch limits](https://github.com/maik205/shoumeiplayer/issues/42)
-   - Already completed: reduced rail artwork URL widths in `JellyfinMediaMapper` for landscape, square, portrait, episode preview, and fallback artwork.
-   - Remaining: make Coil decode size-aware from actual TV layout constraints and add bounded viewport-aware prefetch/concurrency. Avoid decoding full-resolution artwork for small cards and avoid retaining a large number of off-screen bitmaps.
-   - Acceptance: request/decode dimensions follow rendered card size; prefetch is limited to a small viewport window and bounded concurrency; scrolling remains smooth without unbounded memory growth; hero/backdrop artwork retains its larger budget.
+   - Completed: TV card requests use rendered pixel dimensions, rails prefetch only the next two cards with cancellation, and the shared Coil loader bounds fetch/decode concurrency. Hero and backdrop requests retain their larger constraint-derived budget.
 
 ## Completed implementation batches
 
@@ -53,15 +49,9 @@ Documentation/checkpoint commits record the state of the checklist and partial w
 - Detail/Home state no longer retains unnecessary raw DTOs; mapping is performed in the data layer.
 - Active TV search no longer has the legacy repeated derived-filter path; the BlurHash issue is not applicable because there is no active UI decode path.
 
-## Recommended next sequence
+## Final verification
 
-1. Inspect the player screen entry composable and identify the smallest stable static subtree versus the timeline-dependent subtree.
-2. Introduce a narrow timeline/progress state holder or child composable, keeping callbacks and exact seek behavior unchanged.
-3. Commit #1 as an atomic change and update its GitHub issue/checklist.
-4. Inspect the Coil 3 image-loading APIs already used by the app; use the actual measured TV constraints to set decode size.
-5. Add a bounded, viewport-aware prefetch policy for rails, with cancellation when a rail leaves the active window.
-6. Commit #42 as an atomic change and update its GitHub issue/checklist.
-7. Run the requested Gradle verification only when the user explicitly asks for it, then perform a final `git diff --check`, `git status`, and issue-state audit.
+Run Gradle verification only when explicitly requested. The source-only pass uses `git diff --check`, `git status`, and a GitHub issue-state audit.
 
 ## Guardrails
 

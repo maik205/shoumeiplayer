@@ -36,4 +36,5 @@ dependencies {
     implementation(libs.androidx.tv.material)
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.coroutines.android)
+    testImplementation(libs.junit)
 }

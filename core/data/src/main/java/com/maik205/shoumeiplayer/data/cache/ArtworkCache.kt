@@ -5,6 +5,7 @@ import coil3.ImageLoader
 import coil3.disk.DiskCache
 import coil3.memory.MemoryCache
 import coil3.request.CachePolicy
+import kotlinx.coroutines.Dispatchers
 import okio.Path.Companion.toOkioPath
 
 /**
@@ -19,6 +20,8 @@ class ArtworkCache(context: Context) {
 
     val imageLoader: ImageLoader by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
         ImageLoader.Builder(applicationContext)
+            .fetcherCoroutineContext(Dispatchers.IO.limitedParallelism(MAX_CONCURRENT_FETCHES))
+            .decoderCoroutineContext(Dispatchers.IO.limitedParallelism(MAX_CONCURRENT_DECODES))
             .components {
                 add(ArtworkCacheKeyInterceptor())
             }
@@ -60,5 +63,7 @@ class ArtworkCache(context: Context) {
         const val DISK_CACHE_FREE_SPACE_PERCENT = 0.02
         const val MIN_DISK_CACHE_BYTES = 10L * 1024 * 1024
         const val MAX_DISK_CACHE_BYTES = 250L * 1024 * 1024
+        const val MAX_CONCURRENT_FETCHES = 4
+        const val MAX_CONCURRENT_DECODES = 2
     }
 }

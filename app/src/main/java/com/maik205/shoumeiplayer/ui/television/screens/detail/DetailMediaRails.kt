@@ -60,6 +60,7 @@ import com.maik205.shoumeiplayer.domain.model.DetailItem
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusScale
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionMediaTile
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionArtworkPrefetch
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionProgressMark
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionRowHeader
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
@@ -158,6 +159,16 @@ internal fun DetailMediaRail(
         List(items.size) { FocusRequester() }
     }
     val railState = rememberLazyListState()
+    TelevisionArtworkPrefetch(
+        items = items,
+        listState = railState,
+        shapeForItem = { item ->
+            when (item.type) {
+                "Episode", "Video", "Recording" -> ArtworkShape.Landscape
+                else -> item.shape
+            }
+        },
+    )
     Column(
         modifier = Modifier
             .fillMaxWidth()
