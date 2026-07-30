@@ -19,7 +19,7 @@ This checklist tracks the non-Live-TV performance issues being implemented in th
 
 ## Playback state and network work
 
-- [ ] #1 Isolate high-frequency playback timeline state from the full player UI.
+- [ ] #1 Isolate high-frequency playback timeline state from the full player UI (timeline sampling/JNI throttling implemented; full composable slice split remains).
 - [x] #5 Reduce unnecessary work in playback progress reporting.
 - [x] #6 Disable Ktor request logging in release builds.
 - [x] #4 Stage and limit concurrent Home/browse network fan-out.
