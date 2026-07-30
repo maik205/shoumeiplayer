@@ -126,6 +126,9 @@ class PlayerViewModel(
     /** The item actually on screen — [itemId] only until the first [switchTo]. */
     private var currentItemId: String = itemId
 
+    val activeItemId: String
+        get() = currentItemId
+
     private var initialJob: Job? = null
     private var swapJob: Job? = null
     private var shelvesJob: Job? = null

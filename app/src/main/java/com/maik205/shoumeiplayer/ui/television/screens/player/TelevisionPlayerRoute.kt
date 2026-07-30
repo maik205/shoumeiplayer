@@ -2,8 +2,11 @@ package com.maik205.shoumeiplayer.ui.television.screens.player
 
 import android.view.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.common.util.UnstableApi
 import com.maik205.shoumeiplayer.di.player.JellyfinPlaybackMetadataLoader
 import com.maik205.shoumeiplayer.feature.player.PlayerViewModel
 import com.maik205.shoumeiplayer.feature.player.TrackController
@@ -48,6 +51,7 @@ fun TelevisionPlayerScreen(
         )
     }
     val controller = remember(viewModel) { PlayerViewModelController(viewModel) }
+    PlayerMediaSession(viewModel, controller)
     TelevisionPlayerContent(
         state = viewModel.uiState.collectAsStateWithLifecycle().value,
         timelineState = viewModel.timelineState,
@@ -57,6 +61,49 @@ fun TelevisionPlayerScreen(
         onNavigateToItem = onNavigateToItem,
         onNavigateToPerson = onNavigateToPerson,
     )
+}
+
+@OptIn(UnstableApi::class)
+@Composable
+private fun PlayerMediaSession(
+    viewModel: PlayerViewModel,
+    controller: TelevisionPlayerController,
+) {
+    val context = LocalContext.current
+    val player = remember(viewModel, controller) {
+        ShoumeiMedia3Player(
+            uiState = viewModel.uiState,
+            timelineState = viewModel.timelineState,
+            activeItemId = { viewModel.activeItemId },
+            onPlay = controller::play,
+            onPause = controller::pause,
+            onStop = controller::stopAndReport,
+            onSeek = controller::seekTo,
+            onPrevious = {
+                if (viewModel.uiState.value.isAudio) {
+                    controller.playPreviousAudio()
+                } else {
+                    controller.playPreviousEpisode()
+                }
+            },
+            onNext = {
+                if (viewModel.uiState.value.isAudio) {
+                    controller.playNextAudio()
+                } else {
+                    controller.playNextEpisode()
+                }
+            },
+            onSetSpeed = controller::setSpeed,
+        )
+    }
+
+    DisposableEffect(context, player) {
+        val session = createPlayerMediaSession(context, player)
+        onDispose {
+            session.release()
+            player.release()
+        }
+    }
 }
 
 internal interface TelevisionPlayerController {
