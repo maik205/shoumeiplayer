@@ -153,7 +153,8 @@ internal fun DetailMediaRail(
     items: List<MediaItemUi>,
     onOpen: (MediaItemUi) -> Unit,
 ) {
-    val railFocusRequesters = remember(items.map(MediaItemUi::id)) {
+    val itemIdentity = items.fold(1) { hash, item -> 31 * hash + item.id.hashCode() }
+    val railFocusRequesters = remember(items.size, itemIdentity) {
         List(items.size) { FocusRequester() }
     }
     val railState = rememberLazyListState()
@@ -200,7 +201,8 @@ internal fun PeopleRail(
     people: List<PersonUi>,
     onOpen: (PersonUi) -> Unit,
 ) {
-    val railFocusRequesters = remember(people.map(PersonUi::id)) {
+    val peopleIdentity = people.fold(1) { hash, person -> 31 * hash + person.id.hashCode() }
+    val railFocusRequesters = remember(people.size, peopleIdentity) {
         List(people.size) { FocusRequester() }
     }
     val railState = rememberLazyListState()

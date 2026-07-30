@@ -345,7 +345,8 @@ private fun MusicShelf(
     onOpenItem: (MediaItemUi) -> Unit,
 ) {
     var focusedItemId by remember(title) { mutableStateOf<String?>(null) }
-    val railFocusRequesters = remember(items.map(MediaItemUi::id), firstItemFocusRequester) {
+    val itemIdentity = items.fold(1) { hash, item -> 31 * hash + item.id.hashCode() }
+    val railFocusRequesters = remember(items.size, itemIdentity, firstItemFocusRequester) {
         List(items.size) { index ->
             if (index == 0 && firstItemFocusRequester != null) {
                 firstItemFocusRequester

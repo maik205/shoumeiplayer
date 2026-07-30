@@ -278,7 +278,8 @@ internal fun EpisodeRail(
     val currentEpisodeIndex = episodes.indexOfFirst { it.id == currentEpisodeId }.coerceAtLeast(0)
     val entryEpisodeIndex = if (currentEpisodeId != null) currentEpisodeIndex else 0
     val railFocusRequesters = remember(
-        episodes.map(MediaItemUi::id),
+        episodes.size,
+        episodes.fold(1) { hash, episode -> 31 * hash + episode.id.hashCode() },
         entryEpisodeIndex,
         episodeFocusRequester,
     ) {
