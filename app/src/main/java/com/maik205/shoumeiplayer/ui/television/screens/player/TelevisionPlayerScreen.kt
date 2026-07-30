@@ -3,6 +3,7 @@ package com.maik205.shoumeiplayer.ui.television.screens.player
 import android.view.KeyEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
@@ -57,6 +58,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.platform.LocalContext
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
@@ -92,8 +94,25 @@ internal fun TelevisionPlayerContent(
     onNavigateToPerson: (String, String) -> Unit,
 ) {
     val audio = audioOnly || state.isAudio
+    val activity = LocalContext.current as? Activity
     val playbackError = state.error ?: (state.state as? PlayerState.Error)?.message
     val seekIntervalMs = state.seekIntervalSeconds.toLong() * 1_000L
+
+    DisposableEffect(activity, audio, state.state) {
+        val window = activity?.window
+        val shouldKeepScreenOn = shouldKeepScreenOn(audio, state.state)
+        val previouslyOwned = window?.let {
+            it.attributes.flags and android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON != 0
+        } ?: false
+        if (shouldKeepScreenOn) {
+            window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        onDispose {
+            if (shouldKeepScreenOn && !previouslyOwned) {
+                window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+        }
+    }
 
     val rootFocus = remember { FocusRequester() }
     val timelineFocus = remember { FocusRequester() }
@@ -844,3 +863,6 @@ internal fun TelevisionPlayerContent(
         }
     }
 }
+
+internal fun shouldKeepScreenOn(audio: Boolean, state: PlayerState): Boolean =
+    !audio && (state == PlayerState.Playing || state == PlayerState.Buffering)
