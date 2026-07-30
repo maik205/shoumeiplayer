@@ -152,6 +152,7 @@ fun TelevisionNavGraph() {
             }
             ProfilesScreen(
                 state = state,
+                backdropUrl = container.imageUrlBuilder.serverSplashscreen(),
                 onProfileClick = viewModel::choose,
                 onAnotherAccount = viewModel::useAnotherAccount,
                 onBack = {
@@ -182,6 +183,7 @@ fun TelevisionNavGraph() {
             }
             LoginScreen(
                 state = state,
+                backdropUrl = container.imageUrlBuilder.serverSplashscreen(),
                 onUserNameChange = viewModel::setUserName,
                 onPasswordChange = viewModel::setPassword,
                 onSignIn = viewModel::signIn,
@@ -201,6 +203,7 @@ fun TelevisionNavGraph() {
             val state by viewModel.state.collectAsStateWithLifecycle()
             RecoveryScreen(
                 state = state,
+                backdropUrl = container.imageUrlBuilder.serverSplashscreen(),
                 onUserNameChange = viewModel::setUserName,
                 onRequestReset = viewModel::requestReset,
                 onBack = navController::popBackStack,
@@ -210,6 +213,7 @@ fun TelevisionNavGraph() {
         composable<SessionExpiredRoute> {
             CompactStateScreen(
                 title = stringResource(R.string.tv_session_expired_title),
+                backdropUrl = container.imageUrlBuilder.serverSplashscreen(),
                 detail = stringResource(R.string.tv_session_expired_detail),
                 primaryLabel = stringResource(R.string.tv_sign_in_again),
                 onPrimary = {
@@ -229,6 +233,7 @@ fun TelevisionNavGraph() {
         composable<AccountLockedRoute> {
             CompactStateScreen(
                 title = stringResource(R.string.tv_account_locked_title),
+                backdropUrl = container.imageUrlBuilder.serverSplashscreen(),
                 detail = stringResource(R.string.tv_account_locked_detail),
                 primaryLabel = stringResource(R.string.tv_profiles),
                 onPrimary = {

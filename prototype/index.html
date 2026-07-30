@@ -74,7 +74,14 @@
               </div>
 
               <div class="server-list" role="list">
-                <button class="server-option" data-focus data-default-focus data-server="Living room" role="listitem">
+                <button
+                  class="server-option"
+                  data-focus
+                  data-default-focus
+                  data-server="Living room"
+                  data-server-url="http://192.168.1.14:8096"
+                  role="listitem"
+                >
                   <span class="server-option__arrow material-symbols-rounded" aria-hidden="true">arrow_forward</span>
                   <span class="server-option__copy">
                     <strong>Living room</strong>
@@ -82,7 +89,13 @@
                   </span>
                 </button>
 
-                <button class="server-option" data-focus data-server="Studio" role="listitem">
+                <button
+                  class="server-option"
+                  data-focus
+                  data-server="Studio"
+                  data-server-url="http://192.168.1.28:8096"
+                  role="listitem"
+                >
                   <span class="server-option__arrow material-symbols-rounded" aria-hidden="true">arrow_forward</span>
                   <span class="server-option__copy">
                     <strong>Studio</strong>
@@ -413,9 +426,10 @@
                 data-title="The Last Light"
                 data-meta="2026|1h 52m|4K|Drama"
                 data-summary="A lighthouse keeper waits out the final storm of the season."
-                data-backdrop="./assets/hero-lighthouse.png"
+                data-backdrop=""
+                data-server-default-media
               >
-                <img src="./assets/hero-lighthouse.png" alt="Stormy coast beside a lighthouse" />
+                <img data-server-default-artwork alt="" hidden />
                 <span class="media-card__scrim"></span>
                 <span class="media-card__body">
                   <strong>The Last Light</strong>

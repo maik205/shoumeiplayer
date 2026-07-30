@@ -16,6 +16,7 @@
   --rail-width: 0px;
   --top-nav-height: 72px;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --server-default-background: none;
 }
 
 * {
@@ -80,7 +81,8 @@ button:focus {
 }
 
 .ambient__image {
-  background-image: url("./assets/hero-lighthouse.png");
+  background-color: var(--ink);
+  background-image: var(--server-default-background);
   background-position: center;
   background-size: cover;
   filter: saturate(0.76) contrast(1.04);
@@ -374,7 +376,11 @@ button:focus {
 }
 
 .onboarding-scene__image {
-  background: url("./assets/hero-lighthouse.png") center / cover no-repeat;
+  background-color: #0d1012;
+  background-image: var(--server-default-background);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
   filter: saturate(0.52) contrast(1.06);
   opacity: 0.52;
   transform: scale(1.015);

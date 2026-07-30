@@ -71,8 +71,6 @@ import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoVie
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 
-private const val OnboardingBackdrop = "file:///android_asset/hero-lighthouse.png"
-
 @Composable
 fun ConnectScreen(
     state: ConnectUiState,
@@ -92,7 +90,7 @@ fun ConnectScreen(
         }
     }
 
-    TelevisionBackground(imageUrl = OnboardingBackdrop) {
+    TelevisionBackground(imageUrl = null) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -266,6 +264,7 @@ private fun ServerRow(
 @Composable
 fun ProfilesScreen(
     state: ProfilesUiState,
+    backdropUrl: String?,
     onProfileClick: (ProfileUi) -> Unit,
     onAnotherAccount: () -> Unit,
     onBack: () -> Unit,
@@ -279,7 +278,7 @@ fun ProfilesScreen(
         }
     }
 
-    TelevisionBackground(imageUrl = OnboardingBackdrop) {
+    TelevisionBackground(imageUrl = backdropUrl) {
         Box(Modifier.fillMaxSize()) {
             TelevisionFocusRevealButton(
                 label = stringResource(R.string.tv_server),
@@ -404,6 +403,7 @@ private fun ProfileTarget(
 @Composable
 fun LoginScreen(
     state: LoginUiState,
+    backdropUrl: String?,
     onUserNameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onSignIn: () -> Unit,
@@ -419,7 +419,7 @@ fun LoginScreen(
         if (state.userName.isBlank()) usernameFocus.requestFocus() else passwordFocus.requestFocus()
     }
 
-    TelevisionBackground(imageUrl = OnboardingBackdrop) {
+    TelevisionBackground(imageUrl = backdropUrl) {
         Box(Modifier.fillMaxSize()) {
             TelevisionFocusRevealButton(
                 label = stringResource(R.string.tv_profiles),
@@ -542,6 +542,7 @@ fun LoginScreen(
 @Composable
 fun RecoveryScreen(
     state: RecoveryUiState,
+    backdropUrl: String?,
     onUserNameChange: (String) -> Unit,
     onRequestReset: () -> Unit,
     onBack: () -> Unit,
@@ -549,7 +550,7 @@ fun RecoveryScreen(
     val usernameFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { usernameFocus.requestFocus() }
 
-    TelevisionBackground(imageUrl = OnboardingBackdrop) {
+    TelevisionBackground(imageUrl = backdropUrl) {
         Box(Modifier.fillMaxSize()) {
             TelevisionFocusRevealButton(
                 label = stringResource(R.string.sign_in),
@@ -638,6 +639,7 @@ fun RecoveryScreen(
 @Composable
 fun CompactStateScreen(
     title: String,
+    backdropUrl: String?,
     detail: String? = null,
     primaryLabel: String,
     onPrimary: () -> Unit,
@@ -647,7 +649,7 @@ fun CompactStateScreen(
     val primaryFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { primaryFocus.requestFocus() }
 
-    TelevisionBackground(imageUrl = OnboardingBackdrop) {
+    TelevisionBackground(imageUrl = backdropUrl) {
         Column(
             modifier = Modifier
                 .align(Alignment.Center)

@@ -5,6 +5,10 @@ import com.maik205.shoumeiplayer.data.api.dto.BaseItemDto
 /** Builds Jellyfin image URLs against the currently stored server URL. */
 class ImageUrlBuilder(private val serverUrlProvider: () -> String?) {
 
+    /** Server-provided default artwork. Jellyfin serves a flat 404 when no splash image is set. */
+    fun serverSplashscreen(): String? =
+        serverUrlProvider()?.let { "$it/Branding/Splashscreen" }
+
     fun primary(itemId: String, tag: String?, maxWidth: Int = 400): String? =
         image(itemId, "Primary", tag, maxWidth)
 

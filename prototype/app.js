@@ -1,3 +1,6 @@
+const JELLYFIN_SPLASHSCREEN_PATH = "/Branding/Splashscreen";
+let serverDefaultBackdrop = "";
+
 const userLibraries = [
   { id: "cinema", name: "Cinema", icon: "movie" },
   { id: "shows", name: "Shows", icon: "tv" },
@@ -11,8 +14,8 @@ const mediaCatalog = [
     title: "The Last Light",
     year: "2026",
     type: "Film",
-    image: "./assets/hero-lighthouse.png",
-    backdrop: "./assets/hero-lighthouse.png",
+    image: "",
+    backdrop: "",
     hasLogo: true,
     meta: "2026|1h 52m|4K|Drama",
     summary: "A lighthouse keeper waits out the final storm of the season.",
@@ -1670,13 +1673,58 @@ function moveFocus(direction) {
 }
 
 function setBackdrop(url) {
-  if (!url || ambientImage.style.backgroundImage.includes(url)) return;
+  const resolvedUrl = url || serverDefaultBackdrop;
+  if (!resolvedUrl) {
+    clearTimeout(backdropTimer);
+    ambientImage.style.backgroundImage = "none";
+    ambientImage.classList.remove("is-changing");
+    return;
+  }
+  if (ambientImage.style.backgroundImage.includes(resolvedUrl)) return;
   clearTimeout(backdropTimer);
   ambientImage.classList.add("is-changing");
   backdropTimer = setTimeout(() => {
-    ambientImage.style.backgroundImage = `url("${url}")`;
+    ambientImage.style.backgroundImage = `url("${resolvedUrl}")`;
     ambientImage.classList.remove("is-changing");
   }, 170);
+}
+
+function normalizeServerAddress(address) {
+  const trimmed = address.trim().replace(/\/+$/, "");
+  if (!trimmed) return "";
+  return /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+}
+
+function useServerDefaultBackdrop(address) {
+  const serverUrl = normalizeServerAddress(address);
+  serverDefaultBackdrop = serverUrl ? `${serverUrl}${JELLYFIN_SPLASHSCREEN_PATH}` : "";
+  const cssImage = serverDefaultBackdrop ? `url("${serverDefaultBackdrop}")` : "none";
+  document.documentElement.style.setProperty("--server-default-background", cssImage);
+
+  mediaCatalog[0].image = serverDefaultBackdrop;
+  mediaCatalog[0].backdrop = serverDefaultBackdrop;
+  if (currentMedia.title === mediaCatalog[0].title) {
+    currentMedia.image = serverDefaultBackdrop;
+    currentMedia.backdrop = serverDefaultBackdrop;
+  }
+
+  document.querySelectorAll("[data-server-default-artwork]").forEach((image) => {
+    image.hidden = !serverDefaultBackdrop;
+    if (serverDefaultBackdrop) image.src = serverDefaultBackdrop;
+    image.onerror = () => {
+      image.hidden = true;
+      document.documentElement.style.setProperty("--server-default-background", "none");
+      if (!ambientImage.style.backgroundImage || ambientImage.style.backgroundImage.includes(serverDefaultBackdrop)) {
+        ambientImage.style.backgroundImage = "none";
+      }
+    };
+  });
+
+  document.querySelectorAll("[data-server-default-media]").forEach((element) => {
+    element.dataset.backdrop = serverDefaultBackdrop;
+    element.dataset.image = serverDefaultBackdrop;
+  });
+  setBackdrop(serverDefaultBackdrop);
 }
 
 function inferMediaKind(meta = "") {
@@ -2231,7 +2279,7 @@ function showView(name) {
     };
     document.querySelector("#topbar-context").textContent = contexts[name] || "";
     content.scrollTop = 0;
-    setBackdrop(name === "home" ? currentMedia.backdrop : "./assets/hero-lighthouse.png");
+    setBackdrop(name === "home" ? currentMedia.backdrop : serverDefaultBackdrop);
     if (name === "connection-error") rotateConnectionFailureMessage();
     if (name === "home" || name === "library") rotateFeedEndMessage(name);
     if (name === "home") document.querySelector('[data-view="home"]').classList.remove("is-browsing");
@@ -4167,6 +4215,7 @@ document.addEventListener("click", (event) => {
     if (serverChoice.dataset.server === "Studio") {
       showView("connection-error");
     } else {
+      useServerDefaultBackdrop(serverChoice.dataset.serverUrl || "");
       profileReturnView = "connect";
       showView("profiles");
     }
@@ -4218,7 +4267,8 @@ document.addEventListener("click", (event) => {
 
   if (event.target.closest("[data-connect-manual]")) {
     const address = document.querySelector("#server-address").value.trim();
-    showToast(address ? `Connecting to http://${address}` : "Enter a server address");
+    if (address) useServerDefaultBackdrop(address);
+    showToast(address ? `Connecting to ${normalizeServerAddress(address)}` : "Enter a server address");
   }
 
   if (event.target.closest(".server-refresh")) {
