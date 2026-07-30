@@ -22,17 +22,19 @@ fun BaseItemDto.toMediaItem(images: ImageUrlBuilder): MediaItem {
     val primary = images.primaryWithParentFallback(
         item = this,
         maxWidth = when (shape) {
-            ArtworkShape.Landscape -> 720
-            ArtworkShape.Square -> 600
-            ArtworkShape.Portrait -> 480
+            // Rails render at roughly 180-300 px on a 10-foot TV. Keep a modest decode headroom
+            // without downloading 720px+ artwork for every offscreen card.
+            ArtworkShape.Landscape -> 480
+            ArtworkShape.Square -> 480
+            ArtworkShape.Portrait -> 360
             ArtworkShape.Poster -> 480
         },
     )
     val landscape = if (normalizedType == "Episode") {
-        images.episodePreview(this, 720)
+        images.episodePreview(this, 540)
     } else {
-        images.thumbWithSeriesFallback(this, 720)
-            ?: images.backdropWithParentFallback(this, 720)
+        images.thumbWithSeriesFallback(this, 540)
+            ?: images.backdropWithParentFallback(this, 540)
             ?: primary
     }
     val image = if (shape == ArtworkShape.Landscape) landscape else primary
