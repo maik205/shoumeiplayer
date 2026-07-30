@@ -18,6 +18,7 @@ data class MediaStreamDto(
     @SerialName("Channels") val channels: Int? = null,
     @SerialName("Width") val width: Int? = null,
     @SerialName("Height") val height: Int? = null,
+    @SerialName("IsAudioDescription") val isAudioDescription: Boolean = false,
 )
 
 @Serializable

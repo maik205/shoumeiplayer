@@ -18,6 +18,18 @@ data class PlaybackMediaStream(
     val channels: Int? = null,
     val width: Int? = null,
     val height: Int? = null,
+    val isAudioDescription: Boolean = false,
+)
+
+data class SystemCaptionStyle(
+    val enabled: Boolean,
+    val localeTag: String?,
+    val fontScale: Float,
+    val foregroundColor: Int,
+    val backgroundColor: Int,
+    val edgeType: Int,
+    val edgeColor: Int,
+    val typefaceName: String?,
 )
 
 /** User-level language and subtitle policy needed to select initial tracks. */

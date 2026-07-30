@@ -24,6 +24,7 @@ interface PlayerEngine {
     val speed: StateFlow<Float>
     /** Native source frame rate, when the current stream reports one. */
     val videoFps: StateFlow<Double?>
+    fun setSystemCaptionStyle(style: SystemCaptionStyle?) = Unit
     fun setSurface(surface: Surface?)
 
     /**

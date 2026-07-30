@@ -280,6 +280,17 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         MpvNative.setOptionString("tls-verify", settings.verifyTlsCertificates.yesNo())
     }
 
+    override fun setSystemCaptionStyle(style: SystemCaptionStyle?) {
+        if (released || style == null) return
+        MpvNative.setOptionString("sub-scale", style.fontScale.coerceIn(0.5f, 3f).toString())
+        MpvNative.setOptionString("sub-color", style.foregroundColor.toMpvColor())
+        MpvNative.setOptionString("sub-back-color", style.backgroundColor.toMpvColor())
+        MpvNative.setOptionString("sub-border-color", style.edgeColor.toMpvColor())
+        MpvNative.setOptionString("sub-border-size", if (style.edgeType == 0) "0" else "1")
+        style.typefaceName?.takeIf(String::isNotBlank)?.let { MpvNative.setOptionString("sub-font", it) }
+        style.localeTag?.let { MpvNative.setOptionString("slang", it) }
+    }
+
     override fun load(item: PlayRequest) {
         if (released) return
         hasRequest = true
@@ -648,3 +659,5 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         else -> ""
     }
 }
+
+private fun Int.toMpvColor(): String = "#%08X".format(Locale.US, this)

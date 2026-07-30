@@ -34,6 +34,7 @@ fun TelevisionPlayerScreen(
                 preferenceProvider = container.authRepository,
                 initialAudioStreamIndex = initialAudioStreamIndex,
                 initialSubtitleStreamIndex = initialSubtitleStreamIndex,
+                preferAudioDescription = container.audioDescriptionRequested,
             ),
             metadataLoader = JellyfinPlaybackMetadataLoader(
                 libraryRepository = container.libraryRepository,

@@ -28,9 +28,13 @@ object TrackSelection {
         streams: List<PlaybackMediaStream>,
         configuration: PlaybackTrackPreferences?,
         defaultAudioStreamIndex: Int?,
+        preferAudioDescription: Boolean = false,
     ): Int? {
         val audio = streams.ofType("Audio")
         if (audio.isEmpty()) return null
+        if (preferAudioDescription) {
+            audio.firstOrNull { it.isAudioDescription }?.index?.let { return it }
+        }
         val serverDefault = defaultAudioStreamIndex?.takeIf { index -> audio.any { it.index == index } }
             ?: audio.firstOrNull { it.isDefault }?.index
             ?: audio.first().index

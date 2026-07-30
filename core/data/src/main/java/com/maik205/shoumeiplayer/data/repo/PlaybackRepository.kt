@@ -299,6 +299,7 @@ class PlaybackRepository(
         channels = stream.channels,
         width = stream.width,
         height = stream.height,
+        isAudioDescription = stream.isAudioDescription,
     )
 
     private fun TrickplayInfoDto.toPlayerInfo() = TrickplayInfo(

@@ -15,6 +15,7 @@ class TrackController(
     private val preferenceProvider: PlaybackTrackPreferenceProvider,
     private val initialAudioStreamIndex: Int?,
     private val initialSubtitleStreamIndex: Int?,
+    private val preferAudioDescription: Boolean = false,
 ) {
     private var initialSelectionPending =
         initialAudioStreamIndex != null || initialSubtitleStreamIndex != null
@@ -53,6 +54,7 @@ class TrackController(
             streams = resolved.mediaStreams,
             configuration = preferences,
             defaultAudioStreamIndex = resolved.defaultAudioIndex,
+            preferAudioDescription = preferAudioDescription,
         )
         selectedAudioIndex = if (initialSelectionPending) {
             initialAudioStreamIndex ?: defaultAudio

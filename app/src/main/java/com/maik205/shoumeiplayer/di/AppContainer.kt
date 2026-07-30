@@ -1,6 +1,8 @@
 package com.maik205.shoumeiplayer.di
 
 import android.content.Context
+import android.os.Build
+import android.view.accessibility.AccessibilityManager
 import com.maik205.shoumeiplayer.BuildConfig
 import com.maik205.shoumeiplayer.data.ImageUrlBuilder
 import com.maik205.shoumeiplayer.data.api.JellyfinClient
@@ -38,6 +40,10 @@ class AppContainer(
 ) {
     val appName: String = "Shoumei Player"
     val appVersion: String = BuildConfig.VERSION_NAME
+    val audioDescriptionRequested: Boolean by lazy {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            context.getSystemService(AccessibilityManager::class.java)?.isAudioDescriptionRequested == true
+    }
     val sessionStore: SessionStore by lazy { SessionStore(context) }
     val sessionManager: SessionManager by lazy { SessionManager(sessionStore) }
     val settingsStore: SettingsStore by lazy { SettingsStore(context) }
