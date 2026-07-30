@@ -14,13 +14,13 @@ This checklist tracks the non-Live-TV performance issues being implemented in th
 - [x] #41 Bound search result payloads and render work.
 - [ ] #42 Add size-aware artwork decoding and TV prefetch limits.
 - [x] #43 Reuse Home rail focus requesters without rebuilding keyed lists.
-- [ ] #7 Memoize derived search and browse collections.
+- [x] #7 Memoize derived search and browse collections (legacy path removed; active TV search has no repeated derived filter).
 - [x] #11 Reduce audio player blur and offscreen compositing cost.
 
 ## Playback state and network work
 
 - [ ] #1 Isolate high-frequency playback timeline state from the full player UI.
-- [ ] #5 Reduce unnecessary work in playback progress reporting.
+- [x] #5 Reduce unnecessary work in playback progress reporting.
 - [x] #6 Disable Ktor request logging in release builds.
 - [x] #4 Stage and limit concurrent Home/browse network fan-out.
 - [x] #8 Cancel stale detail, season, and browse reload jobs.
