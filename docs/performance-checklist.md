@@ -26,7 +26,7 @@ This checklist tracks the non-Live-TV performance issues being implemented in th
 - [x] #8 Cancel stale detail, season, and browse reload jobs.
 - [x] #9 Avoid duplicate MediaItemUi mapping in detail loading (resolved by data-layer mapping).
 - [x] #10 Reduce raw DTO retention in television detail state (resolved by domain-only state).
-- [ ] #12 Coalesce mpv timeline callbacks before crossing JNI.
+- [x] #12 Coalesce mpv timeline callbacks before crossing JNI.
 - [x] #13 Replace Home raw DTO hero lookup maps with lightweight hero data (already absent in current Home state).
 
 Live TV issues are intentionally excluded.
