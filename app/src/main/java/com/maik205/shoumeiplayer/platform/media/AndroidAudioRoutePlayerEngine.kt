@@ -1,7 +1,6 @@
 package com.maik205.shoumeiplayer.platform.media
 
 import android.content.Context
-import android.media.AudioAttributes
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioFormat
@@ -68,10 +67,6 @@ internal class AndroidAudioRoutePlayerEngine(
     }
 
     private fun activeOutputDevice(): AudioDeviceInfo? {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val attributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build()
-            audioManager.getDevicesForAttributes(attributes).firstOrNull()?.let { return it }
-        }
         return audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
             .maxByOrNull { audioRoutePriority(it.type) }
     }

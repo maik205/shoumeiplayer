@@ -40,7 +40,7 @@ internal class AndroidCaptionPreferencesPlayerEngine(
                 backgroundColor = style.backgroundColor,
                 edgeType = style.edgeType,
                 edgeColor = style.edgeColor,
-                typefaceName = style.typeface?.family,
+                typefaceName = null,
             ),
         )
     }

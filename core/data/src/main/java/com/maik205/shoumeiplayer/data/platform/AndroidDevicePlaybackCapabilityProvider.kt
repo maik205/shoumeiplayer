@@ -91,10 +91,15 @@ internal fun supportsVideoFormat(
     width: Int,
     height: Int,
     frameRate: Double,
-): Boolean = width > 0 && height > 0 && frameRate > 0.0 &&
-    (capability.maxWidth == null || width <= capability.maxWidth) &&
-    (capability.maxHeight == null || height <= capability.maxHeight) &&
-    (capability.maxFrameRate == null || frameRate <= capability.maxFrameRate + 0.01)
+): Boolean {
+    val maxWidth = capability.maxWidth
+    val maxHeight = capability.maxHeight
+    val maxFrameRate = capability.maxFrameRate
+    return width > 0 && height > 0 && frameRate > 0.0 &&
+        (maxWidth == null || width <= maxWidth) &&
+        (maxHeight == null || height <= maxHeight) &&
+        (maxFrameRate == null || frameRate <= maxFrameRate + 0.01)
+}
 
 internal fun resolveDevicePlaybackCapabilities(
     refreshRates: List<Float>?,

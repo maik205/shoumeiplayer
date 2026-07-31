@@ -320,7 +320,7 @@ private class AudioServicePlayer(
     }
 }
 
-private data class SavedAudioPlayback(
+internal data class SavedAudioPlayback(
     val accountId: String,
     val mediaIds: List<String>,
     val currentIndex: Int,

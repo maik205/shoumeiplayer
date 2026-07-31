@@ -54,7 +54,7 @@ class AppContainer(
     val sessionStore: SessionStore by lazy { SessionStore(context) }
     val sessionManager: SessionManager by lazy { SessionManager(sessionStore) }
     val settingsStore: SettingsStore by lazy { SettingsStore(context) }
-    val networkMonitor by lazy { AndroidNetworkMonitor(context) }
+    internal val networkMonitor by lazy { AndroidNetworkMonitor(context) }
     fun newPlaybackMetricsSink(): PlaybackMetricsSink? =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) AndroidPlaybackMetricsSink(context) else null
     val devicePlaybackCapabilities by lazy {

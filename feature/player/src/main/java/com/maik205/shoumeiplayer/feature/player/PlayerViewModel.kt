@@ -25,9 +25,9 @@ import com.maik205.shoumeiplayer.player.TrackType
 import com.maik205.shoumeiplayer.player.VideoQuality
 import com.maik205.shoumeiplayer.util.Ticks
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.FlowPreview
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -264,7 +264,7 @@ class PlayerViewModel(
     init {
         startInitialPlayback()
         viewModelScope.launch {
-            engine.state.distinctUntilChanged().collect { state ->
+            engine.state.collect { state ->
                 metricsSink?.record(
                     PlaybackMetricsEvent(
                         itemId = currentItemId,
@@ -283,7 +283,7 @@ class PlayerViewModel(
                 .collect { (available, transport) -> metricsSink?.recordNetwork(transport, available) }
         }
         viewModelScope.launch {
-            engine.tracks.distinctUntilChanged().collect { metricsSink?.recordTracks(it) }
+            engine.tracks.collect { metricsSink?.recordTracks(it) }
         }
         viewModelScope.launch {
             networkAvailable.collect { available ->
