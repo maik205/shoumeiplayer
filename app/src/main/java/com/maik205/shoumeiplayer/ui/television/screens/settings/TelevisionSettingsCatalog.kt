@@ -13,6 +13,7 @@ import com.maik205.shoumeiplayer.domain.settings.HardwareCodecs
 import com.maik205.shoumeiplayer.domain.settings.HardwareDecoding
 import com.maik205.shoumeiplayer.domain.settings.HdrMode
 import com.maik205.shoumeiplayer.domain.settings.InterfaceScale
+import com.maik205.shoumeiplayer.domain.settings.PlaybackBackend
 import com.maik205.shoumeiplayer.domain.settings.RefreshRateSwitching
 import com.maik205.shoumeiplayer.domain.settings.RenderingProfile
 import com.maik205.shoumeiplayer.domain.settings.ResumeBehavior
@@ -22,6 +23,7 @@ import com.maik205.shoumeiplayer.domain.settings.SubtitleColor
 import com.maik205.shoumeiplayer.domain.settings.SubtitleMode
 import com.maik205.shoumeiplayer.domain.settings.SubtitleStroke
 import com.maik205.shoumeiplayer.domain.settings.ToneMapping
+import com.maik205.shoumeiplayer.domain.settings.TlsTrustSource
 
 internal fun settingsRows(
     section: SettingsSection,
@@ -39,6 +41,13 @@ internal fun settingsRows(
     val settings = state.settings
     val rows = when (section) {
         SettingsSection.Playback -> listOf(
+            choiceRow(
+                key = "playback-backend",
+                labelRes = R.string.tv_settings_playback_backend,
+                current = settings.playbackBackend,
+                values = PlaybackBackend.entries,
+                display = PlaybackBackend::label,
+            ) { update { current -> current.copy(playbackBackend = it) } },
             choiceRow(
                 key = "streaming-bitrate",
                 labelRes = R.string.tv_settings_maximum_streaming_bitrate,
@@ -336,6 +345,13 @@ internal fun settingsRows(
             toggleRow("tls", R.string.tv_settings_verify_tls_certificates, settings.verifyTlsCertificates) {
                 update { it.copy(verifyTlsCertificates = !it.verifyTlsCertificates) }
             },
+            choiceRow(
+                key = "tls-trust-source",
+                labelRes = R.string.tv_settings_tls_trust_source,
+                current = settings.tlsTrustSource,
+                values = TlsTrustSource.entries,
+                display = TlsTrustSource::label,
+            ) { update { current -> current.copy(tlsTrustSource = it) } },
             valueRow("artwork-cache-limit", R.string.tv_settings_artwork_cache, "Automatic · up to 250 MiB"),
             actionRow(
                 "clear-artwork-cache",

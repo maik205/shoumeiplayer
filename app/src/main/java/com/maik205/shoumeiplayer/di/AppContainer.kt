@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import com.maik205.shoumeiplayer.player.PlaybackMetricsSink
 
 class AppContainer(
@@ -93,6 +94,9 @@ class AppContainer(
     val playbackOwnershipCoordinator: PlaybackOwnershipCoordinator by lazy {
         PlaybackOwnershipCoordinator()
     }
+    private val playbackBackend by lazy {
+        runBlocking { settingsStore.current().playbackBackend }
+    }
     // Official libmpv via the app-owned JNI bridge is the real engine in both build types.
     // MplayerEngine remains the
     // planned native successor behind this same PlayerEngine interface (see
@@ -101,7 +105,7 @@ class AppContainer(
         AndroidAudioRoutePlayerEngine(context, hdrEngine)
     }
     private val frameRateEngine by lazy {
-        AndroidFrameRatePlayerEngine(PlayerEngineFactory.create(context))
+        AndroidFrameRatePlayerEngine(PlayerEngineFactory.create(context, playbackBackend))
     }
     private val hdrEngine by lazy {
         AndroidHdrPolicyPlayerEngine(context, frameRateEngine)

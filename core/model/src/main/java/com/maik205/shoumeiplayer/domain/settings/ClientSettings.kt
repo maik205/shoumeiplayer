@@ -1,6 +1,7 @@
 package com.maik205.shoumeiplayer.domain.settings
 
 data class ClientSettings(
+    val playbackBackend: PlaybackBackend = PlaybackBackend.Mpv,
     val preferredQuality: PreferredQuality = PreferredQuality.Auto,
     val maxStreamingBitrateMbps: Int? = null,
     val maxRemoteBitrateMbps: Int = 20,
@@ -49,6 +50,7 @@ data class ClientSettings(
     val resumeBufferSeconds: Int = 1,
     val networkTimeoutSeconds: Int = 15,
     val verifyTlsCertificates: Boolean = true,
+    val tlsTrustSource: TlsTrustSource = TlsTrustSource.AndroidSystem,
 
     val focusScaleEnabled: Boolean = true,
     val clockInOsd: Boolean = true,

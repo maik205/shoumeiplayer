@@ -143,6 +143,8 @@
     <string name="tv_settings_tone_mapping">Tone mapping</string>
     <string name="tv_settings_use_video_margins">Use video margins</string>
     <string name="tv_settings_verify_tls_certificates">Verify TLS certificates</string>
+    <string name="tv_settings_playback_backend">Playback backend</string>
+    <string name="tv_settings_tls_trust_source">TLS trust source</string>
     <string name="tv_settings_version">Version</string>
     <string name="tv_settings_video">Video</string>
     <string name="tv_settings_video_output">Video output</string>

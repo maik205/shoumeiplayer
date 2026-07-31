@@ -27,6 +27,9 @@ android {
 dependencies {
     api(project(":core:model"))
     implementation(project(":mpvroid"))
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.exoplayer.hls)
+    implementation(libs.androidx.media3.datasource)
     implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.junit)

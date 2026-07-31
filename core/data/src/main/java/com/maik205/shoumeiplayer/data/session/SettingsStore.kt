@@ -20,6 +20,7 @@ import com.maik205.shoumeiplayer.domain.settings.HardwareDecoding
 import com.maik205.shoumeiplayer.domain.settings.HdrMode
 import com.maik205.shoumeiplayer.domain.settings.InterfaceScale
 import com.maik205.shoumeiplayer.domain.settings.PreferredQuality
+import com.maik205.shoumeiplayer.domain.settings.PlaybackBackend
 import com.maik205.shoumeiplayer.domain.settings.PlayerSettingsRepository
 import com.maik205.shoumeiplayer.domain.settings.RefreshRateSwitching
 import com.maik205.shoumeiplayer.domain.settings.RenderingProfile
@@ -29,12 +30,14 @@ import com.maik205.shoumeiplayer.domain.settings.SubtitleMode
 import com.maik205.shoumeiplayer.domain.settings.SubtitleColor
 import com.maik205.shoumeiplayer.domain.settings.SubtitleStroke
 import com.maik205.shoumeiplayer.domain.settings.ToneMapping
+import com.maik205.shoumeiplayer.domain.settings.TlsTrustSource
 import com.maik205.shoumeiplayer.domain.settings.storedOption
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private object SettingsKeys {
+    val PLAYBACK_BACKEND = stringPreferencesKey("playback_backend")
     val PREFERRED_QUALITY = stringPreferencesKey("preferred_quality")
     val MAX_STREAMING_BITRATE_MBPS = intPreferencesKey("max_streaming_bitrate_mbps")
     val MAX_REMOTE_BITRATE_MBPS = intPreferencesKey("max_remote_bitrate_mbps")
@@ -83,6 +86,7 @@ private object SettingsKeys {
     val RESUME_BUFFER_SECONDS = intPreferencesKey("resume_buffer_seconds")
     val NETWORK_TIMEOUT_SECONDS = intPreferencesKey("network_timeout_seconds")
     val VERIFY_TLS_CERTIFICATES = booleanPreferencesKey("verify_tls_certificates")
+    val TLS_TRUST_SOURCE = stringPreferencesKey("tls_trust_source")
 
     val FOCUS_SCALE_ENABLED = booleanPreferencesKey("focus_scale_enabled")
     val CLOCK_IN_OSD = booleanPreferencesKey("clock_in_osd")
@@ -152,6 +156,11 @@ class SettingsStore(
 }
 
 private fun Preferences.toClientSettings(): ClientSettings = ClientSettings(
+    playbackBackend = storedOption(
+        this[SettingsKeys.PLAYBACK_BACKEND],
+        PlaybackBackend.Mpv,
+        PlaybackBackend.entries.toTypedArray(),
+    ),
     preferredQuality = storedOption(
         this[SettingsKeys.PREFERRED_QUALITY],
         PreferredQuality.Auto,
@@ -252,6 +261,11 @@ private fun Preferences.toClientSettings(): ClientSettings = ClientSettings(
     resumeBufferSeconds = this[SettingsKeys.RESUME_BUFFER_SECONDS] ?: 1,
     networkTimeoutSeconds = this[SettingsKeys.NETWORK_TIMEOUT_SECONDS] ?: 15,
     verifyTlsCertificates = this[SettingsKeys.VERIFY_TLS_CERTIFICATES] ?: true,
+    tlsTrustSource = storedOption(
+        this[SettingsKeys.TLS_TRUST_SOURCE],
+        TlsTrustSource.AndroidSystem,
+        TlsTrustSource.entries.toTypedArray(),
+    ),
     focusScaleEnabled = this[SettingsKeys.FOCUS_SCALE_ENABLED] ?: true,
     clockInOsd = this[SettingsKeys.CLOCK_IN_OSD] ?: true,
     displayLanguage = storedOption(
@@ -288,6 +302,7 @@ private fun Preferences.toClientSettings(): ClientSettings = ClientSettings(
 )
 
 private fun androidx.datastore.preferences.core.MutablePreferences.write(settings: ClientSettings) {
+    this[SettingsKeys.PLAYBACK_BACKEND] = settings.playbackBackend.storageId
     this[SettingsKeys.PREFERRED_QUALITY] = settings.preferredQuality.storageId
     settings.maxStreamingBitrateMbps?.let { this[SettingsKeys.MAX_STREAMING_BITRATE_MBPS] = it }
         ?: remove(SettingsKeys.MAX_STREAMING_BITRATE_MBPS)
@@ -333,6 +348,7 @@ private fun androidx.datastore.preferences.core.MutablePreferences.write(setting
     this[SettingsKeys.RESUME_BUFFER_SECONDS] = settings.resumeBufferSeconds
     this[SettingsKeys.NETWORK_TIMEOUT_SECONDS] = settings.networkTimeoutSeconds
     this[SettingsKeys.VERIFY_TLS_CERTIFICATES] = settings.verifyTlsCertificates
+    this[SettingsKeys.TLS_TRUST_SOURCE] = settings.tlsTrustSource.storageId
     this[SettingsKeys.FOCUS_SCALE_ENABLED] = settings.focusScaleEnabled
     this[SettingsKeys.CLOCK_IN_OSD] = settings.clockInOsd
     this[SettingsKeys.DISPLAY_LANGUAGE] = settings.displayLanguage.storageId

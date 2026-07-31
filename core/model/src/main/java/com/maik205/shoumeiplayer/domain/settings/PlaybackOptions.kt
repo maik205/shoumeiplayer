@@ -7,6 +7,22 @@ interface StoredOption {
         get() = emptySet()
 }
 
+enum class PlaybackBackend(
+    override val storageId: String,
+    override val label: String,
+) : StoredOption {
+    Mpv("mpv", "mpv"),
+    System("system", "Android system"),
+}
+
+enum class TlsTrustSource(
+    override val storageId: String,
+    override val label: String,
+) : StoredOption {
+    Mpv("mpv", "mpv CA store"),
+    AndroidSystem("android_system", "Android system CA store"),
+}
+
 enum class PreferredQuality(
     override val storageId: String,
     override val label: String,
