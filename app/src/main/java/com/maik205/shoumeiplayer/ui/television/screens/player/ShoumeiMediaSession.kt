@@ -285,12 +285,14 @@ private const val TOGGLE_FAVORITE = "com.maik205.shoumei.action.TOGGLE_FAVORITE"
 private const val TOGGLE_PLAYED = "com.maik205.shoumei.action.TOGGLE_PLAYED"
 private const val PLAY_UP_NEXT = "com.maik205.shoumei.action.PLAY_UP_NEXT"
 
-private val CUSTOM_COMMANDS = listOf(
-    SessionCommand(TOGGLE_SUBTITLES, Bundle.EMPTY),
-    SessionCommand(TOGGLE_FAVORITE, Bundle.EMPTY),
-    SessionCommand(TOGGLE_PLAYED, Bundle.EMPTY),
-    SessionCommand(PLAY_UP_NEXT, Bundle.EMPTY),
-)
+private val CUSTOM_COMMANDS by lazy {
+    listOf(
+        SessionCommand(TOGGLE_SUBTITLES, Bundle.EMPTY),
+        SessionCommand(TOGGLE_FAVORITE, Bundle.EMPTY),
+        SessionCommand(TOGGLE_PLAYED, Bundle.EMPTY),
+        SessionCommand(PLAY_UP_NEXT, Bundle.EMPTY),
+    )
+}
 
 private fun MediaSession.ControllerInfo.isTrustedForMutation(context: Context): Boolean =
     packageName == context.packageName || uid == Process.myUid()
