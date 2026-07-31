@@ -68,6 +68,7 @@ class ShoumeiAudioPlaybackService : MediaSessionService() {
                 stopSelf()
             },
             ownershipCoordinator = container.playbackOwnershipCoordinator,
+            accountIdProvider = { container.activeAccountId },
         )
         container.playbackOwnershipCoordinator.acquire(PlaybackOwner.AUDIO_SERVICE) {
             player.stopForOwnership()
@@ -149,6 +150,7 @@ private class AudioServicePlayer(
     private val onPersist: (List<MediaItem>, Int, Long) -> Unit,
     private val onEnded: () -> Unit,
     private val ownershipCoordinator: PlaybackOwnershipCoordinator? = null,
+    private val accountIdProvider: () -> String? = { null },
 ) : SimpleBasePlayer(Looper.getMainLooper()) {
     private var items: List<MediaItem> = emptyList()
     private var currentIndex = 0
@@ -311,7 +313,7 @@ private class AudioServicePlayer(
         resolutionJob?.cancel()
         resolutionJob = null
         errorMessage = null
-        val handoff = AudioPlaybackHandoff.consume(item.mediaId, null)
+        val handoff = AudioPlaybackHandoff.consume(item.mediaId, accountIdProvider())
         val request = handoff?.request
         if (request != null) {
             handoff.resolved?.let(::startReporting)

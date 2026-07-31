@@ -26,7 +26,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-internal class AudioServicePlayerEngine(context: Context) : PlayerEngine {
+internal class AudioServicePlayerEngine(
+    context: Context,
+    private val accountIdProvider: () -> String? = { null },
+) : PlayerEngine {
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val controllerFuture = MediaController.Builder(
@@ -101,7 +104,7 @@ internal class AudioServicePlayerEngine(context: Context) : PlayerEngine {
             pendingRequest = item
             return
         }
-        AudioPlaybackHandoff.offer(null, item.copy(requiresVideoSurface = false))
+        AudioPlaybackHandoff.offer(accountIdProvider(), item.copy(requiresVideoSurface = false))
         current.setMediaItem(
             MediaItem.Builder()
                 .setMediaId(mediaId)

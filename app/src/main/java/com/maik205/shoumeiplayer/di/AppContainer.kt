@@ -124,7 +124,7 @@ class AppContainer(
             .stateIn(applicationScope, SharingStarted.Eagerly, hdrEngine.effectiveMode.value.label)
     }
     val playerEngine: PlayerEngine by lazy { AndroidAudioFocusPlayerEngine(context, captionEngine) }
-    fun newAudioServicePlayerEngine(): PlayerEngine = AudioServicePlayerEngine(context)
+    fun newAudioServicePlayerEngine(): PlayerEngine = AudioServicePlayerEngine(context) { activeAccountId }
     val progressReporter: PlaybackProgressReporter by lazy {
         PlaybackProgressReporter(playbackRepository)
     }
@@ -139,6 +139,11 @@ class AppContainer(
     private var cachedServerUrl: String? = null
     @Volatile
     private var cachedAccessToken: String? = null
+    @Volatile
+    private var cachedAccountId: String? = null
+
+    val activeAccountId: String?
+        get() = cachedAccountId
 
     init {
         sessionStore.serverUrl
@@ -147,6 +152,7 @@ class AppContainer(
         sessionStore.session
             .onEach {
                 cachedAccessToken = it?.accessToken
+                cachedAccountId = it?.userId
                 if (it == null) AudioResumptionStore(context).clear()
             }
             .launchIn(applicationScope)
