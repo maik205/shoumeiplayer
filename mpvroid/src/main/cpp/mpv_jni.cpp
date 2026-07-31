@@ -162,6 +162,7 @@ extern "C" JNIEXPORT void JNICALL JNI_METHOD(create)(JNIEnv *env, jobject self, 
 }
 
 extern "C" JNIEXPORT void JNICALL JNI_METHOD(init)(JNIEnv *, jobject) {
+    if (initialized.load(std::memory_order_acquire)) return;
     auto *ctx = current();
     if (!ctx || mpv_initialize(ctx) < 0) return;
     initialized.store(true, std::memory_order_release);

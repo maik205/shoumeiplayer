@@ -20,7 +20,6 @@ import com.maik205.shoumeiplayer.player.AudioPlaybackHandoff
 import com.maik205.shoumeiplayer.player.PlayRequest
 import com.maik205.shoumeiplayer.player.PlaybackResolutionRequest
 import com.maik205.shoumeiplayer.player.PlayerEngine
-import com.maik205.shoumeiplayer.player.PlayerEngineFactory
 import com.maik205.shoumeiplayer.player.PlayerState
 import com.maik205.shoumeiplayer.player.PlaybackMetricsEvent
 import com.maik205.shoumeiplayer.player.PlaybackMetricsSink
@@ -46,7 +45,7 @@ class ShoumeiAudioPlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         val container = (application as ShoumeiApp).container
-        val engine = AndroidAudioFocusPlayerEngine(this, PlayerEngineFactory.create(this))
+        val engine = container.playerEngine
         resumptionStore = AudioResumptionStore(this)
         metricsSink = container.newPlaybackMetricsSink()
         player = AudioServicePlayer(
@@ -249,7 +248,9 @@ private class AudioServicePlayer(
 
     override fun handleRelease(): ListenableFuture<*> {
         stopReporting(failed = false)
-        engine.release()
+        // AppContainer owns the process-global libmpv instance. Releasing it here would invalidate
+        // later video playback and any other wrapper sharing the same native handle.
+        engine.stop()
         return Futures.immediateVoidFuture()
     }
 
