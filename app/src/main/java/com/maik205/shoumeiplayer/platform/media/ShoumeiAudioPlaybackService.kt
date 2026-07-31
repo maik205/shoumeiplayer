@@ -67,6 +67,12 @@ class ShoumeiAudioPlaybackService : MediaSessionService() {
         )
         session = MediaSession.Builder(this, player)
             .setCallback(object : MediaSession.Callback {
+                override fun onAddMediaItems(
+                    mediaSession: MediaSession,
+                    controller: MediaSession.ControllerInfo,
+                    mediaItems: List<MediaItem>,
+                ): ListenableFuture<List<MediaItem>> = Futures.immediateFuture(mediaItems)
+
                 override fun onPlaybackResumption(
                     mediaSession: MediaSession,
                     controller: MediaSession.ControllerInfo,

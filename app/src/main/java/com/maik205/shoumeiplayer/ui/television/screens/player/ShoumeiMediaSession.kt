@@ -197,6 +197,12 @@ internal fun createPlayerMediaSession(
         .setSessionActivity(sessionActivity)
         .setMediaButtonPreferences(actions.buttons())
         .setCallback(object : MediaSession.Callback {
+            override fun onAddMediaItems(
+                session: MediaSession,
+                controller: MediaSession.ControllerInfo,
+                mediaItems: List<MediaItem>,
+            ): ListenableFuture<List<MediaItem>> = Futures.immediateFuture(mediaItems)
+
             override fun onConnect(
                 session: MediaSession,
                 controller: MediaSession.ControllerInfo,
