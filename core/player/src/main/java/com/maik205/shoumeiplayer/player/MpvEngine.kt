@@ -81,6 +81,7 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
     @Volatile private var pausedForCache = false
     @Volatile private var eofReached = false
     @Volatile private var seeking = false
+    private var systemCaBundlePath: String? = null
 
     init {
         MpvNative.create(context.applicationContext)
@@ -96,11 +97,12 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         // keeps subtitle/filter paths working where direct rendering does not.
         MpvNative.setOptionString("hwdec", "mediacodec-copy")
         MpvNative.setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
-        MpvNative.setOptionString("tls-verify", "no")
-        createSystemCaBundle(
+        systemCaBundlePath = createSystemCaBundle(
             File("/system/etc/security/cacerts"),
             File(context.cacheDir, "mpv-system-ca-bundle.pem"),
-        )?.let { MpvNative.setOptionString("tls-ca-file", it.absolutePath) }
+        )?.absolutePath
+        MpvNative.setOptionString("tls-verify", "yes")
+        MpvNative.setOptionString("tls-ca-file", systemCaBundlePath.orEmpty())
         // --- network stream cache -------------------------------------------------
         // Jellyfin streams are remote HTTP; without a real cache every hiccup on the LAN
         // becomes a visible stall. The values below are the Findroid-era defaults.
@@ -282,7 +284,11 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         MpvNative.setOptionString("demuxer-max-back-bytes", "${backwardCacheMiB}MiB")
         MpvNative.setOptionString("cache-pause-wait", settings.resumeBufferSeconds.toString())
         MpvNative.setOptionString("network-timeout", settings.networkTimeoutSeconds.toString())
-        MpvNative.setOptionString("tls-verify", settings.verifyTlsCertificates.yesNo())
+        val tlsOptions = tlsMpvOptions(settings, systemCaBundlePath)
+        MpvNative.setOptionString("tls-verify", tlsOptions.verify)
+        // An empty value restores mpv's native CA lookup and prevents a prior Android bundle
+        // from leaking into a later trust-source selection.
+        MpvNative.setOptionString("tls-ca-file", tlsOptions.caFile.orEmpty())
     }
 
     override fun setSystemCaptionStyle(style: SystemCaptionStyle?) {
