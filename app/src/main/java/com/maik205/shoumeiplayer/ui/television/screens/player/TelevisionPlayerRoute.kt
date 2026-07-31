@@ -81,6 +81,7 @@ fun TelevisionPlayerScreen(
                         ?.played == played
             },
             backgroundAudio = audioOnly,
+            playbackOwnershipCoordinator = container.playbackOwnershipCoordinator,
         )
     }
     val controller = remember(viewModel) { PlayerViewModelController(viewModel) }

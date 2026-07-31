@@ -19,6 +19,7 @@ import com.maik205.shoumeiplayer.data.session.SessionStore
 import com.maik205.shoumeiplayer.data.session.SessionManager
 import com.maik205.shoumeiplayer.data.session.SettingsStore
 import com.maik205.shoumeiplayer.player.PlayerEngineFactory
+import com.maik205.shoumeiplayer.player.PlaybackOwnershipCoordinator
 import com.maik205.shoumeiplayer.player.PlaybackProgressReporter
 import com.maik205.shoumeiplayer.player.PlayerEngine
 import com.maik205.shoumeiplayer.platform.media.AndroidAudioFocusPlayerEngine
@@ -88,6 +89,9 @@ class AppContainer(
     }
     val playbackRepository: PlaybackRepository by lazy {
         PlaybackRepository(jellyfinClient) { devicePlaybackProfile.capabilities }
+    }
+    val playbackOwnershipCoordinator: PlaybackOwnershipCoordinator by lazy {
+        PlaybackOwnershipCoordinator()
     }
     // Official libmpv via the app-owned JNI bridge is the real engine in both build types.
     // MplayerEngine remains the

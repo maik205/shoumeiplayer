@@ -20,6 +20,8 @@ import com.maik205.shoumeiplayer.player.PlayerTrack
 import com.maik205.shoumeiplayer.player.PlaybackMetricsEvent
 import com.maik205.shoumeiplayer.player.AudioPlaybackHandoff
 import com.maik205.shoumeiplayer.player.PlaybackMetricsSink
+import com.maik205.shoumeiplayer.player.PlaybackOwner
+import com.maik205.shoumeiplayer.player.PlaybackOwnershipCoordinator
 import com.maik205.shoumeiplayer.player.toPlaybackMetricsState
 import com.maik205.shoumeiplayer.player.TrackType
 import com.maik205.shoumeiplayer.player.VideoQuality
@@ -75,6 +77,7 @@ class PlayerViewModel(
     private val metricsSink: PlaybackMetricsSink? = null,
     private val userDataMutator: PlaybackUserDataMutator? = null,
     private val backgroundAudio: Boolean = false,
+    private val playbackOwnershipCoordinator: PlaybackOwnershipCoordinator? = null,
 ) : ViewModel() {
 
     private data class LocalState(
@@ -262,6 +265,11 @@ class PlayerViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlayerUiState())
 
     init {
+        playbackOwnershipCoordinator?.acquire(PlaybackOwner.VIDEO) {
+            sessionCoordinator.finish(engine)
+            engine.stop()
+            AudioPlaybackHandoff.clear()
+        }
         startInitialPlayback()
         viewModelScope.launch {
             engine.state.collect { state ->
@@ -958,6 +966,7 @@ class PlayerViewModel(
     }
 
     override fun onCleared() {
+        playbackOwnershipCoordinator?.release(PlaybackOwner.VIDEO)
         if (!backgroundAudio || !localState.value.isAudio) {
             finishPlayback()
             engine.stop()

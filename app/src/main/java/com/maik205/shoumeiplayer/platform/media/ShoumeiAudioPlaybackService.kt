@@ -24,6 +24,8 @@ import com.maik205.shoumeiplayer.player.PlayerEngine
 import com.maik205.shoumeiplayer.player.PlayerState
 import com.maik205.shoumeiplayer.player.PlaybackMetricsEvent
 import com.maik205.shoumeiplayer.player.PlaybackMetricsSink
+import com.maik205.shoumeiplayer.player.PlaybackOwner
+import com.maik205.shoumeiplayer.player.PlaybackOwnershipCoordinator
 import com.maik205.shoumeiplayer.player.toPlaybackMetricsState
 import com.maik205.shoumeiplayer.util.Ticks
 import kotlinx.coroutines.CoroutineScope
@@ -65,7 +67,11 @@ class ShoumeiAudioPlaybackService : MediaSessionService() {
                 resumptionStore.clear()
                 stopSelf()
             },
+            ownershipCoordinator = container.playbackOwnershipCoordinator,
         )
+        container.playbackOwnershipCoordinator.acquire(PlaybackOwner.AUDIO_SERVICE) {
+            player.stopForOwnership()
+        }
         session = MediaSession.Builder(this, player)
             .setId("shoumei-audio")
             .setCallback(object : MediaSession.Callback {
@@ -121,6 +127,8 @@ class ShoumeiAudioPlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        val container = (application as ShoumeiApp).container
+        container.playbackOwnershipCoordinator.release(PlaybackOwner.AUDIO_SERVICE)
         player.stop()
         player.release()
         session.release()
@@ -140,6 +148,7 @@ private class AudioServicePlayer(
     private val scope: CoroutineScope,
     private val onPersist: (List<MediaItem>, Int, Long) -> Unit,
     private val onEnded: () -> Unit,
+    private val ownershipCoordinator: PlaybackOwnershipCoordinator? = null,
 ) : SimpleBasePlayer(Looper.getMainLooper()) {
     private var items: List<MediaItem> = emptyList()
     private var currentIndex = 0
@@ -231,6 +240,7 @@ private class AudioServicePlayer(
         startIndex: Int,
         startPositionMs: Long,
     ): ListenableFuture<*> {
+        ownershipCoordinator?.acquire(PlaybackOwner.AUDIO_SERVICE) { stopForOwnership() }
         val previousItemId = items.getOrNull(currentIndex)?.mediaId
         resolutionJob?.cancel()
         resolutionJob = null
@@ -346,6 +356,16 @@ private class AudioServicePlayer(
                 }
             }
         }
+    }
+
+    fun stopForOwnership() {
+        resolutionJob?.cancel()
+        resolutionJob = null
+        errorMessage = null
+        AudioPlaybackHandoff.clear()
+        stopReporting(failed = false)
+        engine.stop()
+        invalidateState()
     }
 
     private fun startReporting(item: com.maik205.shoumeiplayer.player.ResolvedPlayback) {
