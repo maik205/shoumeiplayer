@@ -2,6 +2,7 @@ package com.maik205.shoumeiplayer.platform.media
 
 import android.content.Context
 import android.os.Looper
+import android.util.Log
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -254,8 +255,17 @@ private class AudioServicePlayer(
         positionMs: Long,
         seekCommand: Int,
     ): ListenableFuture<*> {
-        if (mediaItemIndex != currentIndex && mediaItemIndex in items.indices) {
-            currentIndex = mediaItemIndex
+        val targetIndex = when (seekCommand) {
+            Player.COMMAND_SEEK_TO_PREVIOUS,
+            Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
+            -> currentIndex - 1
+            Player.COMMAND_SEEK_TO_NEXT,
+            Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+            -> currentIndex + 1
+            else -> mediaItemIndex
+        }
+        if (targetIndex != currentIndex && targetIndex in items.indices) {
+            currentIndex = targetIndex
             loadCurrent(positionMs.coerceAtLeast(0L), playWhenReady = true)
         } else {
             engine.seekTo(positionMs.coerceAtLeast(0L))
@@ -292,7 +302,9 @@ private class AudioServicePlayer(
                     forceTranscode = false,
                 ),
             )) {
-                is ApiResult.Failure -> Unit
+                is ApiResult.Failure -> {
+                    Log.e(TAG, "Audio resolution failed for item ${item.mediaId}: ${result.error}")
+                }
                 is ApiResult.Success -> {
                     val resolved = result.data
                     startReporting(resolved)
@@ -337,6 +349,8 @@ private class AudioServicePlayer(
         }
     }
 }
+
+private const val TAG = "ShoumeiAudioPlaybackService"
 
 internal data class SavedAudioPlayback(
     val accountId: String,
