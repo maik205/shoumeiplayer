@@ -109,6 +109,8 @@ class JellyfinPlaybackMetadataLoader(
             .orEmpty()
             .filter { it.type == "Audio" || it.mediaType == "Audio" }
             .filterNot { candidate -> queue.any { queued -> queued.itemId == candidate.id } }
+            .filter { it.id.isNotBlank() }
+            .distinctBy { it.id }
             .map { it.toAudioQueueItem(currentId = itemId) }
         val lyricDto = if (item.hasLyrics) {
             (libraryRepository.lyrics(itemId) as? ApiResult.Success)?.data

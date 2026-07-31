@@ -293,7 +293,7 @@ private fun AudioQueueColumn(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxSize().focusGroup(),
             ) {
-                itemsIndexed(items, key = { _, item -> item.itemId }) { index, item ->
+                itemsIndexed(items, key = { index, item -> "${item.itemId}:$index" }) { index, item ->
                     AudioCoverItem(
                         item = item,
                         focusRequester = coverFocusRequesters.getOrNull(index),
@@ -312,7 +312,7 @@ private fun AudioQueueColumn(
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize().focusGroup(),
             ) {
-                itemsIndexed(items, key = { _, item -> item.itemId }) { index, item ->
+                itemsIndexed(items, key = { index, item -> "${item.itemId}:$index" }) { index, item ->
                     AudioTrackRow(
                         index = index,
                         item = item,
