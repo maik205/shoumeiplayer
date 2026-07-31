@@ -35,13 +35,14 @@ class AndroidDevicePlaybackCapabilityProvider(
             .flatMap { it.encodings.asSequence() }
             .toSet()
 
+        val displayHdr = display?.hdrCapabilities
         val capabilities = resolveDevicePlaybackCapabilities(
             refreshRates = display?.supportedModes?.map { it.refreshRate },
             isHdr = display?.isHdr,
             audioEncodings = encodings,
         ).copy(
             hdrTypes = emptySet(),
-            maxDisplayLuminance = null,
+            maxDisplayLuminance = displayHdr?.desiredMaxLuminance,
             videoCodecs = enumerateVideoCodecs(),
         )
         return DevicePlaybackProfile(
