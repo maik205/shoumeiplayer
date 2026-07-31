@@ -166,6 +166,7 @@ private class AudioServicePlayer(
     override fun getState(): State {
         val commands = Player.Commands.Builder()
             .add(Player.COMMAND_PLAY_PAUSE)
+            .add(Player.COMMAND_PREPARE)
             .add(Player.COMMAND_STOP)
             .add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
             .add(Player.COMMAND_SEEK_BACK)
@@ -231,6 +232,8 @@ private class AudioServicePlayer(
         if (playWhenReady) engine.play() else engine.pause()
         return Futures.immediateVoidFuture()
     }
+
+    override fun handlePrepare(): ListenableFuture<*> = Futures.immediateVoidFuture()
 
     override fun handleStop(): ListenableFuture<*> {
         stopReporting(failed = false)

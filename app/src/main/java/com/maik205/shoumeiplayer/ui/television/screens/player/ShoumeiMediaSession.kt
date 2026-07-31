@@ -70,6 +70,7 @@ internal class ShoumeiMedia3Player(
         val playing = ui.state == PlayerState.Playing || ui.state == PlayerState.Buffering
         val commands = Player.Commands.Builder()
             .add(Player.COMMAND_PLAY_PAUSE)
+            .add(Player.COMMAND_PREPARE)
             .add(Player.COMMAND_STOP)
             .add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
             .add(Player.COMMAND_SEEK_BACK)
@@ -124,6 +125,8 @@ internal class ShoumeiMedia3Player(
         if (playWhenReady) onPlay() else onPause()
         return Futures.immediateVoidFuture()
     }
+
+    override fun handlePrepare(): ListenableFuture<*> = Futures.immediateVoidFuture()
 
     override fun handleStop(): ListenableFuture<*> {
         onStop()
