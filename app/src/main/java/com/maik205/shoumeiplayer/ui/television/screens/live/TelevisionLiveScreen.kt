@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -347,7 +348,7 @@ private fun GuideTimeline(
             contentPadding = PaddingValues(bottom = 52.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            items(state.channels, key = { it.item.id }) { channel ->
+            itemsIndexed(state.channels, key = { index, channel -> "${channel.item.id}:$index" }) { _, channel ->
                 GuideChannelRow(
                     channel = channel,
                     windowStart = state.windowStart,

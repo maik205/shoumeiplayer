@@ -31,9 +31,9 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -182,7 +182,7 @@ fun TelevisionSearchScreen(
                 results.isEmpty() -> item(span = { GridItemSpan(maxLineSpan) }) {
                     TelevisionEmptyState(title = "Nothing matched “$query”")
                 }
-                else -> items(results, key = MediaItemUi::id) { item ->
+                else -> itemsIndexed(results, key = { index, item -> "${item.id}:$index" }) { _, item ->
                     TelevisionMediaTile(
                         item = item,
                         onClick = { onOpenItem(item) },

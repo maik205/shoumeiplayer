@@ -158,7 +158,7 @@ private fun ExtrasMediaRow(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier.focusGroup(),
         ) {
-            itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
+            itemsIndexed(items, key = { index, item -> "${item.id}:$index" }) { index, item ->
                 PlayerArtworkTile(
                     title = item.title,
                     subtitle = item.subtitle,
@@ -195,7 +195,7 @@ private fun CastRow(
             horizontalArrangement = Arrangement.spacedBy(18.dp),
             modifier = Modifier.focusGroup(),
         ) {
-            itemsIndexed(cast, key = { _, person -> person.id }) { index, person ->
+            itemsIndexed(cast, key = { index, person -> "${person.id}:$index" }) { index, person ->
                 TelevisionFocusSurface(
                     onClick = { onOpen(person) },
                     focusRequester = railFocusRequesters.getOrNull(index),

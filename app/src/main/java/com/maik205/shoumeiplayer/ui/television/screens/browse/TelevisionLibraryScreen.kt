@@ -31,9 +31,9 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -387,7 +387,7 @@ private fun StandardLibraryContent(
                 }
 
                 else -> {
-                    items(state.items, key = MediaItemUi::id) { media ->
+                    itemsIndexed(state.items, key = { index, media -> "${media.id}:$index" }) { _, media ->
                         TelevisionMediaTile(
                             item = media,
                             shape = ArtworkShape.Poster,

@@ -331,7 +331,7 @@ internal fun EpisodeRail(
             contentPadding = PaddingValues(horizontal = TelevisionDimensions.SafeHorizontal),
             horizontalArrangement = Arrangement.spacedBy(11.dp),
         ) {
-            itemsIndexed(episodes, key = { _, episode -> episode.id }) { index, episode ->
+            itemsIndexed(episodes, key = { index, episode -> "${episode.id}:$index" }) { index, episode ->
                 TelevisionFocusSurface(
                     onClick = { onPlay(episode) },
                     focusRequester = railFocusRequesters.getOrNull(index),
@@ -563,7 +563,7 @@ private fun SeasonSelector(
                             .weight(1f),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        items(seasons, key = MediaItemUi::id) { season ->
+                        itemsIndexed(seasons, key = { index, season -> "${season.id}:$index" }) { _, season ->
                             val isSelected = season.id == selected.id
                             TelevisionFocusSurface(
                                 onClick = {

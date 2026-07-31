@@ -246,7 +246,7 @@ internal fun PostPlayOverlay(
                     Text("Episodes", style = MaterialTheme.typography.displaySmall)
                     Spacer(Modifier.height(18.dp))
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        items(episodes, key = UpNextUi::itemId) { episode ->
+                        itemsIndexed(episodes, key = { index, episode -> "${episode.itemId}:$index" }) { _, episode ->
                             TelevisionFocusSurface(
                                 onClick = { onPlayEpisode(episode.itemId) },
                                 scaleTo = 1f,

@@ -187,7 +187,7 @@ internal fun DetailMediaRail(
             contentPadding = PaddingValues(horizontal = TelevisionDimensions.SafeHorizontal),
             horizontalArrangement = Arrangement.spacedBy(TelevisionDimensions.TileGap),
         ) {
-            itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
+            itemsIndexed(items, key = { index, item -> "${item.id}:$index" }) { index, item ->
                 TelevisionMediaTile(
                     item = item,
                     onClick = { onOpen(item) },
@@ -235,7 +235,7 @@ internal fun PeopleRail(
             contentPadding = PaddingValues(horizontal = TelevisionDimensions.SafeHorizontal),
             horizontalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            itemsIndexed(people, key = { _, person -> person.id }) { index, person ->
+            itemsIndexed(people, key = { index, person -> "${person.id}:$index" }) { index, person ->
                 TelevisionFocusSurface(
                     onClick = { onOpen(person) },
                     focusRequester = railFocusRequesters.getOrNull(index),

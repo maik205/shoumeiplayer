@@ -331,7 +331,7 @@ internal fun HomeShelf(
         ) {
             items(
                 count = shelf.items.size,
-                key = { shelf.items[it].id },
+                key = { index -> "${shelf.items[index].id}:$index" },
             ) { itemIndex ->
                 val item = shelf.items[itemIndex]
                 TelevisionMediaTile(

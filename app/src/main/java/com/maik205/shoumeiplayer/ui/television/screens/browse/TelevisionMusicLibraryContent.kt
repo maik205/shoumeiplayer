@@ -394,7 +394,7 @@ private fun MusicShelf(
             ),
             horizontalArrangement = Arrangement.spacedBy(14.5.dp),
         ) {
-            itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
+            itemsIndexed(items, key = { index, item -> "${item.id}:$index" }) { index, item ->
                 TelevisionMediaTile(
                     item = item,
                     shape = ArtworkShape.Square,

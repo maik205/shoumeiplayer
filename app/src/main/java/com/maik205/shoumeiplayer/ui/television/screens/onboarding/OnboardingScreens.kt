@@ -353,7 +353,7 @@ fun ProfilesScreen(
                     ) {
                         itemsIndexed(
                             state.profiles,
-                            key = { _, profile -> profile.id },
+                            key = { index, profile -> "${profile.id}:$index" },
                         ) { index, profile ->
                             ProfileTarget(
                                 profile = profile,

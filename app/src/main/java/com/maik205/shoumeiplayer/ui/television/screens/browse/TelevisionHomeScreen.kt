@@ -218,7 +218,7 @@ fun TelevisionHomeScreen(
                 } else {
                     items(
                         count = state.shelves.size,
-                        key = { state.shelves[it].id },
+                        key = { index -> "${state.shelves[index].id}:$index" },
                     ) { railIndex ->
                         val shelf = state.shelves[railIndex]
                         HomeShelf(
