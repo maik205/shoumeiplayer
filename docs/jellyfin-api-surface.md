@@ -1,5 +1,7 @@
 # Jellyfin API Surface — Android TV Player Client
 
+For current implementation estimates and remaining client gaps, see [`jellyfin-api-coverage.md`](jellyfin-api-coverage.md).
+
 Extracted from `jellyfin-openapi.json` (repo root). Only endpoints a TV playback
 client needs are covered. Every path below was verified to exist in the spec
 (`paths` map) — see the note at the end for anything that didn't match the

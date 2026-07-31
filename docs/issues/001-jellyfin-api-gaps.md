@@ -1,6 +1,6 @@
 # 001 — Jellyfin API surface gaps
 
-**Status:** Open — 3 of 13 closed (#1, #2, #3)
+**Status:** Superseded by [`../jellyfin-api-coverage.md`](../jellyfin-api-coverage.md). Retained as a historical gap list.
 **Verified against:** `jellyfin-openapi.json` — every path and parameter name here was read out of
 the spec's `paths` map, not recalled.
 
