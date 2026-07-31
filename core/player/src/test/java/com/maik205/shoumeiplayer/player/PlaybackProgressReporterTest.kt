@@ -78,12 +78,14 @@ class PlaybackProgressReporterTest {
         private val _tracks = MutableStateFlow<List<PlayerTrack>>(emptyList())
         private val _bufferedMs = MutableStateFlow<Long?>(null)
         private val _speed = MutableStateFlow(PlaybackSpeed.Normal)
+        private val _videoFps = MutableStateFlow<Double?>(null)
         override val state: StateFlow<PlayerState> = _state
         override val positionMs: StateFlow<Long> = _positionMs
         override val durationMs: StateFlow<Long?> = _durationMs
         override val bufferedMs: StateFlow<Long?> = _bufferedMs
         override val tracks: StateFlow<List<PlayerTrack>> = _tracks
         override val speed: StateFlow<Float> = _speed
+        override val videoFps: StateFlow<Double?> = _videoFps
         private var tickerJob: Job? = null
 
         override fun setSurface(surface: Surface?) {}

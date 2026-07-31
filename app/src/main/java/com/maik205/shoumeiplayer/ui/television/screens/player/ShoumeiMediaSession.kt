@@ -34,6 +34,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 @UnstableApi
 internal class ShoumeiMedia3Player(
@@ -194,6 +195,7 @@ internal fun createPlayerMediaSession(
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
     return MediaSession.Builder(context, player)
+        .setId("shoumei-player-${UUID.randomUUID()}")
         .setSessionActivity(sessionActivity)
         .setMediaButtonPreferences(actions.buttons())
         .setCallback(object : MediaSession.Callback {

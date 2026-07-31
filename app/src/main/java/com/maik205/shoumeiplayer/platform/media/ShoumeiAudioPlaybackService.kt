@@ -66,6 +66,7 @@ class ShoumeiAudioPlaybackService : MediaSessionService() {
             },
         )
         session = MediaSession.Builder(this, player)
+            .setId("shoumei-audio")
             .setCallback(object : MediaSession.Callback {
                 override fun onAddMediaItems(
                     mediaSession: MediaSession,

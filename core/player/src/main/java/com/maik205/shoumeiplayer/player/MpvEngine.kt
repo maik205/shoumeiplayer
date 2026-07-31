@@ -16,6 +16,7 @@ import com.maik205.shoumeiplayer.domain.settings.ToneMapping
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.io.File
 import java.util.Locale
 import kotlin.math.min
 
@@ -96,6 +97,10 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         MpvNative.setOptionString("hwdec", "mediacodec-copy")
         MpvNative.setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
         MpvNative.setOptionString("tls-verify", "no")
+        createSystemCaBundle(
+            File("/system/etc/security/cacerts"),
+            File(context.cacheDir, "mpv-system-ca-bundle.pem"),
+        )?.let { MpvNative.setOptionString("tls-ca-file", it.absolutePath) }
         // --- network stream cache -------------------------------------------------
         // Jellyfin streams are remote HTTP; without a real cache every hiccup on the LAN
         // becomes a visible stall. The values below are the Findroid-era defaults.
@@ -659,5 +664,26 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         else -> ""
     }
 }
+
+internal fun createSystemCaBundle(systemCaDirectory: File, destination: File): File? = runCatching {
+    val certificates = systemCaDirectory.listFiles()
+        ?.filter(File::isFile)
+        ?.sortedBy(File::getName)
+        .orEmpty()
+    if (certificates.isEmpty()) return null
+
+    val temporary = File(destination.parentFile, "${destination.name}.tmp")
+    temporary.outputStream().buffered().use { output ->
+        certificates.forEach { certificate ->
+            certificate.inputStream().buffered().use { it.copyTo(output) }
+            output.write('\n'.code)
+        }
+    }
+    if (!temporary.renameTo(destination)) {
+        temporary.copyTo(destination, overwrite = true)
+        temporary.delete()
+    }
+    destination
+}.getOrNull()
 
 private fun Int.toMpvColor(): String = "#%08X".format(Locale.US, this)
