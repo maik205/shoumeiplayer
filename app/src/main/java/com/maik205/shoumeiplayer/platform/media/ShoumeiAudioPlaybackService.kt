@@ -77,7 +77,14 @@ class ShoumeiAudioPlaybackService : MediaSessionService() {
                         val saved = resumptionStore.read()
                         val activeAccountId = container.sessionStore.current()?.userId
                         if (saved == null || saved.accountId != activeAccountId) {
-                            future.setException(IllegalStateException("No valid audio playback to resume"))
+                            if (saved != null) resumptionStore.clear()
+                            future.set(
+                                MediaSession.MediaItemsWithStartPosition(
+                                    emptyList(),
+                                    C.INDEX_UNSET,
+                                    C.TIME_UNSET,
+                                ),
+                            )
                         } else {
                             future.set(
                                 MediaSession.MediaItemsWithStartPosition(
