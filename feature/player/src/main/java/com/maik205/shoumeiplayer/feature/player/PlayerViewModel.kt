@@ -807,7 +807,7 @@ class PlayerViewModel(
         }
 
         if (backgroundAudio && item?.isAudio == true) {
-            AudioPlaybackHandoff.offerResolved(r)
+            AudioPlaybackHandoff.offerResolved(null, r)
         }
         engine.load(
             PlayRequest(

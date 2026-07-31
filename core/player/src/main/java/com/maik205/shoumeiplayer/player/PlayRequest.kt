@@ -33,18 +33,59 @@ data class PlayRequest(
 )
 
 object AudioPlaybackHandoff {
-    private val requests = java.util.concurrent.ConcurrentHashMap<String, PlayRequest>()
-    private val resolvedItems = java.util.concurrent.ConcurrentHashMap<String, ResolvedPlayback>()
+    const val MAX_AGE_MS = 5 * 60 * 1000L
 
-    fun offer(request: PlayRequest) {
-        request.itemId?.let { requests[it] = request }
+    data class Record(
+        val accountId: String?,
+        val request: PlayRequest?,
+        val resolved: ResolvedPlayback?,
+        val createdAtMs: Long,
+    )
+
+    private val records = mutableMapOf<String, Record>()
+
+    @Synchronized
+    fun offer(accountId: String?, request: PlayRequest, nowMs: Long = System.currentTimeMillis()) {
+        request.itemId?.let { itemId ->
+            val existing = records[itemId]
+            records[itemId] = Record(
+                accountId = accountId ?: existing?.accountId,
+                request = request,
+                resolved = existing?.resolved,
+                createdAtMs = existing?.createdAtMs ?: nowMs,
+            )
+        }
     }
 
-    fun take(itemId: String): PlayRequest? = requests.remove(itemId)
-
-    fun offerResolved(resolved: ResolvedPlayback) {
-        resolvedItems[resolved.itemId] = resolved
+    @Synchronized
+    fun offerResolved(
+        accountId: String?,
+        resolved: ResolvedPlayback,
+        nowMs: Long = System.currentTimeMillis(),
+    ) {
+        val existing = records[resolved.itemId]
+        records[resolved.itemId] = Record(
+            accountId = accountId ?: existing?.accountId,
+            request = existing?.request,
+            resolved = resolved,
+            createdAtMs = existing?.createdAtMs ?: nowMs,
+        )
     }
 
-    fun takeResolved(itemId: String): ResolvedPlayback? = resolvedItems.remove(itemId)
+    @Synchronized
+    fun consume(itemId: String, accountId: String?, nowMs: Long = System.currentTimeMillis()): Record? {
+        val record = records[itemId] ?: return null
+        if (nowMs - record.createdAtMs > MAX_AGE_MS) {
+            records.remove(itemId)
+            return null
+        }
+        if (record.accountId != null && record.accountId != accountId) return null
+        if (record.request == null) return null
+        return records.remove(itemId)
+    }
+
+    @Synchronized
+    fun clear(itemId: String? = null) {
+        if (itemId == null) records.clear() else records.remove(itemId)
+    }
 }

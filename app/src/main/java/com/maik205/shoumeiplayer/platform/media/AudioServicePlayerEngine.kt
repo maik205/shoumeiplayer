@@ -101,7 +101,7 @@ internal class AudioServicePlayerEngine(context: Context) : PlayerEngine {
             pendingRequest = item
             return
         }
-        AudioPlaybackHandoff.offer(item.copy(requiresVideoSurface = false))
+        AudioPlaybackHandoff.offer(null, item.copy(requiresVideoSurface = false))
         current.setMediaItem(
             MediaItem.Builder()
                 .setMediaId(mediaId)

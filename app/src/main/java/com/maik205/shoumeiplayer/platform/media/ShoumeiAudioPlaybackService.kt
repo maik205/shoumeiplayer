@@ -144,6 +144,8 @@ private class AudioServicePlayer(
     private var items: List<MediaItem> = emptyList()
     private var currentIndex = 0
     private var reportingJob: Job? = null
+    private var resolutionJob: Job? = null
+    private var errorMessage: String? = null
     private var resolved: com.maik205.shoumeiplayer.player.ResolvedPlayback? = null
 
     init {
@@ -202,11 +204,14 @@ private class AudioServicePlayer(
                 .setIsSeekable(true)
                 .build()
         }
-        val playbackState = when (engine.state.value) {
+        val playbackState = when {
+            errorMessage != null -> Player.STATE_IDLE
+            else -> when (engine.state.value) {
             PlayerState.Loading, PlayerState.Buffering -> Player.STATE_BUFFERING
             PlayerState.Playing, PlayerState.Paused -> Player.STATE_READY
             PlayerState.Ended -> Player.STATE_ENDED
             PlayerState.Idle, is PlayerState.Error -> Player.STATE_IDLE
+            }
         }
         return State.Builder()
             .setAvailableCommands(commands)
@@ -227,6 +232,9 @@ private class AudioServicePlayer(
         startPositionMs: Long,
     ): ListenableFuture<*> {
         val previousItemId = items.getOrNull(currentIndex)?.mediaId
+        resolutionJob?.cancel()
+        resolutionJob = null
+        errorMessage = null
         items = mediaItems.filter { it.mediaId.isNotBlank() }
         currentIndex = startIndex.coerceIn(0, items.lastIndex.coerceAtLeast(0))
         if (previousItemId != items.getOrNull(currentIndex)?.mediaId || engine.state.value == PlayerState.Idle) {
@@ -244,6 +252,10 @@ private class AudioServicePlayer(
     override fun handlePrepare(): ListenableFuture<*> = Futures.immediateVoidFuture()
 
     override fun handleStop(): ListenableFuture<*> {
+        resolutionJob?.cancel()
+        resolutionJob = null
+        errorMessage = null
+        AudioPlaybackHandoff.clear()
         stopReporting(failed = false)
         engine.stop()
         onPersist(items, currentIndex, engine.positionMs.value)
@@ -274,6 +286,9 @@ private class AudioServicePlayer(
     }
 
     override fun handleRelease(): ListenableFuture<*> {
+        resolutionJob?.cancel()
+        resolutionJob = null
+        AudioPlaybackHandoff.clear()
         stopReporting(failed = false)
         // AppContainer owns the process-global libmpv instance. Releasing it here would invalidate
         // later video playback and any other wrapper sharing the same native handle.
@@ -283,14 +298,18 @@ private class AudioServicePlayer(
 
     private fun loadCurrent(positionMs: Long, playWhenReady: Boolean) {
         val item = items.getOrNull(currentIndex) ?: return
-        val handoff = AudioPlaybackHandoff.take(item.mediaId)
-        if (handoff != null) {
-            AudioPlaybackHandoff.takeResolved(item.mediaId)?.let(::startReporting)
-            engine.load(handoff.copy(startPositionMs = positionMs, requiresVideoSurface = false))
+        resolutionJob?.cancel()
+        resolutionJob = null
+        errorMessage = null
+        val handoff = AudioPlaybackHandoff.consume(item.mediaId, null)
+        val request = handoff?.request
+        if (request != null) {
+            handoff.resolved?.let(::startReporting)
+            engine.load(request.copy(startPositionMs = positionMs, requiresVideoSurface = false))
             if (playWhenReady) engine.play()
             return
         }
-        scope.launch {
+        resolutionJob = scope.launch {
             when (val result = resolver.resolve(
                 PlaybackResolutionRequest(
                     itemId = item.mediaId,
@@ -303,9 +322,12 @@ private class AudioServicePlayer(
                 ),
             )) {
                 is ApiResult.Failure -> {
+                    errorMessage = result.error.displayMessage
                     Log.e(TAG, "Audio resolution failed for item ${item.mediaId}: ${result.error}")
+                    invalidateState()
                 }
                 is ApiResult.Success -> {
+                    errorMessage = null
                     val resolved = result.data
                     startReporting(resolved)
                     engine.load(
