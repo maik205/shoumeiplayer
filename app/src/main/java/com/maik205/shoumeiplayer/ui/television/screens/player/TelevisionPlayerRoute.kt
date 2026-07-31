@@ -7,7 +7,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -97,7 +96,6 @@ fun TelevisionPlayerScreen(
     )
 }
 
-@OptIn(UnstableApi::class)
 @Composable
 private fun PlayerMediaSession(
     viewModel: PlayerViewModel,

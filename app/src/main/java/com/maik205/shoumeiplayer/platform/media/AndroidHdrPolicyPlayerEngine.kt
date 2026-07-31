@@ -50,8 +50,7 @@ internal class AndroidHdrPolicyPlayerEngine(
     }
 
     private fun displaySupportsHdr(): Boolean =
-        displayManager?.getDisplay(Display.DEFAULT_DISPLAY)?.hdrCapabilities?.supportedHdrTypes
-            ?.isNotEmpty() == true
+        displayManager?.getDisplay(Display.DEFAULT_DISPLAY)?.isHdr == true
 }
 
 internal fun effectiveHdrMode(userMode: HdrMode, displaySupportsHdr: Boolean): HdrMode = when {
