@@ -22,12 +22,31 @@ jobs:
       SHOUMEI_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
     steps:
+      # `secrets` isn't available in step `if:` conditions (same restriction `runner` has in a
+      # job-level `env:`, below), so whether signing is configured has to be computed in a step
+      # body first and read back via GITHUB_OUTPUT. This has to run before "Set keystore path":
+      # app/build.gradle.kts treats "some but not all four" signing env vars as set as a hard
+      # error, so SHOUMEI_KEYSTORE_PATH must stay unset when unsigned rather than pointing at a
+      # path nothing ever writes.
+      - name: Check signing configuration
+        id: signing
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [[ -n "$ANDROID_KEYSTORE_BASE64" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # The `runner` context is only available inside step expressions/scripts, never in a
       # job-level `env:` block -- putting `${{ runner.temp }}` up there makes GitHub reject the
       # whole workflow file at parse time (every run then fails instantly with 0 jobs, regardless
       # of the `on.push.tags` filter). $RUNNER_TEMP is the equivalent real shell env var GitHub
       # injects into every step, so it's computed here and exported via GITHUB_ENV instead.
       - name: Set keystore path
+        if: steps.signing.outputs.configured == 'true'
         shell: bash
         run: echo "SHOUMEI_KEYSTORE_PATH=$RUNNER_TEMP/shoumei-upload.jks" >> "$GITHUB_ENV"
 
@@ -49,21 +68,6 @@ jobs:
           test "$(git -C native/mpv/upstream describe --tags --exact-match)" = "v$MPV_VERSION"
           test "$(git ls-tree HEAD native/mpv/upstream | awk '{print $3}')" = \
             "$(git -C native/mpv/upstream rev-parse HEAD)"
-
-      # `secrets` isn't available in step `if:` conditions (same restriction as `runner` in a
-      # job-level env -- see the "Set keystore path" comment above), so whether signing is
-      # configured has to be computed in a step body first and read back via GITHUB_OUTPUT.
-      - name: Check signing configuration
-        id: signing
-        shell: bash
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          if [[ -n "$ANDROID_KEYSTORE_BASE64" ]]; then
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-          fi
 
       # Signing is optional: with no ANDROID_KEYSTORE_BASE64 secret configured, this step is
       # skipped and the build below produces an unsigned .aab/APK (AGP just omits the signing
