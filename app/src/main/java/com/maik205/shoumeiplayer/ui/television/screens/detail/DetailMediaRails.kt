@@ -47,6 +47,7 @@ import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,6 +57,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.domain.model.DetailItem
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusScale
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
@@ -223,7 +225,7 @@ internal fun PeopleRail(
             .padding(top = 42.dp),
     ) {
         TelevisionRowHeader(
-            title = "Cast and crew",
+            title = stringResource(R.string.tv_detail_cast_crew),
             modifier = Modifier.padding(horizontal = TelevisionDimensions.SafeHorizontal),
         )
         Spacer(Modifier.height(12.dp))

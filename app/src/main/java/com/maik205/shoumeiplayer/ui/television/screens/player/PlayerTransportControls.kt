@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -58,6 +59,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.player.PlaybackSpeed
 import com.maik205.shoumeiplayer.player.PlayerTrack
 import com.maik205.shoumeiplayer.player.VideoQuality
@@ -325,7 +327,7 @@ internal fun PlayerTimeline(
                 Text(
                     text = duration?.let {
                         "-${formatPlayerTime((it - positionMs).coerceAtLeast(0L))}"
-                    } ?: "--:--",
+                    } ?: stringResource(R.string.tv_time_unknown),
                     style = MaterialTheme.typography.labelSmall,
                     color = TelevisionColors.PaperMuted,
                 )
@@ -375,7 +377,8 @@ internal fun MiniPlayerTimeline(
             }
             Spacer(Modifier.width(9.dp))
             Text(
-                duration?.let { "-${formatPlayerTime((it - positionMs).coerceAtLeast(0L))}" } ?: "--:--",
+                duration?.let { "-${formatPlayerTime((it - positionMs).coerceAtLeast(0L))}" }
+                    ?: stringResource(R.string.tv_time_unknown),
                 style = MaterialTheme.typography.labelSmall,
             )
         }

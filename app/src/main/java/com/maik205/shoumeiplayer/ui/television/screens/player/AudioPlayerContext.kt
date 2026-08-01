@@ -71,12 +71,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.player.PlayerState
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.feature.player.AudioQueueItemUi
 import com.maik205.shoumeiplayer.feature.player.LyricLineUi
 import com.maik205.shoumeiplayer.feature.player.PlayerTimelineState
@@ -95,6 +97,8 @@ internal fun LyricsPane(
     positionMs: Long,
     synced: Boolean,
     focusRequester: FocusRequester,
+    loading: Boolean = false,
+    errorMessage: String? = null,
 ) {
     val activeIndex = if (synced) {
         lyrics.indexOfLast { line ->
@@ -112,15 +116,20 @@ internal fun LyricsPane(
 
     Column(Modifier.fillMaxSize()) {
         Text(
-            "Lyrics",
+            stringResource(R.string.tv_player_lyrics_label),
             style = MaterialTheme.typography.labelMedium.copy(fontSize = 8.sp),
             fontWeight = FontWeight.SemiBold,
             color = TelevisionColors.PaperMuted,
         )
         Spacer(Modifier.height(7.dp))
         if (lyrics.isEmpty()) {
+            val message = when {
+                errorMessage != null -> errorMessage
+                loading -> stringResource(R.string.tv_player_lyrics_loading)
+                else -> stringResource(R.string.tv_player_lyrics_unavailable)
+            }
             Text(
-                "Lyrics are not available for this track.",
+                message,
                 color = TelevisionColors.PaperMuted,
                 modifier = Modifier.focusRequester(focusRequester).focusable(),
             )
@@ -187,6 +196,8 @@ internal fun LyricsPaneHost(
     timelineState: StateFlow<PlayerTimelineState>,
     synced: Boolean,
     focusRequester: FocusRequester,
+    loading: Boolean = false,
+    errorMessage: String? = null,
 ) {
     val timeline by timelineState.collectAsStateWithLifecycle()
     LyricsPane(
@@ -194,6 +205,8 @@ internal fun LyricsPaneHost(
         positionMs = timeline.positionMs,
         synced = synced,
         focusRequester = focusRequester,
+        loading = loading,
+        errorMessage = errorMessage,
     )
 }
 
@@ -202,6 +215,7 @@ internal fun AudioContextColumns(
     upNext: List<AudioQueueItemUi>,
     suggested: List<AudioQueueItemUi>,
     loading: Boolean,
+    errorMessage: String? = null,
     upNextCoverMode: Boolean,
     suggestedCoverMode: Boolean,
     firstItemFocus: FocusRequester,
@@ -209,6 +223,7 @@ internal fun AudioContextColumns(
     onToggleSuggestedCoverMode: () -> Unit,
     onPlayItem: (String) -> Unit,
     onInteraction: () -> Unit,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -216,25 +231,37 @@ internal fun AudioContextColumns(
         horizontalArrangement = Arrangement.spacedBy(57.dp),
     ) {
         AudioQueueColumn(
-            title = "Up next",
+            title = stringResource(R.string.tv_player_up_next),
             items = upNext,
             coverMode = upNextCoverMode,
             firstItemFocus = if (upNext.isNotEmpty()) firstItemFocus else null,
-            emptyMessage = if (loading) "Loading queue…" else "End of queue",
+            emptyMessage = when {
+                errorMessage != null -> errorMessage
+                loading -> stringResource(R.string.tv_player_loading_queue)
+                else -> stringResource(R.string.tv_player_end_queue)
+            },
             onToggleCoverMode = onToggleUpNextCoverMode,
             onPlayItem = onPlayItem,
             onInteraction = onInteraction,
+            errorMessage = errorMessage,
+            onRetry = onRetry,
             modifier = Modifier.width(AudioColumnWidth),
         )
         AudioQueueColumn(
-            title = "Suggested",
+            title = stringResource(R.string.tv_player_suggested),
             items = suggested,
             coverMode = suggestedCoverMode,
             firstItemFocus = if (upNext.isEmpty() && suggested.isNotEmpty()) firstItemFocus else null,
-            emptyMessage = if (loading) "Finding tracks…" else "No suggestions",
+            emptyMessage = when {
+                errorMessage != null -> errorMessage
+                loading -> stringResource(R.string.tv_player_finding_tracks)
+                else -> stringResource(R.string.tv_player_no_suggestions)
+            },
             onToggleCoverMode = onToggleSuggestedCoverMode,
             onPlayItem = onPlayItem,
             onInteraction = onInteraction,
+            errorMessage = errorMessage,
+            onRetry = onRetry,
             modifier = Modifier.width(AudioColumnWidth),
         )
     }
@@ -250,6 +277,8 @@ private fun AudioQueueColumn(
     onToggleCoverMode: () -> Unit,
     onPlayItem: (String) -> Unit,
     onInteraction: () -> Unit,
+    errorMessage: String? = null,
+    onRetry: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val coverFocusRequesters = remember(items.map(AudioQueueItemUi::itemId), firstItemFocus) {
@@ -271,7 +300,11 @@ private fun AudioQueueColumn(
             )
             Spacer(Modifier.weight(1f))
             TelevisionFocusRevealButton(
-                label = if (coverMode) "Tracks" else "Covers",
+                label = if (coverMode) {
+                    stringResource(R.string.tv_player_tracks)
+                } else {
+                    stringResource(R.string.tv_player_covers)
+                },
                 icon = if (coverMode) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,
                 onClick = {
                     onInteraction()
@@ -287,7 +320,22 @@ private fun AudioQueueColumn(
         }
         Spacer(Modifier.height(5.dp))
         when {
-            items.isEmpty() -> Text(emptyMessage, fontSize = 8.sp, color = TelevisionColors.PaperSoft)
+            items.isEmpty() -> if (errorMessage != null) {
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text(emptyMessage, fontSize = 8.sp, color = TelevisionColors.PaperSoft)
+                    TelevisionFocusRevealButton(
+                        label = stringResource(R.string.retry),
+                        icon = Icons.Default.Repeat,
+                        onClick = onRetry,
+                        expandedWidth = 70.dp,
+                        buttonHeight = 19.dp,
+                        iconSize = 12.dp,
+                        focusedScale = 1f,
+                    )
+                }
+            } else {
+                Text(emptyMessage, fontSize = 8.sp, color = TelevisionColors.PaperSoft)
+            }
             coverMode -> LazyRow(
                 state = coverRailState,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

@@ -42,9 +42,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.domain.model.DetailMediaStream
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionBackground
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionEmptyState
@@ -53,6 +55,8 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealB
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingShape
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
+import com.maik205.shoumeiplayer.ui.i18n.UiText
+import com.maik205.shoumeiplayer.ui.i18n.resolve
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 
@@ -61,6 +65,7 @@ fun TelevisionDetailScreen(
     state: TelevisionDetailState,
     onBack: () -> Unit,
     onRetry: () -> Unit,
+    onRetryAction: () -> Unit,
     onPlay: (
         itemId: String,
         startPositionTicks: Long,
@@ -77,6 +82,11 @@ fun TelevisionDetailScreen(
 ) {
     val item = state.item
     val hero = state.hero
+    val loadError = state.error
+    val actionError = state.actionError
+    val playableSectionError = state.sectionErrors[DetailSection.Playable]
+    val seasonsSectionError = state.sectionErrors[DetailSection.Seasons]
+    val episodesSectionError = state.sectionErrors[DetailSection.Episodes]
     val playbackItem = state.playbackItem ?: item
     val playFocus = remember { FocusRequester() }
     val backFocus = remember { FocusRequester() }
@@ -89,9 +99,7 @@ fun TelevisionDetailScreen(
     val subtitleStreams = remember(playbackItem?.id, playbackItem?.mediaStreams) {
         playbackItem?.mediaStreams.orEmpty().filter { it.type.equals("Subtitle", ignoreCase = true) }
     }
-    val qualityOptions = remember(playbackItem?.id, playbackItem?.mediaStreams) {
-        detailQualityOptions(playbackItem?.mediaStreams.orEmpty())
-    }
+    val qualityOptions = detailQualityOptions(playbackItem?.mediaStreams.orEmpty())
     var audioChoice by rememberSaveable(item?.id) {
         mutableIntStateOf(audioStreams.indexOfFirst(DetailMediaStream::isDefault).coerceAtLeast(0))
     }
@@ -117,6 +125,7 @@ fun TelevisionDetailScreen(
     TelevisionBackground(imageUrl = hero?.backdropUrl) {
         when {
             state.loading -> TelevisionLoadingState(
+                label = stringResource(R.string.tv_loading_detail),
                 shape = TelevisionLoadingShape.Detail,
                 modifier = Modifier.padding(
                     start = TelevisionDimensions.SafeHorizontal,
@@ -124,23 +133,48 @@ fun TelevisionDetailScreen(
                 ),
             )
 
-            state.error != null && item == null -> TelevisionErrorState(
-                title = "This title is out of reach",
-                message = state.error,
-                onRetry = onRetry,
+            loadError != null && item == null -> Column(
                 modifier = Modifier.padding(
                     start = TelevisionDimensions.SafeHorizontal,
                     top = 210.dp,
                 ),
-            )
+            ) {
+                TelevisionFocusRevealButton(
+                    label = stringResource(R.string.tv_back),
+                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    onClick = onBack,
+                    expandedWidth = 92.dp,
+                )
+                Spacer(Modifier.height(28.dp))
+                TelevisionErrorState(
+                    title = stringResource(R.string.tv_detail_error_title),
+                    message = loadError.resolve(),
+                    onRetry = onRetry,
+                    retryLabel = stringResource(R.string.retry),
+                    requestInitialFocus = true,
+                )
+            }
 
-            item == null || hero == null -> TelevisionEmptyState(
-                title = "Nothing to show",
+            item == null || hero == null -> Column(
                 modifier = Modifier.padding(
                     start = TelevisionDimensions.SafeHorizontal,
                     top = 210.dp,
                 ),
-            )
+            ) {
+                TelevisionFocusRevealButton(
+                    label = stringResource(R.string.tv_back),
+                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    onClick = onBack,
+                    expandedWidth = 92.dp,
+                )
+                Spacer(Modifier.height(28.dp))
+                TelevisionEmptyState(
+                    title = stringResource(R.string.tv_detail_empty_title),
+                    actionLabel = stringResource(R.string.retry),
+                    onAction = onRetry,
+                    requestInitialFocus = true,
+                )
+            }
 
             else -> {
                 val targetMetadata = state.nextUp ?: state.playableItemId?.let { id ->
@@ -165,6 +199,38 @@ fun TelevisionDetailScreen(
                         .focusRestorer(),
                     contentPadding = PaddingValues(bottom = 72.dp),
                 ) {
+                    if (loadError != null) {
+                        item(key = "detail-load-error") {
+                            TelevisionErrorState(
+                                title = stringResource(R.string.tv_detail_error_title),
+                                message = loadError.resolve(),
+                                onRetry = onRetry,
+                                retryLabel = stringResource(R.string.retry),
+                                requestInitialFocus = false,
+                                modifier = Modifier.padding(
+                                    horizontal = TelevisionDimensions.SafeHorizontal,
+                                    top = 24.dp,
+                                ),
+                            )
+                        }
+                    }
+
+                    if (actionError != null) {
+                        item(key = "detail-action-error") {
+                            TelevisionErrorState(
+                                title = stringResource(R.string.tv_detail_action_error_title),
+                                message = actionError.resolve(),
+                                onRetry = onRetryAction,
+                                retryLabel = stringResource(R.string.retry),
+                                requestInitialFocus = false,
+                                modifier = Modifier.padding(
+                                    horizontal = TelevisionDimensions.SafeHorizontal,
+                                    top = 24.dp,
+                                ),
+                            )
+                        }
+                    }
+
                     item(key = "hero") {
                         DetailHero(
                             modifier = Modifier.fillParentMaxHeight(0.76f),
@@ -197,10 +263,76 @@ fun TelevisionDetailScreen(
                         )
                     }
 
+                    if (playableSectionError != null) {
+                        item(key = "playable-error") {
+                            DetailSectionError(
+                                title = stringResource(R.string.tv_detail_playable_error_title),
+                                error = playableSectionError,
+                                onRetry = onRetry,
+                            )
+                        }
+                    }
+                    if (seasonsSectionError != null) {
+                        item(key = "seasons-error") {
+                            DetailSectionError(
+                                title = stringResource(R.string.tv_detail_seasons_error_title),
+                                error = seasonsSectionError,
+                                onRetry = onRetry,
+                            )
+                        }
+                    }
+                    if (episodesSectionError != null) {
+                        item(key = "episodes-load-error") {
+                            DetailSectionError(
+                                title = stringResource(R.string.tv_detail_episodes_error_title),
+                                error = episodesSectionError,
+                                onRetry = onRetry,
+                            )
+                        }
+                    }
+
                     if (
                         state.kind == DetailKind.Series &&
-                        (state.nextUp != null || state.seasons.isNotEmpty() || state.episodes.isNotEmpty())
+                        (
+                            state.nextUp != null ||
+                                state.seasons.isNotEmpty() ||
+                                state.episodes.isNotEmpty() ||
+                                state.sectionErrors.keys.any {
+                                    it == DetailSection.Playable ||
+                                        it == DetailSection.Seasons ||
+                                        it == DetailSection.Episodes
+                                }
+                            )
                     ) {
+                        if (state.seasonLoading) {
+                            item(key = "season-loading") {
+                                TelevisionLoadingState(
+                                    label = stringResource(R.string.tv_loading_episodes),
+                                    shape = TelevisionLoadingShape.Rail,
+                                    modifier = Modifier.padding(
+                                        horizontal = TelevisionDimensions.SafeHorizontal,
+                                        top = 30.dp,
+                                    ),
+                                )
+                            }
+                        }
+                        state.seasonError?.let { error ->
+                            item(key = "season-error") {
+                                TelevisionErrorState(
+                                    title = stringResource(R.string.tv_detail_episodes_error_title),
+                                    message = error.resolve(),
+                                    onRetry = {
+                                        state.seasonErrorId?.let(onSelectSeason)
+                                    },
+                                    retryLabel = stringResource(R.string.retry),
+                                    requestInitialFocus = false,
+                                    modifier = Modifier.padding(
+                                        horizontal = TelevisionDimensions.SafeHorizontal,
+                                        top = 22.dp,
+                                    ),
+                                )
+                            }
+                        }
                         item(key = "series") {
                             SeriesDetailSection(
                                 nextUp = state.nextUp,
@@ -209,6 +341,7 @@ fun TelevisionDetailScreen(
                                 selectedSeasonId = state.selectedSeasonId,
                                 onSelect = onSelectSeason,
                                 episodes = state.episodes,
+                                episodeTitle = stringResource(R.string.tv_episodes),
                                 onPlay = { episode ->
                                     onPlay(
                                         episode.id,
@@ -230,7 +363,7 @@ fun TelevisionDetailScreen(
                                 selectedSeasonId = state.selectedSeasonId,
                                 onSelect = onSelectSeason,
                                 episodes = state.episodes,
-                                episodeTitle = "More episodes",
+                                episodeTitle = stringResource(R.string.tv_detail_more_episodes),
                                 currentEpisodeId = item.id,
                                 onPlay = { episode ->
                                     onPlay(
@@ -246,13 +379,26 @@ fun TelevisionDetailScreen(
                         }
                     }
 
+                    state.sectionErrors[DetailSection.Tracks]?.let { error ->
+                        item(key = "tracks-error") {
+                            TelevisionErrorState(
+                                title = stringResource(R.string.tv_detail_tracks_error_title),
+                                message = error.resolve(),
+                                onRetry = onRetry,
+                                retryLabel = stringResource(R.string.retry),
+                                requestInitialFocus = false,
+                                modifier = Modifier.padding(horizontal = TelevisionDimensions.SafeHorizontal),
+                            )
+                        }
+                    }
+
                     if (state.tracks.isNotEmpty()) {
                         item(key = "tracks") {
                             TrackRail(
                                 title = when (state.kind) {
-                                    DetailKind.AudioBook -> "Chapters"
-                                    DetailKind.Artist -> "Songs"
-                                    else -> "Tracks"
+                                    DetailKind.AudioBook -> stringResource(R.string.tv_detail_chapters)
+                                    DetailKind.Artist -> stringResource(R.string.tv_detail_songs)
+                                    else -> stringResource(R.string.tv_detail_tracks)
                                 },
                                 tracks = state.tracks,
                                 onPlay = { track ->
@@ -265,9 +411,22 @@ fun TelevisionDetailScreen(
                     if (state.releases.isNotEmpty()) {
                         item(key = "releases") {
                             DetailMediaRail(
-                                title = "Albums",
+                                title = stringResource(R.string.tv_detail_albums),
                                 items = state.releases,
                                 onOpen = onOpenItem,
+                            )
+                        }
+                    }
+
+                    state.sectionErrors[DetailSection.Releases]?.let { error ->
+                        item(key = "releases-error") {
+                            TelevisionErrorState(
+                                title = stringResource(R.string.tv_detail_releases_error_title),
+                                message = error.resolve(),
+                                onRetry = onRetry,
+                                retryLabel = stringResource(R.string.retry),
+                                requestInitialFocus = false,
+                                modifier = Modifier.padding(horizontal = TelevisionDimensions.SafeHorizontal),
                             )
                         }
                     }
@@ -275,9 +434,22 @@ fun TelevisionDetailScreen(
                     if (relatedItems.isNotEmpty()) {
                         item(key = "related") {
                             DetailMediaRail(
-                                title = "More like this",
+                                title = stringResource(R.string.tv_detail_more_like),
                                 items = relatedItems,
                                 onOpen = onOpenItem,
+                            )
+                        }
+                    }
+
+                    state.sectionErrors[DetailSection.Related]?.let { error ->
+                        item(key = "related-error") {
+                            TelevisionErrorState(
+                                title = stringResource(R.string.tv_detail_related_error_title),
+                                message = error.resolve(),
+                                onRetry = onRetry,
+                                retryLabel = stringResource(R.string.retry),
+                                requestInitialFocus = false,
+                                modifier = Modifier.padding(horizontal = TelevisionDimensions.SafeHorizontal),
                             )
                         }
                     }
@@ -294,9 +466,22 @@ fun TelevisionDetailScreen(
                     if (state.credits.isNotEmpty()) {
                         item(key = "credits") {
                             DetailMediaRail(
-                                title = "Known for",
+                                title = stringResource(R.string.tv_detail_known_for),
                                 items = state.credits,
                                 onOpen = onOpenItem,
+                            )
+                        }
+                    }
+
+                    state.sectionErrors[DetailSection.Credits]?.let { error ->
+                        item(key = "credits-error") {
+                            TelevisionErrorState(
+                                title = stringResource(R.string.tv_detail_credits_error_title),
+                                message = error.resolve(),
+                                onRetry = onRetry,
+                                retryLabel = stringResource(R.string.retry),
+                                requestInitialFocus = false,
+                                modifier = Modifier.padding(horizontal = TelevisionDimensions.SafeHorizontal),
                             )
                         }
                     }
@@ -308,4 +493,23 @@ fun TelevisionDetailScreen(
             }
         }
     }
+}
+
+@Composable
+private fun DetailSectionError(
+    title: String,
+    error: UiText,
+    onRetry: () -> Unit,
+) {
+    TelevisionErrorState(
+        title = title,
+        message = error.resolve(),
+        onRetry = onRetry,
+        retryLabel = stringResource(R.string.retry),
+        requestInitialFocus = false,
+        modifier = Modifier.padding(
+            horizontal = TelevisionDimensions.SafeHorizontal,
+            top = 22.dp,
+        ),
+    )
 }

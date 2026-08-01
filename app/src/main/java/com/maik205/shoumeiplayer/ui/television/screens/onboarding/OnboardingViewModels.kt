@@ -12,6 +12,7 @@ import com.maik205.shoumeiplayer.data.session.RememberedServer
 import com.maik205.shoumeiplayer.data.session.normalizeServerUrl
 import com.maik205.shoumeiplayer.ui.i18n.UiText
 import com.maik205.shoumeiplayer.ui.i18n.toUiText
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 sealed interface ConnectEvent {
     data class Connected(val resumeSession: Boolean) : ConnectEvent
@@ -42,6 +44,7 @@ class ConnectViewModel(
     private var discoveredServers: List<ServerChoiceUi> = emptyList()
     private var rememberedServers: List<RememberedServer> = emptyList()
     private var activeServerId: String? = null
+    private var lastConnectionAddresses: List<String> = emptyList()
 
     init {
         viewModelScope.launch {
@@ -69,19 +72,27 @@ class ConnectViewModel(
     }
 
     fun refresh() {
-        if (_state.value.discovering && _state.value.servers.isNotEmpty()) return
+        if (_state.value.discovering) return
         viewModelScope.launch {
-            _state.update { it.copy(discovering = true, error = null) }
-            discoveredServers = runCatching { discovery.discover() }
-                .getOrDefault(emptyList())
-                .map {
+            _state.update { it.copy(discovering = true, error = null, discoveryError = null) }
+            try {
+                discoveredServers = discovery.discover().map {
                     ServerChoiceUi(
                         id = it.id ?: it.address,
-                        name = it.name?.takeIf(String::isNotBlank) ?: "Jellyfin",
+                        name = it.name?.takeIf(String::isNotBlank).orEmpty(),
                         address = it.address,
                     )
                 }
-            publishServers(discovering = false)
+                publishServers(discovering = false)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                discoveredServers = emptyList()
+                publishServers(
+                    discovering = false,
+                    discoveryError = UiText.Resource(R.string.tv_discovery_failed),
+                )
+            }
         }
     }
 
@@ -104,38 +115,59 @@ class ConnectViewModel(
         )
     }
 
+    fun retryConnection() {
+        if (lastConnectionAddresses.isNotEmpty()) {
+            connect(lastConnectionAddresses)
+        } else {
+            connectManual()
+        }
+    }
+
     private fun connect(addresses: List<String>) {
         if (_state.value.connecting) return
+        lastConnectionAddresses = addresses
         viewModelScope.launch {
             _state.update { it.copy(connecting = true, error = null) }
-            var lastFailure: ApiResult.Failure? = null
-            for (address in addresses.distinct()) {
-                when (val result = auth.validateServer(address)) {
-                    is ApiResult.Success -> {
-                        _state.update { it.copy(connecting = false) }
-                        _events.emit(
-                            ConnectEvent.Connected(
-                                resumeSession = auth.hasActiveSession(),
-                            ),
-                        )
-                        return@launch
-                    }
+            try {
+                var lastFailure: ApiResult.Failure? = null
+                for (address in addresses.distinct()) {
+                    when (val result = auth.validateServer(address)) {
+                        is ApiResult.Success -> {
+                            _state.update { it.copy(connecting = false) }
+                            _events.emit(
+                                ConnectEvent.Connected(
+                                    resumeSession = auth.hasActiveSession(),
+                                ),
+                            )
+                            return@launch
+                        }
 
-                    is ApiResult.Failure -> lastFailure = result
+                        is ApiResult.Failure -> lastFailure = result
+                    }
                 }
-            }
-            if (lastFailure != null) {
                 _state.update {
                     it.copy(
                         connecting = false,
-                        error = connectionMessage(),
+                        error = lastFailure?.error?.toUiText() ?: connectionMessage(),
+                    )
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                _state.update {
+                    it.copy(
+                        connecting = false,
+                        error = UiText.Resource(R.string.tv_connection_failed),
                     )
                 }
             }
         }
     }
 
-    private fun publishServers(discovering: Boolean = _state.value.discovering) {
+    private fun publishServers(
+        discovering: Boolean = _state.value.discovering,
+        discoveryError: UiText? = _state.value.discoveryError,
+    ) {
         val remembered = rememberedServers.map { server ->
             ServerChoiceUi(
                 id = server.id,
@@ -156,6 +188,7 @@ class ConnectViewModel(
             it.copy(
                 discovering = discovering,
                 servers = remembered + nearbyOnly,
+                discoveryError = discoveryError,
             )
         }
     }
@@ -175,62 +208,98 @@ class ProfilesViewModel(
 
     private val _events = MutableSharedFlow<ProfilesEvent>()
     val events: SharedFlow<ProfilesEvent> = _events.asSharedFlow()
+    private var passwordlessProfileRetry: ProfileUi? = null
 
     init {
         reload()
     }
 
     fun reload() {
+        passwordlessProfileRetry = null
         viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null) }
-            val activeUserId = auth.activeUserId()
-            when (val result = auth.accountSwitcherUsers()) {
-                is ApiResult.Failure -> _state.update {
-                    it.copy(loading = false, error = result.error.toUiText())
-                }
+            try {
+                val activeUserId = auth.activeUserId()
+                when (val result = auth.accountSwitcherUsers()) {
+                    is ApiResult.Failure -> _state.update {
+                        it.copy(loading = false, error = result.error.toUiText())
+                    }
 
-                is ApiResult.Success -> _state.update {
+                    is ApiResult.Success -> _state.update {
+                        it.copy(
+                            loading = false,
+                            profiles = result.data.map { user ->
+                                ProfileUi(
+                                    id = user.id,
+                                    name = user.name.orEmpty(),
+                                    imageUrl = user.primaryImageTag?.let { tag ->
+                                        images.userPrimary(user.id, tag)
+                                    },
+                                    hasPassword = user.hasPassword || user.hasConfiguredPassword,
+                                    active = user.id == activeUserId,
+                                )
+                            },
+                        )
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                _state.update {
                     it.copy(
                         loading = false,
-                        profiles = result.data.map { user ->
-                            ProfileUi(
-                                id = user.id,
-                                name = user.name.orEmpty(),
-                                imageUrl = user.primaryImageTag?.let { tag ->
-                                    images.userPrimary(user.id, tag)
-                                },
-                                hasPassword = user.hasPassword || user.hasConfiguredPassword,
-                                active = user.id == activeUserId,
-                            )
-                        },
+                        error = UiText.Resource(R.string.tv_profiles_load_failed),
                     )
                 }
             }
         }
     }
 
+    fun retry() {
+        passwordlessProfileRetry?.let(::choose) ?: reload()
+    }
+
     fun choose(profile: ProfileUi) {
         if (profile.active) {
+            passwordlessProfileRetry = null
             viewModelScope.launch { _events.emit(ProfilesEvent.Home) }
             return
         }
         if (profile.hasPassword) {
+            passwordlessProfileRetry = null
             viewModelScope.launch { _events.emit(ProfilesEvent.Login(profile.name)) }
             return
         }
+        passwordlessProfileRetry = profile
         viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null) }
-            when (val result = auth.login(profile.name, "")) {
-                is ApiResult.Success -> _events.emit(ProfilesEvent.Home)
-                is ApiResult.Failure -> {
-                    _state.update { it.copy(loading = false) }
-                    _events.emit(ProfilesEvent.Login(profile.name))
+            try {
+                when (val result = auth.login(profile.name, "")) {
+                    is ApiResult.Success -> _events.emit(ProfilesEvent.Home)
+                    is ApiResult.Failure -> {
+                        _state.update {
+                            it.copy(
+                                loading = false,
+                                error = result.error.toUiText(),
+                            )
+                        }
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        error = UiText.Resource(R.string.tv_profile_login_failed),
+                    )
                 }
             }
         }
     }
 
     fun useAnotherAccount() {
+        passwordlessProfileRetry = null
         viewModelScope.launch { _events.emit(ProfilesEvent.Login("")) }
     }
 }
@@ -255,8 +324,24 @@ class TelevisionLoginViewModel(
 
     init {
         viewModelScope.launch {
-            val enabled = (auth.quickConnectEnabled() as? ApiResult.Success)?.data == true
-            _state.update { it.copy(quickConnectAvailable = enabled) }
+            try {
+                val enabled = (auth.quickConnectEnabled() as? ApiResult.Success)?.data == true
+                _state.update {
+                    it.copy(
+                        quickConnectAvailable = enabled,
+                        quickConnectChecking = false,
+                    )
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                _state.update {
+                    it.copy(
+                        quickConnectChecking = false,
+                        error = UiText.Resource(R.string.tv_quick_connect_check_failed),
+                    )
+                }
+            }
         }
     }
 
@@ -273,21 +358,32 @@ class TelevisionLoginViewModel(
         if (snapshot.userName.isBlank() || snapshot.signingIn) return
         viewModelScope.launch {
             _state.update { it.copy(signingIn = true, error = null) }
-            when (val result = auth.login(snapshot.userName.trim(), snapshot.password)) {
-                is ApiResult.Success -> _events.emit(LoginEvent.Home)
-                is ApiResult.Failure -> {
-                    val error = result.error
-                    if (error is ApiError.Http && error.code == 403) {
-                        _state.update { it.copy(signingIn = false) }
-                        _events.emit(LoginEvent.AccountLocked)
-                    } else {
-                        _state.update {
-                            it.copy(
-                                signingIn = false,
-                                error = error.toUiText(),
-                            )
+            try {
+                when (val result = auth.login(snapshot.userName.trim(), snapshot.password)) {
+                    is ApiResult.Success -> _events.emit(LoginEvent.Home)
+                    is ApiResult.Failure -> {
+                        val error = result.error
+                        if (error is ApiError.Http && error.code == 403) {
+                            _state.update { it.copy(signingIn = false) }
+                            _events.emit(LoginEvent.AccountLocked)
+                        } else {
+                            _state.update {
+                                it.copy(
+                                    signingIn = false,
+                                    error = error.toUiText(),
+                                )
+                            }
                         }
                     }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                _state.update {
+                    it.copy(
+                        signingIn = false,
+                        error = UiText.Resource(R.string.tv_sign_in_failed),
+                    )
                 }
             }
         }
@@ -304,57 +400,86 @@ class TelevisionLoginViewModel(
             _state.update {
                 it.copy(quickConnectLoading = true, quickConnectCode = null, error = null)
             }
-            when (val initiated = auth.initiateQuickConnect()) {
-                is ApiResult.Failure -> _state.update {
+            try {
+                when (val initiated = auth.initiateQuickConnect()) {
+                    is ApiResult.Failure -> _state.update {
+                        it.copy(
+                            quickConnectLoading = false,
+                            error = initiated.error.toUiText(),
+                        )
+                    }
+
+                    is ApiResult.Success -> {
+                        val secret = initiated.data.secret
+                        val code = initiated.data.code
+                        if (secret.isNullOrBlank() || code.isNullOrBlank()) {
+                            _state.update {
+                                it.copy(
+                                    quickConnectLoading = false,
+                                    error = UiText.Resource(R.string.tv_quick_connect_code_missing),
+                                )
+                            }
+                            return@launch
+                        }
+                        quickConnectSecret = secret
+                        _state.update {
+                            it.copy(quickConnectLoading = false, quickConnectCode = code)
+                        }
+                        pollQuickConnect(secret)
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                _state.update {
                     it.copy(
                         quickConnectLoading = false,
-                        error = initiated.error.toUiText(),
+                        quickConnectCode = null,
+                        error = UiText.Resource(R.string.tv_quick_connect_failed),
                     )
-                }
-
-                is ApiResult.Success -> {
-                    val secret = initiated.data.secret
-                    val code = initiated.data.code
-                    if (secret.isNullOrBlank() || code.isNullOrBlank()) {
-                        _state.update {
-                            it.copy(
-                                quickConnectLoading = false,
-                                error = UiText.Resource(R.string.tv_quick_connect_code_missing),
-                            )
-                        }
-                        return@launch
-                    }
-                    quickConnectSecret = secret
-                    _state.update {
-                        it.copy(quickConnectLoading = false, quickConnectCode = code)
-                    }
-                    pollQuickConnect(secret)
                 }
             }
         }
     }
 
     private suspend fun pollQuickConnect(secret: String) {
-        while (viewModelScope.isActive && quickConnectSecret == secret) {
-            delay(QUICK_CONNECT_POLL_MS)
-            when (val state = auth.pollQuickConnect(secret)) {
-                is ApiResult.Failure -> Unit
-                is ApiResult.Success -> if (state.data.authenticated) {
-                    when (val authenticated = auth.authenticateWithQuickConnect(secret)) {
-                        is ApiResult.Success -> {
-                            quickConnectSecret = null
-                            _events.emit(LoginEvent.Home)
-                            return
-                        }
+        val completed = withTimeoutOrNull(120_000L) {
+            while (viewModelScope.isActive && quickConnectSecret == secret) {
+                delay(QUICK_CONNECT_POLL_MS)
+                when (val state = auth.pollQuickConnect(secret)) {
+                    is ApiResult.Failure -> {
+                        quickConnectSecret = null
+                        _state.update { it.copy(error = state.error.toUiText()) }
+                        return@withTimeoutOrNull
+                    }
 
-                        is ApiResult.Failure -> {
-                            _state.update {
-                                it.copy(error = authenticated.error.toUiText())
+                    is ApiResult.Success -> if (state.data.authenticated) {
+                        when (val authenticated = auth.authenticateWithQuickConnect(secret)) {
+                            is ApiResult.Success -> {
+                                quickConnectSecret = null
+                                _events.emit(LoginEvent.Home)
+                                return@withTimeoutOrNull
                             }
-                            return
+
+                            is ApiResult.Failure -> {
+                                quickConnectSecret = null
+                                _state.update {
+                                    it.copy(error = authenticated.error.toUiText())
+                                }
+                                return@withTimeoutOrNull
+                            }
                         }
                     }
                 }
+            }
+        }
+        if (completed == null && quickConnectSecret == secret) {
+            quickConnectSecret = null
+            _state.update {
+                it.copy(
+                    quickConnectCode = null,
+                    error = UiText.Resource(R.string.tv_quick_connect_expired),
+                )
             }
         }
     }
@@ -384,23 +509,34 @@ class TelevisionRecoveryViewModel(
         if (userName.isBlank() || _state.value.requesting) return
         viewModelScope.launch {
             _state.update { it.copy(requesting = true, result = null, error = null) }
-            when (val response = auth.forgotPassword(userName)) {
-                is ApiResult.Failure -> _state.update {
+            try {
+                when (val response = auth.forgotPassword(userName)) {
+                    is ApiResult.Failure -> _state.update {
+                        it.copy(
+                            requesting = false,
+                            error = response.error.toUiText(),
+                        )
+                    }
+
+                    is ApiResult.Success -> {
+                        val message = UiText.Resource(
+                            when (response.data.action) {
+                                "PinCode" -> R.string.tv_recovery_pin
+                                "InNetworkRequired" -> R.string.tv_recovery_local_network
+                                else -> R.string.tv_recovery_admin
+                            },
+                        )
+                        _state.update { it.copy(requesting = false, result = message) }
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                _state.update {
                     it.copy(
                         requesting = false,
-                        error = response.error.toUiText(),
+                        error = UiText.Resource(R.string.tv_recovery_failed),
                     )
-                }
-
-                is ApiResult.Success -> {
-                    val message = UiText.Resource(
-                        when (response.data.action) {
-                            "PinCode" -> R.string.tv_recovery_pin
-                            "InNetworkRequired" -> R.string.tv_recovery_local_network
-                            else -> R.string.tv_recovery_admin
-                        },
-                    )
-                    _state.update { it.copy(requesting = false, result = message) }
                 }
             }
         }

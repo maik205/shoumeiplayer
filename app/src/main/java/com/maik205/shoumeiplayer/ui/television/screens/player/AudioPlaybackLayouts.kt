@@ -73,7 +73,9 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import androidx.compose.ui.res.stringResource
 import coil3.compose.AsyncImage
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.player.PlayerState
 import com.maik205.shoumeiplayer.feature.player.AudioQueueItemUi
 import com.maik205.shoumeiplayer.feature.player.LyricLineUi
@@ -251,20 +253,22 @@ internal fun AudioLyricsPlayback(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 AudioLyricsActionButton(
-                    label = "Shuffle",
+                    label = stringResource(R.string.tv_player_shuffle),
                     icon = Icons.Default.Shuffle,
                     selected = shuffleEnabled,
                     onClick = onToggleShuffle,
                     onInteraction = onInteraction,
                 )
                 AudioLyricsActionButton(
-                    label = "Previous",
+                    label = stringResource(R.string.tv_player_previous),
                     icon = Icons.Default.SkipPrevious,
                     onClick = onPrevious,
                     onInteraction = onInteraction,
                 )
                 AudioLyricsActionButton(
-                    label = if (isAudioPlaying(state)) "Pause" else "Play",
+                    label = stringResource(
+                        if (isAudioPlaying(state)) R.string.tv_player_pause else R.string.play,
+                    ),
                     icon = if (isAudioPlaying(state)) Icons.Default.Pause else Icons.Default.PlayArrow,
                     selected = true,
                     focusRequester = playPauseFocus,
@@ -272,26 +276,26 @@ internal fun AudioLyricsPlayback(
                     onInteraction = onInteraction,
                 )
                 AudioLyricsActionButton(
-                    label = "Next",
+                    label = stringResource(R.string.tv_player_next),
                     icon = Icons.Default.SkipNext,
                     onClick = onNext,
                     onInteraction = onInteraction,
                 )
                 AudioLyricsActionButton(
-                    label = "Repeat",
+                    label = stringResource(R.string.tv_player_repeat),
                     icon = Icons.Default.Repeat,
                     selected = repeatEnabled,
                     onClick = onToggleRepeat,
                     onInteraction = onInteraction,
                 )
                 AudioLyricsActionButton(
-                    label = "Queue",
+                    label = stringResource(R.string.tv_player_queue),
                     icon = Icons.AutoMirrored.Filled.QueueMusic,
                     onClick = onToggleQueue,
                     onInteraction = onInteraction,
                 )
                 AudioLyricsActionButton(
-                    label = "Lyrics",
+                    label = stringResource(R.string.tv_player_lyrics_label),
                     icon = Icons.Default.Lyrics,
                     selected = true,
                     onClick = onToggleLyrics,

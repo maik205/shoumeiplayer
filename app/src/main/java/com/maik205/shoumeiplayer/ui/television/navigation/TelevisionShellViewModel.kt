@@ -1,5 +1,6 @@
 package com.maik205.shoumeiplayer.ui.television.navigation
 
+import com.maik205.shoumeiplayer.R
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,6 +12,9 @@ import com.maik205.shoumeiplayer.data.session.SessionStore
 import com.maik205.shoumeiplayer.data.session.SettingsStore
 import com.maik205.shoumeiplayer.domain.repository.MediaCatalog
 import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
+import com.maik205.shoumeiplayer.ui.i18n.UiText
+import com.maik205.shoumeiplayer.ui.i18n.toUiText
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +29,7 @@ data class TelevisionShellState(
     val avatarUrl: String? = null,
     val libraries: List<LibraryDestinationUi> = emptyList(),
     val loadingLibraries: Boolean = false,
-    val error: String? = null,
+    val error: UiText? = null,
 )
 
 /**
@@ -65,31 +69,43 @@ class TelevisionShellViewModel(
                     }
                     libraryRestore?.cancel()
                     libraryRestore = viewModelScope.launch {
-                        if (settingsStore.current().cacheHomeContent) {
-                            libraryCacheStore.read(session.serverUrl, session.userId)
-                        } else {
-                            emptyList()
-                        }
-                            .takeIf { it.isNotEmpty() }
-                            ?.let { cached ->
+                        try {
+                            val cached = if (settingsStore.current().cacheHomeContent) {
+                                libraryCacheStore.read(session.serverUrl, session.userId)
+                            } else {
+                                emptyList()
+                            }
+                            cached.takeIf { it.isNotEmpty() }?.let {
                                 if (sessionStore.current()?.userId == session.userId) {
-                                    _state.update { it.copy(libraries = cached, loadingLibraries = true, error = null) }
+                                    _state.update { state -> state.copy(libraries = it, loadingLibraries = true, error = null) }
                                 }
                             }
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (_: Throwable) {
+                            // A corrupt/unreadable cache is a cache miss. The network refresh
+                            // below must still run so the shell cannot become inert.
+                        }
                         refreshLibraries()
                     }
                     profileLoad?.cancel()
                     profileLoad = viewModelScope.launch {
-                        val user = authRepository.currentUser()
-                        if (sessionStore.current()?.userId == session.userId) {
-                            _state.update {
-                                it.copy(
-                                    userName = user?.name ?: session.userName,
-                                    avatarUrl = user?.primaryImageTag?.let { tag ->
-                                        imageUrlBuilder.userPrimary(session.userId, tag)
-                                    },
-                                )
+                        try {
+                            val user = authRepository.currentUser()
+                            if (sessionStore.current()?.userId == session.userId) {
+                                _state.update {
+                                    it.copy(
+                                        userName = user?.name ?: session.userName,
+                                        avatarUrl = user?.primaryImageTag?.let { tag ->
+                                            imageUrlBuilder.userPrimary(session.userId, tag)
+                                        },
+                                    )
+                                }
                             }
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (_: Throwable) {
+                            // Keep the session's persisted profile label when profile hydration fails.
                         }
                     }
                 }
@@ -102,25 +118,44 @@ class TelevisionShellViewModel(
         libraryLoad = viewModelScope.launch {
             val requestSession = sessionStore.current() ?: return@launch
             _state.update { it.copy(loadingLibraries = true, error = null) }
-            when (val result = mediaCatalog.libraries()) {
-                is ApiResult.Failure -> {
-                    if (sessionStore.current()?.let { it.serverUrl == requestSession.serverUrl && it.userId == requestSession.userId } == true) {
-                        _state.update {
-                            it.copy(
-                                loadingLibraries = false,
-                                error = result.error.displayMessage,
-                            )
+            try {
+                when (val result = mediaCatalog.libraries()) {
+                    is ApiResult.Failure -> {
+                        if (sessionStore.current()?.let { it.serverUrl == requestSession.serverUrl && it.userId == requestSession.userId } == true) {
+                            _state.update {
+                                it.copy(
+                                    loadingLibraries = false,
+                                    error = result.error.toUiText(),
+                                )
+                            }
+                        }
+                    }
+
+                    is ApiResult.Success -> {
+                        val libraries = result.data
+                        if (sessionStore.current()?.let { it.serverUrl == requestSession.serverUrl && it.userId == requestSession.userId } == true) {
+                            _state.update { it.copy(loadingLibraries = false, libraries = libraries) }
+                            try {
+                                if (settingsStore.current().cacheHomeContent) {
+                                    libraryCacheStore.write(requestSession.serverUrl, requestSession.userId, libraries)
+                                }
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (_: Throwable) {
+                                // Caching is best-effort; a successful library refresh remains successful.
+                            }
                         }
                     }
                 }
-
-                is ApiResult.Success -> {
-                    val libraries = result.data
-                    if (sessionStore.current()?.let { it.serverUrl == requestSession.serverUrl && it.userId == requestSession.userId } == true) {
-                        _state.update { it.copy(loadingLibraries = false, libraries = libraries) }
-                        if (settingsStore.current().cacheHomeContent) {
-                            libraryCacheStore.write(requestSession.serverUrl, requestSession.userId, libraries)
-                        }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                if (sessionStore.current()?.let { it.serverUrl == requestSession.serverUrl && it.userId == requestSession.userId } == true) {
+                    _state.update {
+                        it.copy(
+                            loadingLibraries = false,
+                            error = UiText.Resource(R.string.tv_libraries_refresh_failed),
+                        )
                     }
                 }
             }

@@ -76,7 +76,9 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import androidx.compose.ui.res.stringResource
 import coil3.compose.AsyncImage
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.player.PlayerState
 import com.maik205.shoumeiplayer.feature.player.AudioQueueItemUi
 import com.maik205.shoumeiplayer.feature.player.LyricLineUi
@@ -128,6 +130,7 @@ internal fun TelevisionAudioPlayer(
     onToggleSuggestedCoverMode: () -> Unit,
     onPlayItem: (String) -> Unit,
     onInteraction: () -> Unit,
+    onRetryContext: () -> Unit,
 ) {
     val lyricsFocus = remember { FocusRequester() }
     val lyricsTimelineFocus = remember { FocusRequester() }
@@ -194,7 +197,11 @@ internal fun TelevisionAudioPlayer(
         Box(Modifier.fillMaxSize().background(TelevisionColors.Black.copy(alpha = 0.74f)))
 
         TelevisionFocusRevealButton(
-            label = if (exitArmed) "Exit?" else "Back",
+            label = if (exitArmed) {
+                stringResource(R.string.tv_player_exit)
+            } else {
+                stringResource(R.string.tv_back)
+            },
             icon = Icons.AutoMirrored.Filled.ArrowBack,
             onClick = {
                 onInteraction()
@@ -266,6 +273,8 @@ internal fun TelevisionAudioPlayer(
                 timelineState = timelineState,
                 synced = state.lyricsSynced,
                 focusRequester = lyricsFocus,
+                loading = state.musicContextLoading,
+                errorMessage = state.musicContextError?.resolveMessage(),
             )
         }
 
@@ -273,6 +282,7 @@ internal fun TelevisionAudioPlayer(
             upNext = upNext,
             suggested = state.suggestedAudio,
             loading = state.musicContextLoading,
+            errorMessage = state.musicContextError?.resolveMessage(),
             upNextCoverMode = upNextCoverMode,
             suggestedCoverMode = suggestedCoverMode,
             firstItemFocus = firstQueueItemFocus,
@@ -280,6 +290,7 @@ internal fun TelevisionAudioPlayer(
             onToggleSuggestedCoverMode = onToggleSuggestedCoverMode,
             onPlayItem = onPlayItem,
             onInteraction = onInteraction,
+            onRetry = onRetryContext,
             modifier = Modifier
                 .offset(x = AudioLeft, y = AudioRailTop)
                 .width(AudioMainWidth)

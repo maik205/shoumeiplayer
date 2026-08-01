@@ -76,6 +76,8 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import androidx.compose.ui.res.stringResource
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.player.PlayerState
 import com.maik205.shoumeiplayer.feature.player.AudioQueueItemUi
 import com.maik205.shoumeiplayer.feature.player.LyricLineUi
@@ -171,15 +173,19 @@ internal fun AudioMetadata(
     }
 }
 
-private fun audioFormatLabels(state: PlayerUiState): List<String> = buildList {
-    state.container?.uppercase()?.takeIf(String::isNotBlank)?.let(::add)
-    state.audioDescription
-        ?.split('·')
-        ?.map(String::trim)
-        ?.filter(String::isNotBlank)
-        ?.forEach { label ->
-            if (none { it.equals(label, ignoreCase = true) }) add(label)
-        }
+@Composable
+private fun audioFormatLabels(state: PlayerUiState): List<String> {
+    val audioInfo = state.audioInfo
+    val codec = audioInfo?.codec?.takeIf(String::isNotBlank)
+    val channels = audioInfo?.channels
+    val channelsLabel = if (channels == null) null else stringResource(R.string.tv_channels_count, channels)
+    val language = audioInfo?.language?.takeIf(String::isNotBlank)
+    return buildList {
+        state.container?.uppercase()?.takeIf(String::isNotBlank)?.let(::add)
+        if (codec != null && none { it.equals(codec, ignoreCase = true) }) add(codec)
+        if (channelsLabel != null && none { it.equals(channelsLabel, ignoreCase = true) }) add(channelsLabel)
+        if (language != null && none { it.equals(language, ignoreCase = true) }) add(language)
+    }
 }
 
 @Composable
@@ -247,7 +253,7 @@ internal fun AudioTimeline(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(formatAudioTime(state.positionMs), fontSize = 7.sp, color = TelevisionColors.PaperMuted)
                 Text(
-                    duration?.let(::formatAudioTime) ?: "--:--",
+                    duration?.let(::formatAudioTime) ?: stringResource(R.string.tv_time_unknown),
                     fontSize = 7.sp,
                     color = TelevisionColors.PaperMuted,
                 )
@@ -272,14 +278,16 @@ internal fun AudioMainTransport(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AudioCircleButton(
-            label = "Previous",
+            label = stringResource(R.string.tv_player_previous),
             icon = Icons.Default.SkipPrevious,
             enabled = enabled,
             onClick = onPrevious,
             onInteraction = onInteraction,
         )
         AudioCircleButton(
-            label = if (isAudioPlaying(state)) "Pause" else "Play",
+            label = stringResource(
+                if (isAudioPlaying(state)) R.string.tv_player_pause else R.string.play,
+            ),
             icon = if (isAudioPlaying(state)) Icons.Default.Pause else Icons.Default.PlayArrow,
             primary = true,
             enabled = enabled,
@@ -288,7 +296,7 @@ internal fun AudioMainTransport(
             onInteraction = onInteraction,
         )
         AudioCircleButton(
-            label = "Next",
+            label = stringResource(R.string.tv_player_next),
             icon = Icons.Default.SkipNext,
             enabled = enabled,
             onClick = onNext,
@@ -383,11 +391,32 @@ internal fun AudioTools(
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AudioToolButton("Shuffle", Icons.Default.Shuffle, shuffleEnabled, onToggleShuffle, onInteraction, enabled)
-        AudioToolButton("Repeat", Icons.Default.Repeat, repeatEnabled, onToggleRepeat, onInteraction, enabled)
-        AudioToolButton("Queue", Icons.AutoMirrored.Filled.QueueMusic, queueVisible, onToggleQueue, onInteraction, enabled)
         AudioToolButton(
-            label = "Lyrics",
+            stringResource(R.string.tv_player_shuffle),
+            Icons.Default.Shuffle,
+            shuffleEnabled,
+            onToggleShuffle,
+            onInteraction,
+            enabled,
+        )
+        AudioToolButton(
+            stringResource(R.string.tv_player_repeat),
+            Icons.Default.Repeat,
+            repeatEnabled,
+            onToggleRepeat,
+            onInteraction,
+            enabled,
+        )
+        AudioToolButton(
+            stringResource(R.string.tv_player_queue),
+            Icons.AutoMirrored.Filled.QueueMusic,
+            queueVisible,
+            onToggleQueue,
+            onInteraction,
+            enabled,
+        )
+        AudioToolButton(
+            label = stringResource(R.string.tv_player_lyrics_label),
             icon = Icons.Default.Lyrics,
             selected = lyricsVisible,
             enabled = enabled,

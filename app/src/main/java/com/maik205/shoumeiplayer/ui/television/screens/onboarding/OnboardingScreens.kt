@@ -3,6 +3,7 @@ package com.maik205.shoumeiplayer.ui.television.screens.onboarding
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -76,6 +77,10 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionBackground
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusScale
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionEmptyState
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionErrorState
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingShape
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingState
 import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
@@ -88,6 +93,7 @@ fun ConnectScreen(
     onRefresh: () -> Unit,
     onServerClick: (ServerChoiceUi) -> Unit,
     onConnect: () -> Unit,
+    onRetryConnection: () -> Unit,
 ) {
     val addressFocus = remember { FocusRequester() }
     val firstServerFocus = remember { FocusRequester() }
@@ -95,7 +101,11 @@ fun ConnectScreen(
 
     LaunchedEffect(state.servers, state.discovering) {
         if (!state.discovering && !initialFocusAssigned) {
-            if (state.servers.isNotEmpty()) firstServerFocus.requestFocus() else addressFocus.requestFocus()
+            if (state.servers.isNotEmpty()) {
+                firstServerFocus.requestFocus()
+            } else if (state.discoveryError == null) {
+                addressFocus.requestFocus()
+            }
             initialFocusAssigned = true
         }
     }
@@ -141,26 +151,54 @@ fun ConnectScreen(
                 }
 
                 Spacer(Modifier.height(18.dp))
-                if (state.discovering && state.servers.isEmpty()) {
-                    Text(
-                        text = stringResource(R.string.tv_looking_nearby),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TelevisionColors.PaperSoft,
+                when {
+                    state.discovering && state.servers.isEmpty() -> TelevisionLoadingState(
+                        label = stringResource(R.string.tv_looking_nearby),
+                        shape = TelevisionLoadingShape.Rail,
+                        modifier = Modifier.height(126.dp),
                     )
-                }
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(126.dp),
-                    verticalArrangement = Arrangement.spacedBy(3.dp),
-                ) {
-                    items(state.servers, key = ServerChoiceUi::id) { server ->
-                        ServerRow(
-                            server = server,
-                            onClick = { onServerClick(server) },
-                            focusRequester = if (server == state.servers.firstOrNull()) firstServerFocus else null,
-                        )
+
+                    state.discoveryError != null && state.servers.isEmpty() -> TelevisionErrorState(
+                        title = stringResource(R.string.tv_discovery_failed),
+                        message = state.discoveryError.resolve(),
+                        onRetry = onRefresh,
+                        retryLabel = stringResource(R.string.retry),
+                        modifier = Modifier.height(126.dp),
+                    )
+
+                    state.servers.isEmpty() -> TelevisionEmptyState(
+                        title = stringResource(R.string.tv_no_servers_found),
+                        actionLabel = stringResource(R.string.retry),
+                        onAction = onRefresh,
+                        requestInitialFocus = true,
+                        modifier = Modifier.height(126.dp),
+                    )
+
+                    else -> LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(126.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
+                        items(state.servers, key = ServerChoiceUi::id) { server ->
+                            ServerRow(
+                                server = server,
+                                onClick = { onServerClick(server) },
+                                focusRequester = if (server == state.servers.firstOrNull()) firstServerFocus else null,
+                            )
+                        }
                     }
+                }
+
+                if (state.discoveryError != null && state.servers.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    TelevisionErrorState(
+                        title = stringResource(R.string.tv_discovery_failed),
+                        message = state.discoveryError.resolve(),
+                        onRetry = onRefresh,
+                        retryLabel = stringResource(R.string.retry),
+                        requestInitialFocus = false,
+                    )
                 }
 
                 Spacer(Modifier.height(26.dp))
@@ -210,12 +248,15 @@ fun ConnectScreen(
                     }
                 }
 
-                state.error?.let {
+                val connectionError = state.error
+                if (connectionError != null) {
                     Spacer(Modifier.height(12.dp))
-                    Text(
-                        text = it.resolve(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TelevisionColors.PaperMuted,
+                    TelevisionErrorState(
+                        title = stringResource(R.string.tv_connection_failed),
+                        message = connectionError.resolve(),
+                        onRetry = onRetryConnection,
+                        retryLabel = stringResource(R.string.retry),
+                        requestInitialFocus = false,
                     )
                 }
             }
@@ -256,7 +297,11 @@ private fun ServerRow(
             }
             Column {
                 Text(
-                    text = server.name,
+                    text = if (server.name.isBlank()) {
+                        stringResource(R.string.tv_server_default_name)
+                    } else {
+                        server.name
+                    },
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                 )
@@ -284,6 +329,7 @@ fun ProfilesScreen(
     state: ProfilesUiState,
     backdropUrl: String?,
     onProfileClick: (ProfileUi) -> Unit,
+    onRetry: () -> Unit,
     onAnotherAccount: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -337,49 +383,89 @@ fun ProfilesScreen(
                         .fillMaxHeight(),
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    LazyRow(
-                        state = profileRailState,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(170.dp)
-                            .focusGroup()
-                            .focusRestorer(),
-                        contentPadding = PaddingValues(
-                            horizontal = 8.dp,
-                            vertical = 8.dp,
-                        ),
-                        horizontalArrangement = Arrangement.spacedBy(28.dp),
-                        verticalAlignment = Alignment.Top,
-                    ) {
-                        itemsIndexed(
-                            state.profiles,
-                            key = { index, profile -> "${profile.id}:$index" },
-                        ) { index, profile ->
-                            ProfileTarget(
-                                profile = profile,
-                                onClick = { onProfileClick(profile) },
-                                focusRequester = profileFocusRequesters.getOrNull(index),
-                                modifier = Modifier.televisionHorizontalWrap(
-                                    index,
-                                    profileFocusRequesters,
-                                    profileRailState,
-                                ),
-                            )
+                    when {
+                        state.loading && state.profiles.isEmpty() -> TelevisionLoadingState(
+                            label = stringResource(R.string.tv_whos_watching),
+                            shape = TelevisionLoadingShape.Rail,
+                            modifier = Modifier.height(170.dp),
+                        )
+
+                        state.error != null && state.profiles.isEmpty() -> TelevisionErrorState(
+                            title = stringResource(R.string.tv_profiles_load_failed),
+                            message = state.error.resolve(),
+                            onRetry = onRetry,
+                            retryLabel = stringResource(R.string.retry),
+                            modifier = Modifier.height(170.dp),
+                        )
+
+                        state.profiles.isEmpty() -> TelevisionEmptyState(
+                            title = stringResource(R.string.tv_no_accounts),
+                            message = stringResource(R.string.tv_no_accounts_detail),
+                            actionLabel = stringResource(R.string.tv_use_another_account),
+                            onAction = onAnotherAccount,
+                            requestInitialFocus = true,
+                            modifier = Modifier.height(170.dp),
+                        )
+
+                        else -> LazyRow(
+                            state = profileRailState,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(170.dp)
+                                .focusGroup()
+                                .focusRestorer(),
+                            contentPadding = PaddingValues(
+                                horizontal = 8.dp,
+                                vertical = 8.dp,
+                            ),
+                            horizontalArrangement = Arrangement.spacedBy(28.dp),
+                            verticalAlignment = Alignment.Top,
+                        ) {
+                            itemsIndexed(
+                                state.profiles,
+                                key = { index, profile -> "${profile.id}:$index" },
+                            ) { index, profile ->
+                                ProfileTarget(
+                                    profile = profile,
+                                    onClick = { onProfileClick(profile) },
+                                    enabled = !state.loading,
+                                    focusRequester = profileFocusRequesters.getOrNull(index),
+                                    modifier = Modifier.televisionHorizontalWrap(
+                                        index,
+                                        profileFocusRequesters,
+                                        profileRailState,
+                                    ),
+                                )
+                            }
                         }
                     }
                     Spacer(Modifier.height(32.dp))
-                    TelevisionFocusRevealButton(
-                        label = stringResource(R.string.tv_use_another_account),
-                        icon = Icons.Default.Keyboard,
-                        onClick = onAnotherAccount,
-                        expandedWidth = 186.dp,
-                    )
-                    state.error?.let {
+                    if (state.profiles.isNotEmpty() || state.error != null) {
+                        TelevisionFocusRevealButton(
+                            label = stringResource(R.string.tv_use_another_account),
+                            icon = Icons.Default.Keyboard,
+                            onClick = onAnotherAccount,
+                            enabled = !state.loading,
+                            expandedWidth = 186.dp,
+                        )
+                    }
+                    if (state.loading && state.profiles.isNotEmpty()) {
+                        Spacer(Modifier.height(12.dp))
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = TelevisionColors.Paper,
+                            strokeWidth = 2.dp,
+                        )
+                    }
+                    val profilesError = state.error
+                    if (profilesError != null && state.profiles.isNotEmpty()) {
                         Spacer(Modifier.height(16.dp))
-                        Text(
-                            text = it.resolve(),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TelevisionColors.PaperMuted,
+                        TelevisionErrorState(
+                            title = stringResource(R.string.tv_profiles_load_failed),
+                            message = profilesError.resolve(),
+                            onRetry = onRetry,
+                            retryLabel = stringResource(R.string.retry),
+                            requestInitialFocus = false,
                         )
                     }
                 }
@@ -392,11 +478,13 @@ fun ProfilesScreen(
 private fun ProfileTarget(
     profile: ProfileUi,
     onClick: () -> Unit,
+    enabled: Boolean,
     focusRequester: FocusRequester?,
     modifier: Modifier = Modifier,
 ) {
     TelevisionFocusSurface(
         onClick = onClick,
+        enabled = enabled,
         focusRequester = focusRequester,
         scaleTo = 1.055f,
         restingAlpha = 0.48f,
@@ -419,15 +507,24 @@ private fun ProfileTarget(
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
+                    val profileLabel = if (profile.name.isBlank()) {
+                        stringResource(R.string.tv_unknown)
+                    } else {
+                        profile.name
+                    }
                     Text(
-                        text = profile.name.take(1).uppercase(),
+                        text = profileLabel.take(1).uppercase(),
                         style = MaterialTheme.typography.displaySmall,
                     )
                 }
             }
             Spacer(Modifier.height(12.dp))
             Text(
-                text = profile.name,
+                text = if (profile.name.isBlank()) {
+                    stringResource(R.string.tv_unknown)
+                } else {
+                    profile.name
+                },
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -456,7 +553,9 @@ fun LoginScreen(
     val quickConnectFocus = remember { FocusRequester() }
     val signInFocus = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
-    val quickConnectFocusable = state.quickConnectAvailable && !state.quickConnectLoading
+    val quickConnectFocusable = state.quickConnectAvailable &&
+        !state.quickConnectChecking &&
+        !state.quickConnectLoading
     val signInFocusable = state.userName.isNotBlank() && !state.signingIn
 
     LaunchedEffect(Unit) {
@@ -569,7 +668,14 @@ fun LoginScreen(
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (state.quickConnectAvailable) {
+                        if (state.quickConnectChecking) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = TelevisionColors.Paper,
+                                strokeWidth = 2.dp,
+                            )
+                            Spacer(Modifier.width(16.dp))
+                        } else if (state.quickConnectAvailable) {
                             TelevisionFocusRevealButton(
                                 label = state.quickConnectCode
                                     ?: stringResource(R.string.tv_quick_connect),
@@ -619,12 +725,22 @@ fun LoginScreen(
                                 down = FocusRequester.Cancel
                             },
                         )
+                        if (state.signingIn) {
+                            CircularProgressIndicator(
+                                modifier = Modifier
+                                    .padding(start = 10.dp)
+                                    .size(16.dp),
+                                color = TelevisionColors.Paper,
+                                strokeWidth = 2.dp,
+                            )
+                        }
                     }
 
-                    state.error?.let {
+                    val loginError = state.error
+                    if (loginError != null) {
                         Spacer(Modifier.height(16.dp))
                         Text(
-                            text = it.resolve(),
+                            text = loginError.resolve(),
                             style = MaterialTheme.typography.bodyMedium,
                             color = TelevisionColors.PaperMuted,
                         )
@@ -646,7 +762,13 @@ fun RecoveryScreen(
     BackHandler(onBack = onBack)
 
     val usernameFocus = remember { FocusRequester() }
+    val resultFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { usernameFocus.requestFocus() }
+    LaunchedEffect(state.result, state.error) {
+        if (state.result != null || state.error != null) {
+            runCatching { resultFocus.requestFocus() }
+        }
+    }
 
     TelevisionBackground(imageUrl = backdropUrl) {
         Box(Modifier.fillMaxSize()) {
@@ -716,16 +838,20 @@ fun RecoveryScreen(
                             strokeWidth = 2.dp,
                         )
                     }
-                    (state.result ?: state.error)?.let { message ->
+                    val recoveryMessage = state.result ?: state.error
+                    if (recoveryMessage != null) {
                         Spacer(Modifier.height(18.dp))
                         Text(
-                            text = message.resolve(),
+                            text = recoveryMessage.resolve(),
                             style = MaterialTheme.typography.bodyLarge,
                             color = if (state.error == null) {
                                 TelevisionColors.Paper
                             } else {
                                 TelevisionColors.PaperMuted
                             },
+                            modifier = Modifier
+                                .focusRequester(resultFocus)
+                                .focusable(),
                         )
                     }
                 }

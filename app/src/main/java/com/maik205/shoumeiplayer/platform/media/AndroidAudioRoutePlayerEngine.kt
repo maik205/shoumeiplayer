@@ -8,6 +8,7 @@ import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.domain.settings.ClientSettings
 import com.maik205.shoumeiplayer.player.PlayerEngine
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +19,8 @@ internal class AndroidAudioRoutePlayerEngine(
     context: Context,
     private val delegate: PlayerEngine,
 ) : PlayerEngine by delegate {
-    private val audioManager = context.applicationContext.getSystemService(AudioManager::class.java)
+    private val appContext = context.applicationContext
+    private val audioManager = appContext.getSystemService(AudioManager::class.java)
     private val _route = MutableStateFlow(resolveCurrentRoute())
     private var configuredSettings: ClientSettings? = null
 
@@ -57,12 +59,23 @@ internal class AndroidAudioRoutePlayerEngine(
         } else {
             device.encodings.toSet()
         }
+        val fallbackLabel = audioRouteLabel(appContext, device.type)
+        val resolvedLabel = device.productName
+            ?.toString()
+            ?.takeIf(String::isNotBlank)
+            ?: fallbackLabel
         return resolveAudioRoutePolicy(
             type = device.type,
-            label = device.productName?.toString(),
+            label = resolvedLabel,
             encodings = encodings,
             channelCounts = device.channelCounts.toSet(),
             sampleRates = device.sampleRates.toSet(),
+            description = audioRouteDescription(
+                context = appContext,
+                label = resolvedLabel,
+                channelCounts = device.channelCounts.toSet(),
+                sampleRates = device.sampleRates.toSet(),
+            ),
         )
     }
 
@@ -75,6 +88,7 @@ internal class AndroidAudioRoutePlayerEngine(
 internal data class AudioRoutePolicy(
     val type: Int,
     val label: String,
+    val description: String = label,
     val supportsAc3: Boolean,
     val supportsEac3: Boolean,
     val supportsDts: Boolean,
@@ -82,17 +96,10 @@ internal data class AudioRoutePolicy(
     val channelCounts: Set<Int>,
     val sampleRates: Set<Int>,
 ) {
-    val description: String
-        get() = buildString {
-            append(label)
-            channelCounts.maxOrNull()?.let { append(" · ").append(it).append(" ch") }
-            sampleRates.maxOrNull()?.let { append(" · ").append(it / 1_000).append(" kHz") }
-        }
-
     companion object {
         val Unknown = AudioRoutePolicy(
             type = AudioDeviceInfo.TYPE_UNKNOWN,
-            label = "Unknown output",
+            label = "",
             supportsAc3 = false,
             supportsEac3 = false,
             supportsDts = false,
@@ -109,13 +116,17 @@ internal fun resolveAudioRoutePolicy(
     encodings: Set<Int>,
     channelCounts: Set<Int> = emptySet(),
     sampleRates: Set<Int> = emptySet(),
+    fallbackLabel: String = "",
+    description: String? = null,
 ): AudioRoutePolicy {
     val passthroughEligible = type == AudioDeviceInfo.TYPE_HDMI ||
         type == AudioDeviceInfo.TYPE_HDMI_ARC ||
         (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && type == AudioDeviceInfo.TYPE_HDMI_EARC)
+    val resolvedLabel = label?.takeIf(String::isNotBlank) ?: fallbackLabel
     return AudioRoutePolicy(
         type = type,
-        label = label?.takeIf(String::isNotBlank) ?: audioRouteLabel(type),
+        label = resolvedLabel,
+        description = description ?: resolvedLabel,
         supportsAc3 = passthroughEligible && AudioFormat.ENCODING_AC3 in encodings,
         supportsEac3 = passthroughEligible && (
             AudioFormat.ENCODING_E_AC3 in encodings || AudioFormat.ENCODING_E_AC3_JOC in encodings
@@ -156,17 +167,35 @@ private fun audioRoutePriority(type: Int): Int = when (type) {
     else -> 0
 }
 
-private fun audioRouteLabel(type: Int): String = when (type) {
-    AudioDeviceInfo.TYPE_HDMI_EARC -> "HDMI eARC"
-    AudioDeviceInfo.TYPE_HDMI_ARC -> "HDMI ARC"
-    AudioDeviceInfo.TYPE_HDMI -> "HDMI"
-    AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
-    AudioDeviceInfo.TYPE_BLE_HEADSET,
-    AudioDeviceInfo.TYPE_BLE_SPEAKER,
-    -> "Bluetooth"
-    AudioDeviceInfo.TYPE_USB_DEVICE,
-    AudioDeviceInfo.TYPE_USB_HEADSET,
-    -> "USB audio"
-    AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "TV speakers"
-    else -> "Audio output"
+private fun audioRouteLabel(context: Context, type: Int): String = context.getString(
+    when (type) {
+        AudioDeviceInfo.TYPE_HDMI_EARC -> R.string.tv_audio_route_hdmi_earc
+        AudioDeviceInfo.TYPE_HDMI_ARC -> R.string.tv_audio_route_hdmi_arc
+        AudioDeviceInfo.TYPE_HDMI -> R.string.tv_audio_route_hdmi
+        AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+        AudioDeviceInfo.TYPE_BLE_HEADSET,
+        AudioDeviceInfo.TYPE_BLE_SPEAKER,
+        -> R.string.tv_audio_route_bluetooth
+        AudioDeviceInfo.TYPE_USB_DEVICE,
+        AudioDeviceInfo.TYPE_USB_HEADSET,
+        -> R.string.tv_audio_route_usb
+        AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> R.string.tv_audio_route_tv_speakers
+        else -> R.string.tv_audio_route_output
+    },
+)
+
+private fun audioRouteDescription(
+    context: Context,
+    label: String,
+    channelCounts: Set<Int>,
+    sampleRates: Set<Int>,
+): String {
+    val values = mutableListOf(label)
+    channelCounts.maxOrNull()?.let { count ->
+        values += context.getString(R.string.tv_audio_route_channels, count)
+    }
+    sampleRates.maxOrNull()?.let { rate ->
+        values += context.getString(R.string.tv_audio_route_sample_rate, rate / 1_000)
+    }
+    return values.joinToString(context.getString(R.string.tv_metadata_separator))
 }

@@ -120,10 +120,9 @@ class AppContainer(
     private val captionEngine by lazy {
         AndroidCaptionPreferencesPlayerEngine(context, audioRouteEngine)
     }
-    val effectiveHdrModeLabel by lazy {
+    val effectiveHdrMode by lazy {
         hdrEngine.effectiveMode
-            .map { it.label }
-            .stateIn(applicationScope, SharingStarted.Eagerly, hdrEngine.effectiveMode.value.label)
+            .stateIn(applicationScope, SharingStarted.Eagerly, hdrEngine.effectiveMode.value)
     }
     val playerEngine: PlayerEngine by lazy { AndroidAudioFocusPlayerEngine(context, captionEngine) }
     fun newAudioServicePlayerEngine(): PlayerEngine = AudioServicePlayerEngine(context) { activeAccountId }

@@ -61,6 +61,8 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import androidx.compose.ui.res.stringResource
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.player.PlayerState
 import com.maik205.shoumeiplayer.player.PlayerTrack
 import com.maik205.shoumeiplayer.player.TrackType
@@ -187,7 +189,11 @@ internal fun VideoPlayerChrome(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PlayerCompactActionButton(
-                label = if (exitArmed) "Exit?" else "Back",
+                label = if (exitArmed) {
+                    stringResource(R.string.tv_player_exit)
+                } else {
+                    stringResource(R.string.tv_back)
+                },
                 icon = Icons.AutoMirrored.Filled.ArrowBack,
                 expandedWidth = 92.dp,
                 onFocused = onInteraction,
@@ -197,7 +203,10 @@ internal fun VideoPlayerChrome(
                 },
             )
             PlayerCompactActionButton(
-                label = "Rewind ${state.seekIntervalSeconds}s",
+                label = stringResource(
+                    R.string.tv_player_rewind,
+                    state.seekIntervalSeconds,
+                ),
                 icon = Icons.Default.Replay10,
                 expandedWidth = 122.dp,
                 onFocused = onInteraction,
@@ -207,7 +216,9 @@ internal fun VideoPlayerChrome(
                 },
             )
             PlayerCompactActionButton(
-                label = if (playing) "Pause" else "Play",
+                label = stringResource(
+                    if (playing) R.string.tv_player_pause else R.string.play,
+                ),
                 icon = if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
                 selected = playing,
                 focusRequester = playPauseFocus,
@@ -219,7 +230,10 @@ internal fun VideoPlayerChrome(
                 },
             )
             PlayerCompactActionButton(
-                label = "Forward ${state.seekIntervalSeconds}s",
+                label = stringResource(
+                    R.string.tv_player_forward,
+                    state.seekIntervalSeconds,
+                ),
                 icon = Icons.Default.Forward10,
                 expandedWidth = 126.dp,
                 onFocused = onInteraction,
@@ -230,7 +244,7 @@ internal fun VideoPlayerChrome(
             )
             if (state.previousEpisodeId != null) {
                 PlayerCompactActionButton(
-                    label = "Previous",
+                    label = stringResource(R.string.tv_player_previous),
                     icon = Icons.Default.SkipPrevious,
                     expandedWidth = 112.dp,
                     onFocused = onInteraction,
@@ -242,7 +256,7 @@ internal fun VideoPlayerChrome(
             }
             if (state.nextEpisodeId != null) {
                 PlayerCompactActionButton(
-                    label = "Next",
+                    label = stringResource(R.string.tv_player_next),
                     icon = Icons.Default.SkipNext,
                     expandedWidth = 92.dp,
                     onFocused = onInteraction,
@@ -255,7 +269,7 @@ internal fun VideoPlayerChrome(
             Spacer(Modifier.weight(1f))
             if (state.chapters.isNotEmpty()) {
                 PlayerCompactActionButton(
-                    label = "Chapters",
+                    label = stringResource(R.string.tv_detail_chapters),
                     icon = Icons.Default.VideoLibrary,
                     expandedWidth = 112.dp,
                     onFocused = onInteraction,
@@ -263,7 +277,7 @@ internal fun VideoPlayerChrome(
                 )
             }
             PlayerCompactActionButton(
-                label = "Subtitles",
+                label = stringResource(R.string.tv_subtitles),
                 icon = Icons.Default.ClosedCaption,
                 selected = state.subtitleTracks.any(PlayerTrack::selected),
                 expandedWidth = 122.dp,
@@ -272,7 +286,7 @@ internal fun VideoPlayerChrome(
             )
             if (state.audioTracks.isNotEmpty()) {
                 PlayerCompactActionButton(
-                    label = "Audio",
+                    label = stringResource(R.string.tv_audio),
                     icon = Icons.Default.GraphicEq,
                     expandedWidth = 96.dp,
                     onFocused = onInteraction,
@@ -280,7 +294,7 @@ internal fun VideoPlayerChrome(
                 )
             }
             PlayerCompactActionButton(
-                label = "Options",
+                label = stringResource(R.string.tv_player_options),
                 icon = Icons.Default.Tune,
                 expandedWidth = 92.dp,
                 onFocused = onInteraction,
@@ -316,12 +330,17 @@ private fun VideoPlayerTimeline(
     )
 }
 
+@Composable
 private fun videoMetadata(state: PlayerUiState): String? {
     val episode = if (state.isEpisode) {
-        listOfNotNull(
-            state.seasonNumber?.let { "S$it" },
-            state.episodeNumber?.let { "E$it" },
-        ).joinToString(" ")
+        val metadata = mutableListOf<String>()
+        if (state.seasonNumber != null) {
+            metadata += stringResource(R.string.tv_player_season_number, state.seasonNumber)
+        }
+        if (state.episodeNumber != null) {
+            metadata += stringResource(R.string.tv_player_episode_number, state.episodeNumber)
+        }
+        metadata.joinToString(" ")
     } else {
         null
     }
@@ -332,22 +351,28 @@ private fun videoMetadata(state: PlayerUiState): String? {
     ).takeIf(List<String>::isNotEmpty)?.joinToString("  ·  ")
 }
 
-internal fun selectionRows(
+internal data class PlayerSelectionOption<T>(
+    val value: T,
+    val label: String,
+)
+
+internal fun <T> selectionRows(
     prefix: String,
-    selected: String,
-    values: List<String>,
-    onSelect: (String) -> Unit,
-): List<PlayerSelectionRow> = values.map { value ->
+    selected: T,
+    values: List<PlayerSelectionOption<T>>,
+    onSelect: (T) -> Unit,
+): List<PlayerSelectionRow> = values.map { option ->
     PlayerSelectionRow(
-        key = "$prefix:$value",
-        label = value,
-        selected = value == selected,
-        onClick = { onSelect(value) },
+        key = "$prefix:${option.value}",
+        label = option.label,
+        selected = option.value == selected,
+        onClick = { onSelect(option.value) },
     )
 }
 
+@Composable
 internal fun signedPlaybackDelay(valueMs: Long): String = when {
-    valueMs > 0L -> "+${valueMs} ms"
-    valueMs < 0L -> "${valueMs} ms"
-    else -> "0 ms"
+    valueMs > 0L -> stringResource(R.string.tv_player_delay_positive, valueMs)
+    valueMs < 0L -> stringResource(R.string.tv_player_delay_negative, valueMs)
+    else -> stringResource(R.string.tv_player_delay_zero)
 }

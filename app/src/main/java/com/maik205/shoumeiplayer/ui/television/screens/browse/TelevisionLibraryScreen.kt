@@ -55,6 +55,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SortByAlpha
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -89,10 +90,12 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionBackground
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionAppTopNavigation
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionEmptyState
@@ -177,6 +180,7 @@ fun TelevisionLibraryScreen(
                 focused = focused.value,
                 onFocused = { focused.value = it },
                 onOpenItem = onOpenItem,
+                onRetry = onRetry,
                 onLoadMore = onLoadMore,
                 entryFocus = entryFocus,
                 topNavigationFocus = topNavigationFocus,
@@ -227,7 +231,7 @@ private fun StandardLibraryContent(
     var snapTopTick by remember { mutableIntStateOf(0) }
     val gridState = rememberLazyGridState()
     val count = maxOf(state.totalCount, state.items.size)
-    val countLabel = "$count ${if (count == 1) "item" else "items"}"
+    val countLabel = stringResource(R.plurals.tv_library_item_count, count, count)
     val sortingByTitle = state.sort == BrowseSort.Name
 
     CompositionLocalProvider(LocalBringIntoViewSpec provides LibraryBringIntoViewSpec) {
@@ -294,7 +298,7 @@ private fun StandardLibraryContent(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         LibraryViewButton(
-                            label = "All",
+                            label = stringResource(R.string.tv_filter_all),
                             icon = Icons.Default.GridView,
                             selected = state.view == LibraryViewMode.All,
                             focusRequester = entryFocus,
@@ -306,7 +310,7 @@ private fun StandardLibraryContent(
                             },
                         )
                         LibraryViewButton(
-                            label = "New",
+                            label = stringResource(R.string.tv_filter_new),
                             icon = Icons.Default.Schedule,
                             selected = state.view == LibraryViewMode.New,
                             upFocusRequester = topNavigationFocus,
@@ -317,7 +321,7 @@ private fun StandardLibraryContent(
                             },
                         )
                         LibraryViewButton(
-                            label = "Favorites",
+                            label = stringResource(R.string.tv_filter_favorites),
                             icon = Icons.Default.Favorite,
                             selected = state.view == LibraryViewMode.Favorites,
                             upFocusRequester = topNavigationFocus,
@@ -330,7 +334,11 @@ private fun StandardLibraryContent(
                     }
                     Spacer(Modifier.weight(1f))
                     TelevisionFocusRevealButton(
-                        label = if (sortingByTitle) "Title" else "Recent",
+                        label = if (sortingByTitle) {
+                            stringResource(R.string.tv_sort_title)
+                        } else {
+                            stringResource(R.string.tv_sort_recent)
+                        },
                         icon = if (sortingByTitle) {
                             Icons.Default.SortByAlpha
                         } else {
@@ -359,6 +367,7 @@ private fun StandardLibraryContent(
                     span = { GridItemSpan(maxLineSpan) },
                 ) {
                     TelevisionLoadingState(
+                        label = stringResource(R.string.tv_loading_library),
                         shape = TelevisionLoadingShape.Grid,
                         modifier = Modifier.padding(top = 12.dp),
                     )
@@ -369,9 +378,10 @@ private fun StandardLibraryContent(
                     span = { GridItemSpan(maxLineSpan) },
                 ) {
                     TelevisionErrorState(
-                        title = "Couldn't open ${state.title}",
-                        message = state.error,
+                        title = stringResource(R.string.tv_library_error_title, state.title),
+                        message = state.error.resolve(),
                         onRetry = onRetry,
+                        retryLabel = stringResource(R.string.retry),
                         modifier = Modifier.padding(top = 12.dp),
                     )
                 }
@@ -381,7 +391,27 @@ private fun StandardLibraryContent(
                     span = { GridItemSpan(maxLineSpan) },
                 ) {
                     TelevisionEmptyState(
-                        title = "Nothing here yet",
+                        title = stringResource(
+                            if (state.view == LibraryViewMode.All) {
+                                R.string.library_empty_unfiltered
+                            } else {
+                                R.string.library_empty_filtered
+                            },
+                        ),
+                        message = stringResource(
+                            if (state.view == LibraryViewMode.All) {
+                                R.string.empty_check_library_detail
+                            } else {
+                                R.string.tv_library_filter_detail
+                            },
+                        ),
+                        actionLabel = stringResource(
+                            if (state.view == LibraryViewMode.All) R.string.retry else R.string.action_clear_filter,
+                        ),
+                        onAction = if (state.view == LibraryViewMode.All) onRetry else {
+                            { onSetView(LibraryViewMode.All) }
+                        },
+                        requestInitialFocus = true,
                         modifier = Modifier.padding(top = 12.dp),
                     )
                 }
@@ -417,10 +447,43 @@ private fun StandardLibraryContent(
                             LaunchedEffect(media.id) { onLoadMore() }
                         }
                     }
+                    if (state.loadingMore) {
+                        item(span = { GridItemSpan(maxLineSpan) }, key = "library-loading-more") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 18.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    color = TelevisionColors.Paper,
+                                    strokeWidth = 2.dp,
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    text = stringResource(R.string.tv_loading_more),
+                                    color = TelevisionColors.PaperMuted,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+                    } else if (state.error != null) {
+                        item(span = { GridItemSpan(maxLineSpan) }, key = "library-inline-error") {
+                            TelevisionErrorState(
+                                title = stringResource(R.string.tv_library_load_more_failed),
+                                message = state.error.resolve(),
+                                onRetry = onLoadMore,
+                                retryLabel = stringResource(R.string.retry),
+                                requestInitialFocus = false,
+                                modifier = Modifier.padding(vertical = 12.dp),
+                            )
+                        }
+                    }
                     if (state.exhausted) {
                         item(span = { GridItemSpan(maxLineSpan) }, key = "library-end") {
                             EndOfLibraryMessage(
-                                seed = state.title.hashCode(),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(top = 31.dp, bottom = 11.dp),
@@ -483,12 +546,13 @@ private fun LibraryViewButton(
     }
 }
 
+@Composable
 private fun MediaItemUi.librarySubtitle(): String? {
     val typeLabel = when (type) {
-        "Series" -> "Series"
-        "Movie" -> "Movie"
-        "BoxSet" -> "Collection"
-        "AudioBook", "Book" -> "Book"
+        "Series" -> stringResource(R.string.tv_detail_series_kind)
+        "Movie" -> stringResource(R.string.tv_detail_movie)
+        "BoxSet" -> stringResource(R.string.tv_detail_collection_kind)
+        "AudioBook", "Book" -> stringResource(R.string.tv_detail_book_kind)
         else -> type.takeIf(String::isNotBlank)
     }
     return listOfNotNull(typeLabel, subtitle?.takeIf(String::isNotBlank))

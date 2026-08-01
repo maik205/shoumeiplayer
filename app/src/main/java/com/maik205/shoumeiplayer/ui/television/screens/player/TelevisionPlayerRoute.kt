@@ -57,7 +57,7 @@ fun TelevisionPlayerScreen(
             initialQualityLabel = initialQualityLabel,
             observability = PlayerObservabilityInputs(
                 audioRouteLabel = container.audioRouteLabel,
-                effectiveHdrMode = container.effectiveHdrModeLabel,
+                effectiveHdrMode = container.effectiveHdrMode,
                 networkAvailable = container.networkMonitor.snapshot.map { it.validated }
                     .stateIn(
                         container.applicationScope,
@@ -181,6 +181,7 @@ private fun PlayerMediaSession(
 internal interface TelevisionPlayerController {
     fun stopAndReport()
     fun loadShelves()
+    fun retryMusicContext()
     fun play()
     fun pause()
     fun togglePlayPause()
@@ -216,6 +217,7 @@ private class PlayerViewModelController(
 ) : TelevisionPlayerController {
     override fun stopAndReport() = viewModel.stopAndReport()
     override fun loadShelves() = viewModel.loadShelves()
+    override fun retryMusicContext() = viewModel.retryMusicContext()
     override fun play() = viewModel.play()
     override fun pause() = viewModel.pause()
     override fun togglePlayPause() = viewModel.togglePlayPause()

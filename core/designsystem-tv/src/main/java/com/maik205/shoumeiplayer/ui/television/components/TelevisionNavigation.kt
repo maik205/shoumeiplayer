@@ -54,12 +54,14 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import com.maik205.shoumeiplayer.core.designsystem.tv.R
 import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
@@ -74,11 +76,6 @@ data class TelevisionNavigationItem(
 )
 
 fun televisionLibraryNavigationKey(libraryId: String): String = "library:$libraryId"
-
-private val TelevisionPrimaryNavigation = listOf(
-    TelevisionNavigationItem("search", "Search", Icons.Default.Search),
-    TelevisionNavigationItem("home", "Home", Icons.Default.Home),
-)
 
 private const val LibraryFocusNavigationDelayMillis = 250L
 
@@ -100,8 +97,22 @@ fun TelevisionAppTopNavigation(
     navigationState: LazyListState? = null,
     onNavigationFocused: () -> Unit = {},
 ) {
+    val primaryDestinations = listOf(
+        TelevisionNavigationItem("search", stringResource(R.string.ds_nav_search), Icons.Default.Search),
+        TelevisionNavigationItem("home", stringResource(R.string.ds_nav_home), Icons.Default.Home),
+    )
+    val profileLabel = if (userName.isBlank()) {
+        stringResource(R.string.ds_nav_profile)
+    } else {
+        userName
+    }
+    val avatarInitials = if (userName.isBlank()) {
+        stringResource(R.string.ds_nav_initial)
+    } else {
+        userName.take(2).uppercase()
+    }
     TelevisionTopNavigation(
-        primaryDestinations = TelevisionPrimaryNavigation,
+        primaryDestinations = primaryDestinations,
         libraryDestinations = libraries,
         selectedKey = selectedKey,
         onDestinationClick = { key ->
@@ -124,8 +135,8 @@ fun TelevisionAppTopNavigation(
         navigationState = navigationState,
         onNavigationFocused = onNavigationFocused,
         avatarUrl = avatarUrl,
-        avatarLabel = userName.ifBlank { "Profile" },
-        avatarInitials = userName.take(2).uppercase(),
+        avatarLabel = profileLabel,
+        avatarInitials = avatarInitials,
     )
 }
 
@@ -143,7 +154,7 @@ fun TelevisionTopNavigation(
     onAvatarClick: () -> Unit,
     modifier: Modifier = Modifier,
     avatarUrl: String? = null,
-    avatarLabel: String = "Profile",
+    avatarLabel: String,
     avatarInitials: String = "",
     settingsFocusRequester: FocusRequester? = null,
     contentFocusRequester: FocusRequester? = null,
@@ -305,7 +316,7 @@ fun TelevisionTopNavigation(
 
         Spacer(Modifier.width(8.dp))
         TelevisionFocusRevealButton(
-            label = "Settings",
+            label = stringResource(R.string.ds_nav_settings),
             icon = Icons.Default.Settings,
             selected = selectedKey == "settings",
             onClick = onSettingsClick,
@@ -471,7 +482,11 @@ private fun TelevisionAvatarButton(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = initials.take(2).ifBlank { "S" },
+                    text = if (initials.isBlank()) {
+                        stringResource(R.string.ds_nav_initial)
+                    } else {
+                        initials.take(2)
+                    },
                     style = MaterialTheme.typography.labelMedium,
                     color = TelevisionColors.Paper,
                 )

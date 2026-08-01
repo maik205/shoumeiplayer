@@ -89,10 +89,12 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionBackground
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionAppTopNavigation
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionEmptyState
@@ -122,20 +124,65 @@ internal fun MusicLibraryContent(
     focused: MediaItemUi?,
     onFocused: (MediaItemUi) -> Unit,
     onOpenItem: (MediaItemUi) -> Unit,
+    onRetry: () -> Unit,
     onLoadMore: () -> Unit,
     entryFocus: FocusRequester,
     topNavigationFocus: FocusRequester,
 ) {
+    if (state.loading && state.items.isEmpty()) {
+        TelevisionLoadingState(
+            label = stringResource(R.string.tv_loading_music),
+            shape = TelevisionLoadingShape.Grid,
+            modifier = Modifier.padding(
+                start = TelevisionDimensions.SafeHorizontal,
+                top = 190.dp,
+            ),
+        )
+        return
+    }
+    if (state.error != null && state.items.isEmpty()) {
+        TelevisionErrorState(
+            title = stringResource(R.string.tv_music_error_title),
+            message = state.error.resolve(),
+            onRetry = onRetry,
+            retryLabel = stringResource(R.string.retry),
+            modifier = Modifier.padding(
+                start = TelevisionDimensions.SafeHorizontal,
+                top = 190.dp,
+            ),
+        )
+        return
+    }
+    if (state.items.isEmpty()) {
+        TelevisionEmptyState(
+            title = stringResource(R.string.tv_music_empty_title),
+            message = stringResource(R.string.tv_music_empty_detail),
+            actionLabel = stringResource(R.string.retry),
+            onAction = onRetry,
+            requestInitialFocus = true,
+            modifier = Modifier.padding(
+                start = TelevisionDimensions.SafeHorizontal,
+                top = 190.dp,
+            ),
+        )
+        return
+    }
+
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val heroActionFocus = remember { FocusRequester() }
     val firstShelfFocus = remember { FocusRequester() }
-    var selectedView by rememberSaveable(state.title) { mutableStateOf("Overview") }
-    val grouped = remember(state.items) {
+    val overviewLabel = stringResource(R.string.tv_music_overview)
+    val albumsLabel = stringResource(R.string.tv_music_albums)
+    val artistsLabel = stringResource(R.string.tv_music_artists)
+    val playlistsLabel = stringResource(R.string.tv_music_playlists)
+    val musicLabel = stringResource(R.string.tv_music_label)
+    var selectedView by rememberSaveable(state.title) { mutableStateOf("overview") }
+    val grouped = remember(state.items, albumsLabel, artistsLabel, playlistsLabel) {
         listOf(
-            "Albums" to state.items.filter { it.type == "MusicAlbum" },
-            "Artists" to state.items.filter { it.type == "MusicArtist" },
-            "Playlists" to state.items.filter { it.type == "Playlist" },
+            albumsLabel to state.items.filter { it.type == "MusicAlbum" },
+            artistsLabel to state.items.filter { it.type == "MusicArtist" },
+            playlistsLabel to state.items.filter { it.type == "Playlist" },
         ).filter { it.second.isNotEmpty() }
     }
 
@@ -181,10 +228,10 @@ internal fun MusicLibraryContent(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     TelevisionFocusRevealButton(
-                        label = "Overview",
+                        label = overviewLabel,
                         icon = Icons.Default.Headphones,
-                        onClick = { selectView("Overview") },
-                        selected = selectedView == "Overview",
+                        onClick = { selectView("overview") },
+                        selected = selectedView == "overview",
                         focusRequester = entryFocus,
                         expandedWidth = 72.dp,
                         modifier = Modifier.focusProperties {
@@ -193,10 +240,10 @@ internal fun MusicLibraryContent(
                         },
                     )
                     TelevisionFocusRevealButton(
-                        label = "Albums",
+                        label = albumsLabel,
                         icon = Icons.Default.Album,
-                        onClick = { selectView("Albums", "Albums") },
-                        selected = selectedView == "Albums",
+                        onClick = { selectView("albums", albumsLabel) },
+                        selected = selectedView == "albums",
                         expandedWidth = 62.dp,
                         modifier = Modifier.focusProperties {
                             up = topNavigationFocus
@@ -204,10 +251,10 @@ internal fun MusicLibraryContent(
                         },
                     )
                     TelevisionFocusRevealButton(
-                        label = "Artists",
+                        label = artistsLabel,
                         icon = Icons.Default.Person,
-                        onClick = { selectView("Artists", "Artists") },
-                        selected = selectedView == "Artists",
+                        onClick = { selectView("artists", artistsLabel) },
+                        selected = selectedView == "artists",
                         expandedWidth = 60.dp,
                         modifier = Modifier.focusProperties {
                             up = topNavigationFocus
@@ -215,10 +262,10 @@ internal fun MusicLibraryContent(
                         },
                     )
                     TelevisionFocusRevealButton(
-                        label = "Playlists",
+                        label = playlistsLabel,
                         icon = Icons.AutoMirrored.Filled.QueueMusic,
-                        onClick = { selectView("Playlists", "Playlists") },
-                        selected = selectedView == "Playlists",
+                        onClick = { selectView("playlists", playlistsLabel) },
+                        selected = selectedView == "playlists",
                         expandedWidth = 70.dp,
                         modifier = Modifier.focusProperties {
                             up = topNavigationFocus
@@ -259,7 +306,12 @@ internal fun MusicLibraryContent(
                 Spacer(Modifier.width(28.dp))
                 Column(modifier = Modifier.width(520.dp)) {
                     Text(
-                        text = focused?.musicEyebrow() ?: "Music",
+                        text = focused?.musicEyebrow(
+                            albumLabel = stringResource(R.string.tv_music_album),
+                            artistLabel = stringResource(R.string.tv_music_artist),
+                            playlistLabel = stringResource(R.string.tv_music_playlist),
+                            songLabel = stringResource(R.string.tv_music_song),
+                        ) ?: musicLabel,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                         color = TelevisionColors.PaperMuted,
@@ -274,10 +326,15 @@ internal fun MusicLibraryContent(
                         ),
                         maxLines = 2,
                     )
-                    focused?.musicHeroMetadata()?.takeIf { it.isNotEmpty() }?.let {
+                    focused?.musicHeroMetadata(
+                        albumLabel = stringResource(R.string.tv_music_album),
+                        artistLabel = stringResource(R.string.tv_music_artist),
+                        playlistLabel = stringResource(R.string.tv_music_playlist),
+                        songLabel = stringResource(R.string.tv_music_song),
+                    )?.takeIf { it.isNotEmpty() }?.let {
                         Spacer(Modifier.height(9.dp))
                         Text(
-                            text = it.take(4).joinToString("   "),
+                        text = it.take(4).joinToString("   "),
                             style = MaterialTheme.typography.bodyLarge.copy(
                                 fontSize = 8.5.sp,
                                 lineHeight = 11.sp,
@@ -289,7 +346,11 @@ internal fun MusicLibraryContent(
                     Spacer(Modifier.height(18.dp))
                     focused?.let { item ->
                         TelevisionFocusRevealButton(
-                            label = if (item.type == "Audio") "Play" else "Open",
+                            label = if (item.type == "Audio") {
+                                stringResource(R.string.tv_music_play)
+                            } else {
+                                stringResource(R.string.tv_music_open)
+                            },
                             icon = if (item.type == "Audio") Icons.Default.PlayArrow else Icons.Default.Info,
                             onClick = { onOpenItem(item) },
                             selected = true,
@@ -318,20 +379,47 @@ internal fun MusicLibraryContent(
             LaunchedEffect(state.items.size) {
                 if (!state.exhausted) onLoadMore()
             }
-            Text(
-                text = "End of music",
-                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 9.sp),
-                color = TelevisionColors.PaperMuted.copy(alpha = 0.56f),
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
+            when {
+                state.loadingMore -> Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 18.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.tv_loading_more),
+                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = 9.sp),
+                        color = TelevisionColors.PaperMuted,
+                    )
+                }
+                state.error != null -> TelevisionErrorState(
+                    title = stringResource(R.string.tv_music_load_more_failed),
+                    message = state.error.resolve(),
+                    onRetry = onLoadMore,
+                    retryLabel = stringResource(R.string.retry),
+                    requestInitialFocus = false,
+                    modifier = Modifier.padding(
                         start = TelevisionDimensions.SafeHorizontal,
                         end = TelevisionDimensions.SafeHorizontal,
-                        top = 35.dp,
-                        bottom = 8.dp,
+                        top = 20.dp,
                     ),
-            )
+                )
+                state.exhausted -> Text(
+                    text = stringResource(R.string.tv_music_end),
+                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 9.sp),
+                    color = TelevisionColors.PaperMuted.copy(alpha = 0.56f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = TelevisionDimensions.SafeHorizontal,
+                            end = TelevisionDimensions.SafeHorizontal,
+                            top = 35.dp,
+                            bottom = 8.dp,
+                        ),
+                )
+            }
         }
     }
 }
@@ -447,21 +535,38 @@ private fun MusicShelf(
     }
 }
 
-private fun String?.musicTypeLabel(): String = when (this) {
-    "MusicAlbum" -> "Album"
-    "MusicArtist" -> "Artist"
-    "Playlist" -> "Playlist"
-    "Audio" -> "Song"
-    else -> "Music"
+private fun MediaItemUi.musicEyebrow(
+    albumLabel: String,
+    artistLabel: String,
+    playlistLabel: String,
+    songLabel: String,
+): String = when (type) {
+    "MusicAlbum", "Audio" -> subtitle?.takeIf(String::isNotBlank)
+        ?: type.musicTypeLabel(albumLabel, artistLabel, playlistLabel, songLabel)
+    else -> type.musicTypeLabel(albumLabel, artistLabel, playlistLabel, songLabel)
 }
 
-private fun MediaItemUi.musicEyebrow(): String = when (type) {
-    "MusicAlbum", "Audio" -> subtitle?.takeIf(String::isNotBlank) ?: type.musicTypeLabel()
-    else -> type.musicTypeLabel()
-}
+private fun MediaItemUi.musicHeroMetadata(
+    albumLabel: String,
+    artistLabel: String,
+    playlistLabel: String,
+    songLabel: String,
+): List<String> = listOf(
+    type.musicTypeLabel(albumLabel, artistLabel, playlistLabel, songLabel),
+) + metadata
 
-private fun MediaItemUi.musicHeroMetadata(): List<String> =
-    listOf(type.musicTypeLabel()) + metadata
+private fun String?.musicTypeLabel(
+    albumLabel: String,
+    artistLabel: String,
+    playlistLabel: String,
+    songLabel: String,
+): String = when (this) {
+    "MusicAlbum" -> albumLabel
+    "MusicArtist" -> artistLabel
+    "Playlist" -> playlistLabel
+    "Audio" -> songLabel
+    else -> artistLabel
+}
 
 private fun MediaItemUi.musicShelfSubtitle(): String? = when (type) {
     "MusicAlbum", "Audio" -> subtitle

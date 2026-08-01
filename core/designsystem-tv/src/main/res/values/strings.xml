@@ -1,0 +1,8 @@
+<resources>
+    <string name="ds_nav_search">Search</string>
+    <string name="ds_nav_home">Home</string>
+    <string name="ds_nav_settings">Settings</string>
+    <string name="ds_nav_profile">Profile</string>
+    <string name="ds_nav_initial">S</string>
+    <string name="ds_watched">Watched</string>
+</resources>

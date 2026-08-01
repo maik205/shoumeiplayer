@@ -5,6 +5,7 @@ import com.maik205.shoumeiplayer.player.PlaybackSpeed
 import com.maik205.shoumeiplayer.player.PlayerState
 import com.maik205.shoumeiplayer.player.PlayerTrack
 import com.maik205.shoumeiplayer.player.VideoQuality
+import com.maik205.shoumeiplayer.domain.settings.HdrMode
 
 internal const val PLAYER_CAST_LIMIT = 24
 internal const val UP_NEXT_WINDOW_MS = 30_000L
@@ -56,11 +57,38 @@ data class PlayerShelfItem(
     val artworkUrl: String?,
 )
 
+enum class PlayerMessageKind {
+    MetadataLoadFailed,
+    PlaybackLoadFailed,
+    StreamSwapFailed,
+    ShelvesLoadFailed,
+    MusicContextLoadFailed,
+    AdjacencyLoadFailed,
+    NetworkPaused,
+}
+
+data class PlayerMessage(
+    val kind: PlayerMessageKind,
+    val detail: String? = null,
+)
+
+data class PlayerVideoInfo(
+    val codec: String? = null,
+    val width: Int? = null,
+    val height: Int? = null,
+)
+
+data class PlayerAudioInfo(
+    val codec: String? = null,
+    val channels: Int? = null,
+    val language: String? = null,
+)
+
 data class PlayerUiState(
     val loading: Boolean = true,
     val title: String = "",
-    val error: String? = null,
-    val notice: String? = null,
+    val error: PlayerMessage? = null,
+    val notice: PlayerMessage? = null,
     val state: PlayerState = PlayerState.Idle,
     val durationMs: Long? = null,
     val audioTracks: List<PlayerTrack> = emptyList(),
@@ -84,6 +112,7 @@ data class PlayerUiState(
     val similar: List<PlayerShelfItem> = emptyList(),
     val cast: List<CastMemberUi> = emptyList(),
     val shelvesLoading: Boolean = false,
+    val shelvesError: PlayerMessage? = null,
     val isAudio: Boolean = false,
     val artist: String? = null,
     val album: String? = null,
@@ -94,16 +123,18 @@ data class PlayerUiState(
     val lyrics: List<LyricLineUi> = emptyList(),
     val lyricsSynced: Boolean = false,
     val musicContextLoading: Boolean = false,
+    val musicContextError: PlayerMessage? = null,
     val audioDelayMs: Long = 0,
     val subtitleDelayMs: Long = 0,
     val seekIntervalSeconds: Int = 10,
     val playMethod: String? = null,
     val container: String? = null,
-    val videoDescription: String? = null,
-    val audioDescription: String? = null,
-    val activeAudioRoute: String = "System default",
-    val effectiveHdrMode: String = "Automatic",
-    val displayDescription: String? = null,
+    val videoInfo: PlayerVideoInfo? = null,
+    val audioInfo: PlayerAudioInfo? = null,
+    val activeAudioRoute: String = "",
+    val effectiveHdrMode: HdrMode? = null,
+    val displayWidth: Int? = null,
+    val displayHeight: Int? = null,
     val favorite: Boolean = false,
     val played: Boolean = false,
 )

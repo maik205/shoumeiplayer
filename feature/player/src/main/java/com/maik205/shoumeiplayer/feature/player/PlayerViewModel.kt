@@ -75,8 +75,8 @@ class PlayerViewModel(
     private data class LocalState(
         val loading: Boolean = true,
         val title: String = "",
-        val error: String? = null,
-        val notice: String? = null,
+        val error: PlayerMessage? = null,
+        val notice: PlayerMessage? = null,
         val chapters: List<ChapterMark> = emptyList(),
         val itemDurationMs: Long? = null,
         val quality: VideoQuality = VideoQuality.AUTO,
@@ -94,13 +94,15 @@ class PlayerViewModel(
         val postPlayEpisodes: List<UpNextUi> = emptyList(),
         val playMethod: String? = null,
         val container: String? = null,
-        val videoDescription: String? = null,
-        val audioDescription: String? = null,
-        val displayDescription: String? = null,
+        val videoInfo: PlayerVideoInfo? = null,
+        val audioInfo: PlayerAudioInfo? = null,
+        val displayWidth: Int? = null,
+        val displayHeight: Int? = null,
         val upNextDismissed: Boolean = false,
         val similar: List<PlayerShelfItem> = emptyList(),
         val cast: List<CastMemberUi> = emptyList(),
         val shelvesLoading: Boolean = false,
+        val shelvesError: PlayerMessage? = null,
         val shelvesLoadedFor: String? = null,
         val isAudio: Boolean = false,
         val artist: String? = null,
@@ -112,6 +114,7 @@ class PlayerViewModel(
         val lyrics: List<LyricLineUi> = emptyList(),
         val lyricsSynced: Boolean = false,
         val musicContextLoading: Boolean = false,
+        val musicContextError: PlayerMessage? = null,
         val audioDelayMs: Long = 0,
         val subtitleDelayMs: Long = 0,
         val seekIntervalSeconds: Int = 10,
@@ -228,6 +231,7 @@ class PlayerViewModel(
             similar = local.similar,
             cast = local.cast,
             shelvesLoading = local.shelvesLoading,
+            shelvesError = local.shelvesError,
             isAudio = local.isAudio,
             artist = local.artist,
             album = local.album,
@@ -238,15 +242,17 @@ class PlayerViewModel(
             lyrics = local.lyrics,
             lyricsSynced = local.lyricsSynced,
             musicContextLoading = local.musicContextLoading,
+            musicContextError = local.musicContextError,
             audioDelayMs = local.audioDelayMs,
             subtitleDelayMs = local.subtitleDelayMs,
             seekIntervalSeconds = local.seekIntervalSeconds,
             playMethod = local.playMethod,
             container = local.container,
-            videoDescription = local.videoDescription,
-            audioDescription = local.audioDescription,
+            videoInfo = local.videoInfo,
+            audioInfo = local.audioInfo,
             activeAudioRoute = activeAudioRoute,
-            displayDescription = local.displayDescription,
+            displayWidth = local.displayWidth,
+            displayHeight = local.displayHeight,
             favorite = local.favorite,
             played = local.played,
         )
@@ -291,7 +297,9 @@ class PlayerViewModel(
                     if (engine.state.value == PlayerState.Playing || engine.state.value == PlayerState.Buffering) {
                         pausedForNetwork = true
                         engine.pause()
-                        localState.update { it.copy(notice = "Network connection lost; playback is paused") }
+                        localState.update {
+                            it.copy(notice = PlayerMessage(PlayerMessageKind.NetworkPaused))
+                        }
                     }
                 } else if (pausedForNetwork && !sessionCoordinator.isScreenGone) {
                     pausedForNetwork = false
@@ -305,6 +313,7 @@ class PlayerViewModel(
         if (initialJob?.isActive == true || sessionCoordinator.isScreenGone) return
         initialJob = viewModelScope.launch {
             localState.update { it.copy(loading = true, error = null, notice = null) }
+            try {
             val settings = settingsStore?.let { runCatching { it.current() }.getOrNull() }
             val preferredQuality = VideoQuality.forLabel(
                 initialQualityLabel ?: settings?.preferredQuality?.label,
@@ -351,7 +360,12 @@ class PlayerViewModel(
                 )
             ) {
                 is ApiResult.Failure -> {
-                    localState.update { it.copy(loading = false, error = result.error.displayMessage) }
+                    localState.update {
+                        it.copy(
+                            loading = false,
+                            error = PlayerMessage(PlayerMessageKind.PlaybackLoadFailed),
+                        )
+                    }
                 }
                 is ApiResult.Success -> {
                     if (sessionCoordinator.rejectIfScreenGone(result.data, Ticks.toMs(startPositionTicks))) {
@@ -359,6 +373,19 @@ class PlayerViewModel(
                     }
                     localState.update { it.copy(loading = false, error = null) }
                     attachStream(result.data, item, Ticks.toMs(startPositionTicks), keepTracks = false)
+                }
+            }
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                localState.update {
+                    it.copy(
+                        loading = false,
+                        error = PlayerMessage(
+                            kind = PlayerMessageKind.MetadataLoadFailed,
+                            detail = error.message,
+                        ),
+                    )
                 }
             }
         }
@@ -451,7 +478,7 @@ class PlayerViewModel(
     fun toggleSubtitles() {
         val selected = uiState.value.subtitleTracks.firstOrNull(PlayerTrack::selected)
         val target = if (selected != null) {
-            PlayerTrack(id = -1, type = TrackType.SUBTITLE, label = "Off")
+            PlayerTrack(id = -1, type = TrackType.SUBTITLE, label = "")
         } else {
             uiState.value.subtitleTracks.firstOrNull { it.id >= 0 }
         }
@@ -646,7 +673,12 @@ class PlayerViewModel(
                     currentItemId = targetItemId
                     // The new item owns its own shelves and its own Up Next dismissal.
                     localState.update {
-                        it.copy(similar = emptyList(), shelvesLoadedFor = null, upNextDismissed = false)
+                        it.copy(
+                            similar = emptyList(),
+                            shelvesLoadedFor = null,
+                            shelvesError = null,
+                            upNextDismissed = false,
+                        )
                     }
                     targetMetadata?.let(::applyItemMetadata)
                     attachStream(fresh, targetMetadata, startMs, keepTracks = false)
@@ -676,16 +708,46 @@ class PlayerViewModel(
         if (state.shelvesLoadedFor == currentItemId || shelvesJob?.isActive == true) return
         val target = currentItemId
         shelvesJob = viewModelScope.launch {
-            localState.update { it.copy(shelvesLoading = true) }
-            val similar = metadataLoader.loadSimilar(target)
-            localState.update {
-                if (target != currentItemId) {
-                    it.copy(shelvesLoading = false)
-                } else {
-                    it.copy(similar = similar, shelvesLoading = false, shelvesLoadedFor = target)
+            localState.update { it.copy(shelvesLoading = true, shelvesError = null) }
+            try {
+                val similar = metadataLoader.loadSimilar(target)
+                localState.update {
+                    if (target != currentItemId) {
+                        it.copy(shelvesLoading = false)
+                    } else {
+                        it.copy(
+                            similar = similar,
+                            shelvesLoading = false,
+                            shelvesLoadedFor = target,
+                            shelvesError = null,
+                        )
+                    }
+                }
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                localState.update {
+                    it.copy(
+                        shelvesLoading = false,
+                        shelvesError = PlayerMessage(
+                            kind = PlayerMessageKind.ShelvesLoadFailed,
+                            detail = error.message,
+                        ),
+                    )
                 }
             }
         }
+    }
+
+    fun retryMusicContext() {
+        if (!localState.value.isAudio) return
+        localState.update {
+            it.copy(
+                musicContextLoading = true,
+                musicContextError = null,
+            )
+        }
+        loadMusicContext(currentItemId)
     }
 
     // --- stream lifecycle ----------------------------------------------------------------------
@@ -725,21 +787,38 @@ class PlayerViewModel(
         attach: suspend (ResolvedPlayback) -> Unit,
     ): Boolean {
         localState.update { it.copy(swapping = true, notice = null) }
-        return when (val result = resolve()) {
-            is ApiResult.Failure -> {
-                localState.update { it.copy(swapping = false, notice = result.error.displayMessage) }
-                false
-            }
-            is ApiResult.Success -> {
-                if (sessionCoordinator.rejectIfScreenGone(result.data, positionMs)) {
-                    localState.update { it.copy(swapping = false) }
-                    return false
+        return try {
+            when (val result = resolve()) {
+                is ApiResult.Failure -> {
+                    localState.update {
+                        it.copy(
+                            swapping = false,
+                            notice = PlayerMessage(PlayerMessageKind.StreamSwapFailed),
+                        )
+                    }
+                    false
                 }
-                retireCurrentSession(positionMs)
-                attach(result.data)
-                localState.update { it.copy(swapping = false) }
-                true
+                is ApiResult.Success -> {
+                    if (sessionCoordinator.rejectIfScreenGone(result.data, positionMs)) {
+                        localState.update { it.copy(swapping = false) }
+                        return false
+                    }
+                    retireCurrentSession(positionMs)
+                    attach(result.data)
+                    localState.update { it.copy(swapping = false) }
+                    true
+                }
             }
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
+        } catch (_: Throwable) {
+            localState.update {
+                it.copy(
+                    swapping = false,
+                    notice = PlayerMessage(PlayerMessageKind.StreamSwapFailed),
+                )
+            }
+            false
         }
     }
 
@@ -769,6 +848,20 @@ class PlayerViewModel(
         trackController.prepare(r, keepCurrent = keepTracks)
         val videoStream = r.mediaStreams.firstOrNull { it.type.equals("Video", ignoreCase = true) }
         val audioStream = r.mediaStreams.firstOrNull { it.type.equals("Audio", ignoreCase = true) }
+        val videoInfo = videoStream?.let { stream ->
+            PlayerVideoInfo(
+                codec = stream.codec?.uppercase(),
+                width = stream.width,
+                height = stream.height,
+            ).takeIf { it.codec != null || (it.width != null && it.height != null) }
+        }
+        val audioInfo = audioStream?.let { stream ->
+            PlayerAudioInfo(
+                codec = stream.codec?.uppercase(),
+                channels = stream.channels,
+                language = stream.language,
+            ).takeIf { it.codec != null || it.channels != null || it.language != null }
+        }
         localState.update {
             it.copy(
                 playMethod = r.playMethod,
@@ -777,20 +870,10 @@ class PlayerViewModel(
                     .substringAfterLast('.', missingDelimiterValue = "")
                     .uppercase()
                     .takeIf(String::isNotBlank),
-                videoDescription = listOfNotNull(
-                    videoStream?.codec?.uppercase(),
-                    videoStream?.width?.let { width ->
-                        videoStream.height?.let { height -> "${width}×$height" }
-                    },
-                ).joinToString(" · ").takeIf(String::isNotBlank),
-                audioDescription = listOfNotNull(
-                    audioStream?.codec?.uppercase(),
-                    audioStream?.channels?.let { "$it ch" },
-                    audioStream?.language,
-                ).joinToString(" · ").takeIf(String::isNotBlank),
-                displayDescription = videoStream?.width?.let { width ->
-                    videoStream.height?.let { height -> "${width}×$height" }
-                },
+                videoInfo = videoInfo,
+                audioInfo = audioInfo,
+                displayWidth = videoStream?.width,
+                displayHeight = videoStream?.height,
             )
         }
 
@@ -879,6 +962,7 @@ class PlayerViewModel(
                 lyrics = emptyList(),
                 lyricsSynced = false,
                 musicContextLoading = metadata.isAudio,
+                musicContextError = null,
                 cast = metadata.cast,
                 favorite = metadata.favorite,
                 played = metadata.played,
@@ -898,19 +982,36 @@ class PlayerViewModel(
     private fun loadMusicContext(targetItemId: String) {
         musicContextJob?.cancel()
         musicContextJob = viewModelScope.launch {
-            val context = metadataLoader.loadMusicContext(targetItemId)
-            if (targetItemId != currentItemId) return@launch
-            localState.update {
-                it.copy(
-                    queue = context.queue,
-                    suggestedAudio = context.suggested,
-                    lyrics = context.lyrics,
-                    lyricsSynced = context.lyricsSynced,
-                    artistArtworkUrl = context.artistArtworkUrl,
-                    musicContextLoading = false,
-                )
+            try {
+                val context = metadataLoader.loadMusicContext(targetItemId)
+                if (targetItemId != currentItemId) return@launch
+                localState.update {
+                    it.copy(
+                        queue = context.queue,
+                        suggestedAudio = context.suggested,
+                        lyrics = context.lyrics,
+                        lyricsSynced = context.lyricsSynced,
+                        artistArtworkUrl = context.artistArtworkUrl,
+                        musicContextLoading = false,
+                        musicContextError = null,
+                    )
+                }
+                engine.setQueue(context.queue.map(AudioQueueItemUi::itemId), targetItemId)
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                if (targetItemId == currentItemId) {
+                    localState.update {
+                        it.copy(
+                            musicContextLoading = false,
+                            musicContextError = PlayerMessage(
+                                kind = PlayerMessageKind.MusicContextLoadFailed,
+                                detail = error.message,
+                            ),
+                        )
+                    }
+                }
             }
-            engine.setQueue(context.queue.map(AudioQueueItemUi::itemId), targetItemId)
         }
     }
 
@@ -919,16 +1020,31 @@ class PlayerViewModel(
      * season boundaries the way a binge does. Movies have no neighbours and skip the request.
      */
     private suspend fun loadAdjacency(targetItemId: String) {
-        val context = metadataLoader.loadEpisodeContext(targetItemId) ?: return
-        // Guard against a slow adjacency response landing after the user already moved on.
-        if (targetItemId != currentItemId) return
-        localState.update { state ->
-            state.copy(
-                previousEpisodeId = context.previousEpisodeId,
-                nextEpisodeId = context.nextEpisodeId,
-                upNext = context.upNext,
-                postPlayEpisodes = context.postPlayEpisodes,
-            )
+        try {
+            val context = metadataLoader.loadEpisodeContext(targetItemId) ?: return
+            // Guard against a slow adjacency response landing after the user already moved on.
+            if (targetItemId != currentItemId) return
+            localState.update { state ->
+                state.copy(
+                    previousEpisodeId = context.previousEpisodeId,
+                    nextEpisodeId = context.nextEpisodeId,
+                    upNext = context.upNext,
+                    postPlayEpisodes = context.postPlayEpisodes,
+                )
+            }
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            if (targetItemId == currentItemId) {
+                localState.update {
+                    it.copy(
+                        notice = PlayerMessage(
+                            kind = PlayerMessageKind.AdjacencyLoadFailed,
+                            detail = error.message,
+                        ),
+                    )
+                }
+            }
         }
     }
 

@@ -10,7 +10,6 @@ import com.maik205.shoumeiplayer.domain.model.MediaItem
 data class HeroUi(
     val item: MediaItem,
     val eyebrow: String? = null,
-    val actionLabel: String = if (item.resumeTicks > 0) "Resume" else "Play",
 )
 
 /**

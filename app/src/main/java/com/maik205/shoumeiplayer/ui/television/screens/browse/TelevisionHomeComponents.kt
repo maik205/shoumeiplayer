@@ -84,6 +84,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalFocusManager
@@ -111,6 +112,7 @@ import com.maik205.shoumeiplayer.ui.television.model.HeroUi
 import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import com.maik205.shoumeiplayer.domain.model.MediaShelf as MediaShelfUi
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import kotlinx.coroutines.launch
@@ -189,7 +191,11 @@ internal fun HomeHero(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TelevisionFocusRevealButton(
-                label = if (playable) hero.actionLabel else "Details",
+                label = if (playable) {
+                    stringResource(if (hero.item.resumeTicks > 0) R.string.resume else R.string.play)
+                } else {
+                    stringResource(R.string.tv_details)
+                },
                 icon = if (playable) Icons.Default.PlayArrow else Icons.Default.Info,
                 onClick = if (playable) onPlay else onDetails,
                 focusRequester = focusRequester,
@@ -199,7 +205,7 @@ internal fun HomeHero(
             )
             if (playable) {
                 TelevisionFocusRevealButton(
-                    label = "Details",
+                    label = stringResource(R.string.tv_details),
                     icon = Icons.Default.Info,
                     onClick = onDetails,
                     expandedWidth = 68.dp,
@@ -208,7 +214,11 @@ internal fun HomeHero(
                 )
             }
             TelevisionFocusRevealButton(
-                label = if (hero.item.favorite) "In my list" else "My list",
+                label = if (hero.item.favorite) {
+                    stringResource(R.string.tv_in_my_list)
+                } else {
+                    stringResource(R.string.tv_my_list)
+                },
                 icon = if (hero.item.favorite) Icons.Default.Check else Icons.Default.Add,
                 onClick = onToggleFavorite,
                 selected = hero.item.favorite,
@@ -286,6 +296,7 @@ internal fun CompactHomeHero(
 @Composable
 internal fun HomeShelf(
     shelf: MediaShelfUi,
+    title: String = shelf.title,
     firstRail: Boolean,
     heroFocusRequester: FocusRequester,
     firstItemFocusRequester: FocusRequester?,
@@ -316,7 +327,7 @@ internal fun HomeShelf(
             .padding(top = if (firstRail) 0.dp else TelevisionDimensions.ShelfGap),
     ) {
         TelevisionRowHeader(
-            title = shelf.title,
+            title = title,
             modifier = Modifier.padding(horizontal = TelevisionDimensions.SafeHorizontal),
         )
         Spacer(Modifier.height(TelevisionDimensions.HeaderGap))

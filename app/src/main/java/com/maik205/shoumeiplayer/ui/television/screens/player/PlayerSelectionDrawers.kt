@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -57,6 +58,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.player.PlaybackSpeed
 import com.maik205.shoumeiplayer.player.PlayerTrack
 import com.maik205.shoumeiplayer.player.VideoQuality
@@ -98,7 +100,7 @@ internal fun PlayerSelectionPanel(
             ),
     ) {
         TelevisionFocusRevealButton(
-            label = "Back",
+            label = stringResource(R.string.tv_back),
             icon = Icons.AutoMirrored.Filled.ArrowBack,
             onClick = onDismiss,
             expandedWidth = 54.dp,
@@ -163,7 +165,7 @@ private fun PlayerSelectionPanelRow(
             if (row.selected) {
                 Icon(
                     Icons.Default.Check,
-                    contentDescription = "Selected",
+                        contentDescription = stringResource(R.string.tv_selected),
                     tint = TelevisionColors.Paper,
                     modifier = Modifier.size(10.dp),
                 )
@@ -199,32 +201,35 @@ internal fun PlaybackOptionsPanel(
         verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         TelevisionFocusRevealButton(
-            label = "Back",
+            label = stringResource(R.string.tv_back),
             icon = Icons.AutoMirrored.Filled.ArrowBack,
             onClick = onDismiss,
             expandedWidth = 54.dp,
         )
         Spacer(Modifier.height(17.dp))
-        Text("Playback options", style = MaterialTheme.typography.headlineMedium)
         Text(
-            "LEFT / RIGHT adjusts without an artificial limit. CENTER resets that row.",
+            stringResource(R.string.tv_player_playback_options),
+            style = MaterialTheme.typography.headlineMedium,
+        )
+        Text(
+            stringResource(R.string.tv_player_delay_adjust_unbounded),
             style = MaterialTheme.typography.bodySmall,
             color = TelevisionColors.PaperMuted,
         )
         Spacer(Modifier.height(4.dp))
         DelayRow(
-            label = "Audio delay",
+            label = stringResource(R.string.tv_player_audio_delay),
             valueMs = audioDelayMs,
             onChange = onAudioDelayChange,
             focusRequester = first,
         )
         DelayRow(
-            label = "Subtitle delay",
+            label = stringResource(R.string.tv_player_subtitle_delay),
             valueMs = subtitleDelayMs,
             onChange = onSubtitleDelayChange,
         )
         PlayerTextButton(
-            label = "Reset both",
+            label = stringResource(R.string.tv_player_reset_both),
             icon = Icons.Default.Refresh,
             onClick = onReset,
             modifier = Modifier.fillMaxWidth(),
@@ -258,7 +263,7 @@ internal fun PlaybackDelayPanel(
         verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         TelevisionFocusRevealButton(
-            label = "Back",
+            label = stringResource(R.string.tv_back),
             icon = Icons.AutoMirrored.Filled.ArrowBack,
             onClick = onDismiss,
             expandedWidth = 54.dp,
@@ -266,7 +271,7 @@ internal fun PlaybackDelayPanel(
         Spacer(Modifier.height(17.dp))
         Text(title, style = MaterialTheme.typography.headlineMedium)
         Text(
-            "LEFT / RIGHT adjusts by 100 ms. CENTER resets.",
+            stringResource(R.string.tv_player_delay_adjust),
             style = MaterialTheme.typography.bodySmall,
             color = TelevisionColors.PaperMuted,
         )
@@ -329,7 +334,7 @@ private fun DelayRow(
                         color = if (focused) TelevisionColors.Black else TelevisionColors.Paper,
                     )
                     Text(
-                        "CENTER resets",
+                        stringResource(R.string.tv_player_center_resets),
                         style = MaterialTheme.typography.labelSmall,
                         color = if (focused) {
                             TelevisionColors.Black.copy(alpha = 0.62f)
