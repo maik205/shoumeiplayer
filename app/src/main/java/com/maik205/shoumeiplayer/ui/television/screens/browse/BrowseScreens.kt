@@ -61,7 +61,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -83,6 +82,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -110,6 +110,7 @@ import com.maik205.shoumeiplayer.ui.television.model.HeroUi
 import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import com.maik205.shoumeiplayer.domain.model.MediaShelf as MediaShelfUi
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import kotlinx.coroutines.launch
@@ -203,32 +204,12 @@ internal fun AppTopNavigation(
     )
 }
 
-private val endMessages = listOf(
-    "That’s everything",
-    "You’ve reached the end",
-    "All caught up",
-    "Nothing else hiding down here",
-    "That’s the whole shelf",
-    "End of the library",
-    "You found everything",
-    "That’s all for now",
-    "The shelves end here",
-    "No more titles below",
-    "You made it through",
-    "Everything’s accounted for",
-)
-
 @Composable
 internal fun EndOfLibraryMessage(
-    seed: Int,
     modifier: Modifier = Modifier,
 ) {
-    val message = remember(seed) {
-        val index = (System.nanoTime() and Long.MAX_VALUE).rem(endMessages.size).toInt()
-        endMessages[index]
-    }
     Text(
-        text = message,
+        text = stringResource(R.string.tv_end_of_library),
         style = MaterialTheme.typography.titleMedium,
         color = TelevisionColors.PaperSoft,
         textAlign = TextAlign.Center,

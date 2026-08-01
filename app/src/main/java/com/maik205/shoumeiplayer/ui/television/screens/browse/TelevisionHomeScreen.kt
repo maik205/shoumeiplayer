@@ -89,10 +89,12 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionBackground
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionAppTopNavigation
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionEmptyState
@@ -178,11 +180,27 @@ fun TelevisionHomeScreen(
                 contentPadding = PaddingValues(bottom = 68.dp),
             ) {
                 item(key = "hero-space") {
-                    Spacer(Modifier.height(320.dp))
+                    if (state.loading) {
+                        TelevisionLoadingState(
+                            label = stringResource(R.string.tv_loading_home),
+                            shape = TelevisionLoadingShape.Detail,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(320.dp)
+                                .padding(
+                                    start = TelevisionDimensions.SafeHorizontal,
+                                    end = TelevisionDimensions.SafeHorizontal,
+                                    top = 24.dp,
+                                ),
+                        )
+                    } else {
+                        Spacer(Modifier.height(320.dp))
+                    }
                 }
                 if (state.loading) {
                     item(key = "loading") {
                         TelevisionLoadingState(
+                            label = stringResource(R.string.tv_loading_home),
                             shape = TelevisionLoadingShape.Home,
                             modifier = Modifier.padding(
                                 start = TelevisionDimensions.SafeHorizontal,
@@ -190,12 +208,42 @@ fun TelevisionHomeScreen(
                             ),
                         )
                     }
-                } else if (state.error != null && state.shelves.isEmpty()) {
+                } else {
+                    if (state.refreshing) {
+                        item(key = "refreshing") {
+                            Text(
+                                text = stringResource(R.string.tv_refreshing),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TelevisionColors.PaperMuted,
+                                modifier = Modifier.padding(
+                                    start = TelevisionDimensions.SafeHorizontal,
+                                    top = 17.dp,
+                                ),
+                            )
+                        }
+                    }
+                    if (state.error != null && state.shelves.isNotEmpty()) {
+                        item(key = "partial-error") {
+                            TelevisionErrorState(
+                                title = stringResource(R.string.tv_home_partial_error_title),
+                                message = state.error.resolve(),
+                                onRetry = onRefresh,
+                                retryLabel = stringResource(R.string.retry),
+                                requestInitialFocus = false,
+                                modifier = Modifier.padding(
+                                    start = TelevisionDimensions.SafeHorizontal,
+                                    top = 8.dp,
+                                ),
+                            )
+                        }
+                    }
+                    if (state.error != null && state.shelves.isEmpty()) {
                     item(key = "error") {
                         TelevisionErrorState(
-                            title = "Your libraries are out of reach",
-                            message = state.error,
+                            title = stringResource(R.string.tv_home_error_title),
+                            message = state.error.resolve(),
                             onRetry = onRefresh,
+                            retryLabel = stringResource(R.string.retry),
                             modifier = Modifier.padding(
                                 start = TelevisionDimensions.SafeHorizontal,
                                 top = 17.dp,
@@ -204,18 +252,22 @@ fun TelevisionHomeScreen(
                             requestInitialFocus = false,
                         )
                     }
-                } else if (state.shelves.isEmpty()) {
+                    } else if (state.shelves.isEmpty()) {
                     item(key = "empty") {
                         TelevisionEmptyState(
-                            title = "Nothing to watch yet",
-                            message = "New media will appear here when your libraries are ready.",
+                            title = stringResource(R.string.home_empty_title),
+                            message = stringResource(R.string.tv_home_empty_detail),
+                            actionLabel = stringResource(R.string.retry),
+                            onAction = onRefresh,
+                            focusRequester = fallbackContentFocus,
+                            requestInitialFocus = true,
                             modifier = Modifier.padding(
                                 start = TelevisionDimensions.SafeHorizontal,
                                 top = 17.dp,
                             ),
                         )
                     }
-                } else {
+                    } else {
                     items(
                         count = state.shelves.size,
                         key = { index -> "${state.shelves[index].id}:$index" },
@@ -223,6 +275,7 @@ fun TelevisionHomeScreen(
                         val shelf = state.shelves[railIndex]
                         HomeShelf(
                             shelf = shelf,
+                            title = homeShelfTitle(shelf),
                             firstRail = railIndex == 0,
                             heroFocusRequester = playFocus,
                             firstItemFocusRequester = if (railIndex == 0) firstRailFocus else null,
@@ -300,4 +353,13 @@ fun TelevisionHomeScreen(
             onNavigationFocused = { focusedRail = -1 },
         )
     }
+}
+
+@Composable
+private fun homeShelfTitle(shelf: MediaShelfUi): String = when {
+    shelf.id == "continue" -> stringResource(R.string.continue_watching)
+    shelf.id == "next-up" -> stringResource(R.string.next_up)
+    shelf.id == "my-list" -> stringResource(R.string.tv_my_list)
+    shelf.id.startsWith("latest:") -> stringResource(R.string.latest_in, shelf.title)
+    else -> shelf.title
 }

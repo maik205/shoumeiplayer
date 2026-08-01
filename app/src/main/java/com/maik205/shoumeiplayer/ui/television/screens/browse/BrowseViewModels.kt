@@ -1,5 +1,6 @@
 package com.maik205.shoumeiplayer.ui.television.screens.browse
 
+import com.maik205.shoumeiplayer.R
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,6 +13,8 @@ import com.maik205.shoumeiplayer.domain.model.MediaPageRequest
 import com.maik205.shoumeiplayer.domain.model.MediaSort
 import com.maik205.shoumeiplayer.domain.model.MediaView
 import com.maik205.shoumeiplayer.domain.repository.MediaCatalog
+import com.maik205.shoumeiplayer.ui.i18n.UiText
+import com.maik205.shoumeiplayer.ui.i18n.toUiText
 import com.maik205.shoumeiplayer.ui.television.model.HeroUi
 import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
@@ -36,7 +39,8 @@ data class TelevisionHomeState(
     val libraries: List<LibraryDestinationUi> = emptyList(),
     val shelves: List<MediaShelfUi> = emptyList(),
     val hero: HeroUi? = null,
-    val error: String? = null,
+    val error: UiText? = null,
+    val shelfErrors: List<UiText> = emptyList(),
 )
 
 class TelevisionHomeViewModel(
@@ -51,18 +55,24 @@ class TelevisionHomeViewModel(
 
     init {
         viewModelScope.launch {
-            val session = sessionStore.current()
-            if (settingsStore.current().cacheHomeContent && session != null) {
-                libraryCacheStore.readHome(session.serverUrl, session.userId)?.let { cached ->
-                    _state.value = TelevisionHomeState(
-                        loading = false,
-                        libraries = cached.libraries,
-                        shelves = cached.shelves,
-                        hero = cached.heroItemId
-                            ?.let { id -> cached.shelves.flatMap { it.items }.firstOrNull { it.id == id } }
-                            ?.let(::HeroUi),
-                    )
+            try {
+                val session = sessionStore.current()
+                if (settingsStore.current().cacheHomeContent && session != null) {
+                    libraryCacheStore.readHome(session.serverUrl, session.userId)?.let { cached ->
+                        _state.value = TelevisionHomeState(
+                            loading = false,
+                            libraries = cached.libraries,
+                            shelves = cached.shelves,
+                            hero = cached.heroItemId
+                                ?.let { id -> cached.shelves.flatMap { it.items }.firstOrNull { it.id == id } }
+                                ?.let(::HeroUi),
+                        )
+                    }
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                // Cache corruption or an unavailable cache must not prevent the network refresh.
             }
             refresh()
         }
@@ -74,26 +84,31 @@ class TelevisionHomeViewModel(
             _state.update { it.copy(refreshing = !it.loading, error = null) }
             try {
                 val viewsResult = catalog.libraries()
-                val views = (viewsResult as? ApiResult.Success)?.data.orEmpty()
-                if (viewsResult is ApiResult.Failure && _state.value.shelves.isEmpty()) {
+                if (viewsResult is ApiResult.Failure) {
                     _state.update {
                         it.copy(
                             loading = false,
                             refreshing = false,
-                            error = viewsResult.error.displayMessage,
+                            error = viewsResult.error.toUiText(),
                         )
                     }
                     return@launch
                 }
+                val views = (viewsResult as ApiResult.Success).data
                 val shelves = coroutineScope {
-                    val resume = async { shelfRequestSemaphore.withPermit { catalog.resumeItems(24).asItems() } }
-                    val nextUp = async { shelfRequestSemaphore.withPermit { catalog.nextUp(24).asItems() } }
+                    val resume = async {
+                        shelfRequestSemaphore.withPermit {
+                            loadShelf("continue", "continue", catalog.resumeItems(24))
+                        }
+                    }
+                    val nextUp = async {
+                        shelfRequestSemaphore.withPermit {
+                            loadShelf("next-up", "next-up", catalog.nextUp(24))
+                        }
+                    }
                     val favorites = async {
                         shelfRequestSemaphore.withPermit {
-                            when (val result = catalog.favoriteItems(24)) {
-                                is ApiResult.Failure -> emptyList()
-                                is ApiResult.Success -> result.data
-                            }
+                            loadShelf("my-list", "my-list", catalog.favoriteItems(24))
                         }
                     }
                     val latest = views
@@ -101,73 +116,53 @@ class TelevisionHomeViewModel(
                         .map { view ->
                             async {
                                 shelfRequestSemaphore.withPermit {
-                                    val items = catalog.latest(view.id, 24).asItems()
-                                    MediaShelfUi(
+                                    loadShelf(
                                         id = "latest:${view.id}",
-                                        title = "Latest in ${view.title}",
-                                        items = items,
+                                        title = view.title,
+                                        result = catalog.latest(view.id, 24),
                                     )
                                 }
                             }
                         }
 
-                    buildList {
-                        val resumeItems = resume.await()
-                        if (resumeItems.isNotEmpty()) {
-                            add(
-                                MediaShelfUi(
-                                    id = "continue",
-                                    title = "Continue watching",
-                                    items = resumeItems,
-                                ),
-                            )
-                        }
-                        val nextItems = nextUp.await()
-                        if (nextItems.isNotEmpty()) {
-                            add(
-                                MediaShelfUi(
-                                    id = "next-up",
-                                    title = "Next up",
-                                    items = nextItems,
-                                ),
-                            )
-                        }
-                        val favoriteItems = favorites.await()
-                        if (favoriteItems.isNotEmpty()) {
-                            add(
-                                MediaShelfUi(
-                                    id = "my-list",
-                                    title = "My list",
-                                    items = favoriteItems,
-                                ),
-                            )
-                        }
-                        addAll(latest.awaitAll().filter { it.items.isNotEmpty() })
-                    }
+                    listOf(resume.await(), nextUp.await(), favorites.await()) + latest.awaitAll()
                 }
 
+                val shelfErrors = shelves.mapNotNull { it.error }
+                val previousShelves = _state.value.shelves.associateBy(MediaShelfUi::id)
+                val freshShelves = shelves.mapNotNull { result ->
+                    result.shelf ?: previousShelves[result.id]
+                }.filter { it.items.isNotEmpty() }
+
                 val currentHero = _state.value.hero?.item?.id
-                    ?.let { id -> shelves.asSequence().flatMap { it.items.asSequence() }.firstOrNull { it.id == id } }
-                    ?: shelves.firstNotNullOfOrNull { it.items.firstOrNull() }
+                    ?.let { id -> freshShelves.asSequence().flatMap { it.items.asSequence() }.firstOrNull { it.id == id } }
+                    ?: freshShelves.firstNotNullOfOrNull { it.items.firstOrNull() }
 
                 val freshState = TelevisionHomeState(
                     loading = false,
                     refreshing = false,
                     libraries = views,
-                    shelves = shelves,
+                    shelves = freshShelves,
                     hero = currentHero?.let(::HeroUi),
-                    error = null,
+                    error = shelfErrors.firstOrNull(),
+                    shelfErrors = shelfErrors,
                 )
                 _state.value = freshState
-                val session = sessionStore.current()
-                if (settingsStore.current().cacheHomeContent && session != null) {
-                    libraryCacheStore.writeHome(
-                        serverUrl = session.serverUrl,
-                        userId = session.userId,
-                        libraries = freshState.libraries,
-                        shelves = freshState.shelves,
-                        heroItemId = freshState.hero?.item?.id,
-                    )
+                try {
+                    val session = sessionStore.current()
+                    if (settingsStore.current().cacheHomeContent && session != null) {
+                        libraryCacheStore.writeHome(
+                            serverUrl = session.serverUrl,
+                            userId = session.userId,
+                            libraries = freshState.libraries,
+                            shelves = freshState.shelves,
+                            heroItemId = freshState.hero?.item?.id,
+                        )
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Throwable) {
+                    // A cache write must never turn a successful refresh into a screen error.
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -176,7 +171,7 @@ class TelevisionHomeViewModel(
                     it.copy(
                         loading = false,
                         refreshing = false,
-                        error = error.message ?: "Couldn't load your libraries",
+                        error = UiText.Resource(R.string.tv_home_load_failed),
                     )
                 }
             }
@@ -190,8 +185,11 @@ class TelevisionHomeViewModel(
 
     fun toggleFavorite(item: MediaItemUi) {
         viewModelScope.launch {
-            when (catalog.setFavorite(item.id, !item.favorite)) {
-                is ApiResult.Failure -> Unit
+            try {
+                when (val result = catalog.setFavorite(item.id, !item.favorite)) {
+                is ApiResult.Failure -> _state.update {
+                    it.copy(error = result.error.toUiText())
+                }
                 is ApiResult.Success -> _state.update { state ->
                     val nowFavorite = !item.favorite
                     val updatedItem = item.copy(favorite = nowFavorite)
@@ -220,7 +218,7 @@ class TelevisionHomeViewModel(
                             insertAt,
                             MediaShelfUi(
                                 id = "my-list",
-                                title = "My list",
+                                title = "my-list",
                                 items = listOf(updatedItem),
                             ),
                         )
@@ -228,14 +226,38 @@ class TelevisionHomeViewModel(
                     state.copy(
                         shelves = updatedShelves,
                         hero = state.hero?.let { current -> HeroUi(replace(current.item)) },
+                        error = null,
                     )
+                }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                _state.update {
+                    it.copy(error = UiText.Resource(R.string.tv_home_action_failed))
                 }
             }
         }
     }
 
-    private fun ApiResult<List<MediaItemUi>>.asItems(): List<MediaItemUi> =
-        (this as? ApiResult.Success)?.data.orEmpty()
+    private fun loadShelf(
+        id: String,
+        title: String,
+        result: ApiResult<List<MediaItemUi>>,
+    ): ShelfLoadResult = when (result) {
+        is ApiResult.Failure -> ShelfLoadResult(id = id, shelf = null, error = result.error.toUiText())
+        is ApiResult.Success -> ShelfLoadResult(
+            id = id,
+            shelf = MediaShelfUi(id = id, title = title, items = result.data),
+            error = null,
+        )
+    }
+
+    private data class ShelfLoadResult(
+        val id: String,
+        val shelf: MediaShelfUi?,
+        val error: UiText?,
+    )
 
     private companion object {
         const val MAX_SHELF_REQUESTS = 3
@@ -247,12 +269,11 @@ class TelevisionHomeViewModel(
 enum class BrowseSort(
     val domain: MediaSort,
     val cacheKey: String,
-    val label: String,
 ) {
-    Name(MediaSort.Name, "name", "Name"),
-    Recent(MediaSort.Recent, "recent", "Recent"),
-    Premiere(MediaSort.PremiereDate, "premiere", "Release date"),
-    CommunityRating(MediaSort.CommunityRating, "rating", "Rating"),
+    Name(MediaSort.Name, "name"),
+    Recent(MediaSort.Recent, "recent"),
+    Premiere(MediaSort.PremiereDate, "premiere"),
+    CommunityRating(MediaSort.CommunityRating, "rating"),
 }
 
 @Immutable
@@ -272,7 +293,7 @@ data class TelevisionLibraryState(
     val sort: BrowseSort = BrowseSort.Recent,
     val view: LibraryViewMode = LibraryViewMode.All,
     val totalCount: Int = 0,
-    val error: String? = null,
+    val error: UiText? = null,
     val exhausted: Boolean = false,
 )
 
@@ -295,26 +316,32 @@ class TelevisionLibraryViewModel(
     private var loadMoreJob: Job? = null
     init {
         viewModelScope.launch {
-            val session = sessionStore.current()
-            if (settingsStore.current().cacheHomeContent && session != null) {
-                libraryCacheStore.readLibrary(
-                    session.serverUrl,
-                    session.userId,
-                    libraryId,
-                    _state.value.sort.cacheKey,
-                    _state.value.view.cacheKey,
-                )?.let { cached ->
-                    nextIndex = cached.items.size
-                    _state.update {
-                        it.copy(
-                            loading = false,
-                            items = cached.items,
-                            totalCount = cached.totalCount,
-                            exhausted = cached.exhausted,
-                            error = null,
-                        )
+            try {
+                val session = sessionStore.current()
+                if (settingsStore.current().cacheHomeContent && session != null) {
+                    libraryCacheStore.readLibrary(
+                        session.serverUrl,
+                        session.userId,
+                        libraryId,
+                        _state.value.sort.cacheKey,
+                        _state.value.view.cacheKey,
+                    )?.let { cached ->
+                        nextIndex = cached.items.size
+                        _state.update {
+                            it.copy(
+                                loading = false,
+                                items = cached.items,
+                                totalCount = cached.totalCount,
+                                exhausted = cached.exhausted,
+                                error = null,
+                            )
+                        }
                     }
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                // Treat a cache read failure as a miss; reload below remains authoritative.
             }
             reload()
         }
@@ -343,36 +370,53 @@ class TelevisionLibraryViewModel(
                     exhausted = if (keepCachedItems) it.exhausted else false,
                 )
             }
-            val result = loadPage(startIndex = 0, sort = sort, view = view)
-            when (result) {
-                is ApiResult.Failure -> _state.update {
-                    it.copy(loading = false, error = result.error.displayMessage)
-                }
+            try {
+                val result = loadPage(startIndex = 0, sort = sort, view = view)
+                when (result) {
+                    is ApiResult.Failure -> _state.update {
+                        it.copy(loading = false, error = result.error.toUiText())
+                    }
 
-                is ApiResult.Success -> {
-                    nextIndex = result.data.items.size
-                    val freshItems = result.data.items
-                    _state.update {
-                        it.copy(
-                            loading = false,
-                            items = freshItems,
-                            totalCount = result.data.totalCount,
-                            exhausted = result.data.items.size < PAGE_SIZE,
-                        )
+                    is ApiResult.Success -> {
+                        nextIndex = result.data.items.size
+                        val freshItems = result.data.items
+                        _state.update {
+                            it.copy(
+                                loading = false,
+                                items = freshItems,
+                                totalCount = result.data.totalCount,
+                                exhausted = result.data.items.size < PAGE_SIZE,
+                            )
+                        }
+                        try {
+                            val session = sessionStore.current()
+                            if (settingsStore.current().cacheHomeContent && session != null) {
+                                libraryCacheStore.writeLibrary(
+                                    serverUrl = session.serverUrl,
+                                    userId = session.userId,
+                                    libraryId = libraryId,
+                                    sort = sort.cacheKey,
+                                    view = view.cacheKey,
+                                    items = freshItems,
+                                    totalCount = result.data.totalCount,
+                                    exhausted = result.data.items.size < PAGE_SIZE,
+                                )
+                            }
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (_: Throwable) {
+                            // Cache persistence is best effort; the network result is already visible.
+                        }
                     }
-                    val session = sessionStore.current()
-                    if (settingsStore.current().cacheHomeContent && session != null) {
-                        libraryCacheStore.writeLibrary(
-                            serverUrl = session.serverUrl,
-                            userId = session.userId,
-                            libraryId = libraryId,
-                            sort = sort.cacheKey,
-                            view = view.cacheKey,
-                            items = freshItems,
-                            totalCount = result.data.totalCount,
-                            exhausted = result.data.items.size < PAGE_SIZE,
-                        )
-                    }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        error = UiText.Resource(R.string.tv_library_load_failed),
+                    )
                 }
             }
         }
@@ -392,21 +436,33 @@ class TelevisionLibraryViewModel(
         loadMoreJob?.cancel()
         loadMoreJob = viewModelScope.launch {
             _state.update { it.copy(loadingMore = true) }
-            when (val result = loadPage(nextIndex, snapshot.sort, snapshot.view)) {
-                is ApiResult.Failure -> _state.update {
-                    it.copy(loadingMore = false, error = result.error.displayMessage)
-                }
-
-                is ApiResult.Success -> {
-                    nextIndex += result.data.items.size
-                    _state.update {
-                        it.copy(
-                            loadingMore = false,
-                            items = it.items + result.data.items,
-                            totalCount = result.data.totalCount,
-                            exhausted = result.data.items.size < PAGE_SIZE,
-                        )
+            try {
+                when (val result = loadPage(nextIndex, snapshot.sort, snapshot.view)) {
+                    is ApiResult.Failure -> _state.update {
+                        it.copy(loadingMore = false, error = result.error.toUiText())
                     }
+
+                    is ApiResult.Success -> {
+                        nextIndex += result.data.items.size
+                        _state.update {
+                            it.copy(
+                                loadingMore = false,
+                                items = it.items + result.data.items,
+                                totalCount = result.data.totalCount,
+                                error = null,
+                                exhausted = result.data.items.size < PAGE_SIZE,
+                            )
+                        }
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                _state.update {
+                    it.copy(
+                        loadingMore = false,
+                        error = UiText.Resource(R.string.tv_library_load_more_failed),
+                    )
                 }
             }
         }

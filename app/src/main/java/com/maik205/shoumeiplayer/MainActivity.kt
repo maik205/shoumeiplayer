@@ -48,6 +48,10 @@ class MainActivity : ComponentActivity() {
                                 splashVisible = false
                             }
                         }
+                        LaunchedEffect(Unit) {
+                            delay(SPLASH_MAX_VISIBLE_MILLIS)
+                            splashVisible = false
+                        }
 
                         Box(
                             modifier = Modifier
@@ -70,5 +74,9 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private companion object {
+        const val SPLASH_MAX_VISIBLE_MILLIS = 1_200L
     }
 }

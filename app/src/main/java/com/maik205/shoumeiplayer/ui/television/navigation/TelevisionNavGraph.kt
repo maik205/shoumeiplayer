@@ -7,17 +7,23 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CastConnected
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -30,6 +36,8 @@ import com.maik205.shoumeiplayer.di.LocalAppContainer
 import com.maik205.shoumeiplayer.ui.navigation.containerViewModel
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingShape
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionErrorState
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
 import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import com.maik205.shoumeiplayer.ui.television.screens.browse.TelevisionHomeScreen
@@ -59,6 +67,7 @@ import com.maik205.shoumeiplayer.ui.television.screens.settings.TelevisionSettin
 import com.maik205.shoumeiplayer.ui.television.screens.settings.TelevisionSettingsViewModel
 import com.maik205.shoumeiplayer.ui.television.screens.browse.TelevisionSearchScreen
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
+import com.maik205.shoumeiplayer.ui.i18n.resolve
 
 private val TelevisionEnter: EnterTransition = fadeIn(tween(100))
 private val TelevisionExit: ExitTransition = fadeOut(tween(80))
@@ -74,9 +83,7 @@ fun TelevisionNavGraph(
     val root by rootViewModel.start.collectAsStateWithLifecycle()
 
     LaunchedEffect(root) {
-        if (root != TelevisionStart.Loading) {
-            onReady()
-        }
+        if (root != TelevisionStart.Loading) onReady()
     }
 
     if (root == TelevisionStart.Loading) {
@@ -90,6 +97,36 @@ fun TelevisionNavGraph(
                 shape = TelevisionLoadingShape.Startup,
                 modifier = Modifier.padding(start = 54.dp, top = 210.dp),
             )
+        }
+        return
+    }
+
+    if (root == TelevisionStart.Error) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(TelevisionColors.Black),
+        ) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(horizontal = 54.dp),
+                horizontalAlignment = Alignment.Start,
+            ) {
+                TelevisionErrorState(
+                    title = stringResource(R.string.tv_startup_error),
+                    message = stringResource(R.string.tv_startup_error_detail),
+                    onRetry = rootViewModel::retry,
+                    retryLabel = stringResource(R.string.retry),
+                )
+                Spacer(Modifier.height(18.dp))
+                TelevisionFocusRevealButton(
+                    label = stringResource(R.string.connect),
+                    icon = Icons.Default.CastConnected,
+                    onClick = rootViewModel::continueToConnect,
+                    expandedWidth = 130.dp,
+                )
+            }
         }
         return
     }
@@ -158,6 +195,7 @@ fun TelevisionNavGraph(
                 onRefresh = viewModel::refresh,
                 onServerClick = viewModel::connectSelected,
                 onConnect = viewModel::connectManual,
+                onRetryConnection = viewModel::retryConnection,
             )
         }
 
@@ -182,6 +220,7 @@ fun TelevisionNavGraph(
                 state = state,
                 backdropUrl = container.imageUrlBuilder.serverSplashscreen(),
                 onProfileClick = viewModel::choose,
+                onRetry = viewModel::retry,
                 onAnotherAccount = viewModel::useAnotherAccount,
                 onBack = {
                     navController.navigate(ConnectRoute) {
@@ -322,6 +361,7 @@ fun TelevisionNavGraph(
                 searching = state.searching,
                 results = state.results,
                 error = state.error,
+                resultLimitReached = state.resultLimitReached,
                 onQueryChange = viewModel::setQuery,
                 onRetry = viewModel::retry,
                 onOpenItem = { navController.navigate(DetailRoute(it.id)) },
@@ -439,7 +479,7 @@ fun TelevisionNavGraph(
                             popUpTo(0) { inclusive = true }
                         }
                         is TelevisionSettingsEvent.CacheMessage -> {
-                            Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, event.message.resolve(), Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
@@ -455,6 +495,9 @@ fun TelevisionNavGraph(
                 onSwitchProfile = viewModel::switchProfile,
                 onTestConnection = viewModel::testConnection,
                 onRefreshLibraries = shellViewModel::refreshLibraries,
+                libraryRefreshing = shell.loadingLibraries,
+                libraryRefreshError = shell.error,
+                onRetrySettings = viewModel::retryLastUpdate,
                 onQuickConnect = viewModel::generateQuickConnect,
                 onClearArtworkCache = viewModel::clearArtworkCache,
                 onNavigateHome = { navController.navigateTop(HomeRoute) },
@@ -504,6 +547,7 @@ private fun DetailDestination(
         state = state,
         onBack = navController::popBackStack,
         onRetry = viewModel::reload,
+        onRetryAction = viewModel::retryLastAction,
         onPlay = { targetId, ticks, audioOnly, audioIndex, subtitleIndex, quality ->
             navController.navigate(
                 PlayerRoute(

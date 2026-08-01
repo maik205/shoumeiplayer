@@ -32,6 +32,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Icon
@@ -42,9 +46,13 @@ import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 @Composable
 fun TelevisionLoadingState(
     modifier: Modifier = Modifier,
-    label: String = "Loading…",
+    label: String,
     shape: TelevisionLoadingShape = TelevisionLoadingShape.Rail,
 ) {
+    val loadingModifier = modifier.semantics(mergeDescendants = true) {
+        contentDescription = label
+        progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate
+    }
     val transition = rememberInfiniteTransition(label = "loading-shimmer")
     val shimmer by transition.animateFloat(
         initialValue = 0.42f,
@@ -56,15 +64,20 @@ fun TelevisionLoadingState(
         label = "loading-alpha",
     )
     when (shape) {
-        TelevisionLoadingShape.Detail -> DetailSkeleton(modifier, shimmer)
+        TelevisionLoadingShape.Detail -> DetailSkeleton(loadingModifier, shimmer)
         TelevisionLoadingShape.Grid,
         TelevisionLoadingShape.Search,
-        -> GridSkeleton(modifier, shimmer, columns = if (shape == TelevisionLoadingShape.Search) 5 else 7)
-        TelevisionLoadingShape.Guide -> GuideSkeleton(modifier, shimmer)
-        TelevisionLoadingShape.Home -> HomeSkeleton(modifier, shimmer)
+        -> GridSkeleton(
+            modifier = loadingModifier,
+            shimmer = shimmer,
+            columns = if (shape == TelevisionLoadingShape.Search) 5 else 7,
+            label = label.takeIf { shape == TelevisionLoadingShape.Search },
+        )
+        TelevisionLoadingShape.Guide -> GuideSkeleton(loadingModifier, shimmer)
+        TelevisionLoadingShape.Home -> HomeSkeleton(loadingModifier, shimmer)
         TelevisionLoadingShape.Rail,
         TelevisionLoadingShape.Startup,
-        -> RailSkeleton(modifier, shimmer, label)
+        -> RailSkeleton(loadingModifier, shimmer, label)
     }
 }
 
@@ -97,8 +110,22 @@ private fun HomeSkeleton(modifier: Modifier, shimmer: Float) {
 }
 
 @Composable
-private fun GridSkeleton(modifier: Modifier, shimmer: Float, columns: Int) {
+private fun GridSkeleton(
+    modifier: Modifier,
+    shimmer: Float,
+    columns: Int,
+    label: String? = null,
+) {
     Column(modifier.fillMaxWidth()) {
+        if (label != null) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = TelevisionColors.PaperMuted,
+            )
+            Spacer(Modifier.height(17.dp))
+        }
         repeat(2) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 repeat(columns) {
@@ -178,8 +205,29 @@ fun TelevisionEmptyState(
     title: String,
     modifier: Modifier = Modifier,
     message: String? = null,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
+    focusRequester: FocusRequester? = null,
+    requestInitialFocus: Boolean = false,
 ) {
-    TelevisionInlineMessage(title = title, message = message, modifier = modifier)
+    val actionFocus = focusRequester ?: remember { FocusRequester() }
+    LaunchedEffect(requestInitialFocus, onAction) {
+        if (requestInitialFocus && onAction != null) runCatching { actionFocus.requestFocus() }
+    }
+
+    Column(modifier = modifier) {
+        TelevisionInlineMessage(title = title, message = message)
+        if (onAction != null && !actionLabel.isNullOrBlank()) {
+            Spacer(Modifier.height(14.dp))
+            TelevisionFocusRevealButton(
+                label = actionLabel,
+                icon = Icons.Default.Refresh,
+                onClick = onAction,
+                focusRequester = actionFocus,
+                expandedWidth = 126.dp,
+            )
+        }
+    }
 }
 
 @Composable
@@ -190,6 +238,7 @@ fun TelevisionErrorState(
     message: String? = null,
     focusRequester: FocusRequester? = null,
     requestInitialFocus: Boolean = true,
+    retryLabel: String,
 ) {
     val retryFocus = focusRequester ?: remember { FocusRequester() }
     LaunchedEffect(requestInitialFocus) {
@@ -200,7 +249,7 @@ fun TelevisionErrorState(
         TelevisionInlineMessage(title = title, message = message)
         Spacer(Modifier.height(14.dp))
         TelevisionFocusRevealButton(
-            label = "Try again",
+            label = retryLabel,
             icon = Icons.Default.Refresh,
             onClick = onRetry,
             focusRequester = retryFocus,

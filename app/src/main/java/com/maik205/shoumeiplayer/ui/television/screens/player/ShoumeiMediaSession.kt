@@ -23,6 +23,7 @@ import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.maik205.shoumeiplayer.MainActivity
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.feature.player.AudioQueueItemUi
 import com.maik205.shoumeiplayer.feature.player.PlayerTimelineState
 import com.maik205.shoumeiplayer.feature.player.PlayerUiState
@@ -197,7 +198,7 @@ internal fun createPlayerMediaSession(
     return MediaSession.Builder(context, player)
         .setId("shoumei-player-${UUID.randomUUID()}")
         .setSessionActivity(sessionActivity)
-        .setMediaButtonPreferences(actions.buttons())
+        .setMediaButtonPreferences(actions.buttons(context))
         .setCallback(object : MediaSession.Callback {
             override fun onAddMediaItems(
                 session: MediaSession,
@@ -255,25 +256,25 @@ internal data class MediaSessionActions(
     val togglePlayed: () -> Boolean = { false },
     val playUpNext: () -> Boolean = { false },
 ) {
-    fun buttons(): List<CommandButton> = buildList {
+    fun buttons(context: Context): List<CommandButton> = buildList {
         add(CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-            .setDisplayName("Subtitles")
+            .setDisplayName(context.getString(R.string.tv_subtitles))
             .setSessionCommand(SessionCommand(TOGGLE_SUBTITLES, Bundle.EMPTY))
             .setEnabled(subtitlesAvailable())
             .build())
         add(CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-            .setDisplayName("Favorite")
+            .setDisplayName(context.getString(R.string.tv_filter_favorites))
             .setSessionCommand(SessionCommand(TOGGLE_FAVORITE, Bundle.EMPTY))
             .setEnabled(favoriteAvailable())
             .build())
         add(CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-            .setDisplayName("Watched")
+            .setDisplayName(context.getString(R.string.filter_watched))
             .setSessionCommand(SessionCommand(TOGGLE_PLAYED, Bundle.EMPTY))
             .setEnabled(playedAvailable())
             .build())
         if (upNextAvailable()) {
             add(CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-                .setDisplayName("Up Next")
+                .setDisplayName(context.getString(R.string.tv_player_up_next))
                 .setSessionCommand(SessionCommand(PLAY_UP_NEXT, Bundle.EMPTY))
                 .build())
         }

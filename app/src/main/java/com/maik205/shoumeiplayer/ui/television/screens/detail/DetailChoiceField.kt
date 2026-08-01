@@ -47,6 +47,7 @@ import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -57,6 +58,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.domain.model.DetailItem
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusScale
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionMediaTile
@@ -85,7 +87,11 @@ internal fun DetailChoiceField(
     val selectorFocus = remember { FocusRequester() }
     val selectedFocus = remember { FocusRequester() }
     val resolvedIndex = selectedIndex.takeIf { it in options.indices } ?: 0
-    val value = options.getOrElse(resolvedIndex) { "None" }
+    val value = if (resolvedIndex in options.indices) {
+        options[resolvedIndex]
+    } else {
+        stringResource(R.string.tv_none)
+    }
     val optionListState = rememberLazyListState(initialFirstVisibleItemIndex = resolvedIndex)
     var expanded by remember { mutableStateOf(false) }
     var openedOnce by remember { mutableStateOf(false) }
@@ -138,7 +144,7 @@ internal fun DetailChoiceField(
             }
             Icon(
                 imageVector = Icons.Default.ArrowDropDown,
-                contentDescription = "Change $label",
+                contentDescription = stringResource(R.string.tv_change_selection, label),
                 modifier = Modifier.size(19.dp),
             )
         }
@@ -227,7 +233,7 @@ internal fun DetailChoiceField(
                                     if (isSelected) {
                                         Icon(
                                             imageVector = Icons.Default.Check,
-                                            contentDescription = "Selected",
+                                            contentDescription = stringResource(R.string.tv_selected),
                                             modifier = Modifier.size(18.dp),
                                         )
                                     }

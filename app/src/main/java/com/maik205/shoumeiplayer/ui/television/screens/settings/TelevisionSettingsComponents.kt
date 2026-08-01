@@ -45,6 +45,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
@@ -288,7 +289,7 @@ internal fun SettingsChoiceDrawer(
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Close $label",
+                    contentDescription = stringResource(R.string.tv_close_label, label),
                     modifier = Modifier
                         .align(Alignment.Center)
                         .size(22.dp),
@@ -349,7 +350,7 @@ internal fun SettingsChoiceDrawer(
                             if (option.selected) {
                                 Icon(
                                     imageVector = Icons.Default.Check,
-                                    contentDescription = "Selected",
+                                    contentDescription = stringResource(R.string.tv_selected),
                                     modifier = Modifier.size(20.dp),
                                 )
                             }

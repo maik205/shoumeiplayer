@@ -89,10 +89,14 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import com.maik205.shoumeiplayer.R
+import com.maik205.shoumeiplayer.ui.i18n.UiText
+import com.maik205.shoumeiplayer.ui.i18n.resolve
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionBackground
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionAppTopNavigation
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionEmptyState
@@ -120,7 +124,8 @@ fun TelevisionSearchScreen(
     query: String,
     searching: Boolean,
     results: List<MediaItemUi>,
-    error: String?,
+    error: UiText?,
+    resultLimitReached: Boolean,
     onQueryChange: (String) -> Unit,
     onRetry: () -> Unit,
     onOpenItem: (MediaItemUi) -> Unit,
@@ -162,31 +167,44 @@ fun TelevisionSearchScreen(
             when {
                 searching -> item(span = { GridItemSpan(maxLineSpan) }) {
                     TelevisionLoadingState(
-                        label = "Searching",
+                        label = stringResource(R.string.search),
                         shape = TelevisionLoadingShape.Search,
                     )
                 }
                 error != null -> item(span = { GridItemSpan(maxLineSpan) }) {
                     TelevisionErrorState(
-                        title = "Search is unavailable",
-                        message = error,
+                        title = stringResource(R.string.tv_search_unavailable),
+                        message = error.resolve(),
                         onRetry = onRetry,
+                        retryLabel = stringResource(R.string.retry),
                     )
                 }
                 query.trim().length < 2 -> item(span = { GridItemSpan(maxLineSpan) }) {
                     TelevisionEmptyState(
-                        title = "Type to search",
-                        message = "Use the Google TV keyboard.",
+                        title = stringResource(R.string.type_to_search),
+                        message = stringResource(R.string.search_keep_typing),
                     )
                 }
                 results.isEmpty() -> item(span = { GridItemSpan(maxLineSpan) }) {
-                    TelevisionEmptyState(title = "Nothing matched “$query”")
+                    TelevisionEmptyState(
+                        title = stringResource(R.string.search_no_results_format, query),
+                    )
                 }
                 else -> itemsIndexed(results, key = { index, item -> "${item.id}:$index" }) { _, item ->
                     TelevisionMediaTile(
                         item = item,
                         onClick = { onOpenItem(item) },
                     )
+                }
+                if (resultLimitReached && !searching && error == null) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Text(
+                            text = stringResource(R.string.tv_search_limit),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TelevisionColors.PaperMuted,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
             }
         }
@@ -202,7 +220,7 @@ fun TelevisionSearchScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TelevisionFocusRevealButton(
-                label = "Back",
+                label = stringResource(R.string.tv_back),
                 icon = Icons.AutoMirrored.Filled.ArrowBack,
                 onClick = onBack,
                 expandedWidth = 92.dp,
@@ -239,7 +257,7 @@ fun TelevisionSearchScreen(
                     Box(contentAlignment = Alignment.CenterStart) {
                         if (query.isBlank()) {
                             Text(
-                                text = "Search",
+                                text = stringResource(R.string.search),
                                 style = MaterialTheme.typography.displaySmall,
                                 color = TelevisionColors.PaperSoft,
                             )

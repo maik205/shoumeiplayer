@@ -56,7 +56,9 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import androidx.compose.ui.res.stringResource
 import coil3.compose.AsyncImage
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.player.PlaybackSpeed
 import com.maik205.shoumeiplayer.player.PlayerTrack
 import com.maik205.shoumeiplayer.player.VideoQuality
@@ -101,7 +103,7 @@ internal fun PlayerErrorOverlay(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Text(
-                "Playback stopped",
+                stringResource(R.string.tv_player_playback_stopped),
                 style = MaterialTheme.typography.displayLarge,
                 fontWeight = FontWeight.Bold,
             )
@@ -112,7 +114,7 @@ internal fun PlayerErrorOverlay(
             )
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 PlayerCompactActionButton(
-                    label = "Retry",
+                    label = stringResource(R.string.tv_player_retry),
                     icon = Icons.Default.Refresh,
                     onClick = onRetry,
                     focusRequester = retry,
@@ -120,7 +122,7 @@ internal fun PlayerErrorOverlay(
                     expandedWidth = 110.dp,
                 )
                 PlayerCompactActionButton(
-                    label = "Back",
+                    label = stringResource(R.string.tv_back),
                     icon = Icons.AutoMirrored.Filled.ArrowBack,
                     onClick = onBack,
                     expandedWidth = 90.dp,
@@ -156,14 +158,14 @@ internal fun StillWatchingOverlay(
                 .padding(start = 67.dp, bottom = 62.dp),
         ) {
             Text(
-                "Still watching?",
+                stringResource(R.string.tv_player_still_watching),
                 style = MaterialTheme.typography.displayLarge,
                 fontWeight = FontWeight.Bold,
             )
             Spacer(Modifier.height(22.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 PlayerCompactActionButton(
-                    label = "Continue",
+                    label = stringResource(R.string.tv_player_continue),
                     icon = Icons.Default.PlayArrow,
                     onClick = onContinue,
                     focusRequester = continueFocus,
@@ -171,7 +173,7 @@ internal fun StillWatchingOverlay(
                     expandedWidth = 116.dp,
                 )
                 PlayerCompactActionButton(
-                    label = "Stop",
+                    label = stringResource(R.string.tv_player_stop),
                     icon = Icons.Default.Stop,
                     onClick = onStop,
                     expandedWidth = 88.dp,
@@ -236,14 +238,17 @@ internal fun PostPlayOverlay(
             ) {
                 Column(Modifier.width(390.dp)) {
                     TelevisionFocusRevealButton(
-                        label = "Back",
+                        label = stringResource(R.string.tv_back),
                         icon = Icons.AutoMirrored.Filled.ArrowBack,
                         onClick = { browsingEpisodes = false },
                         focusRequester = primary,
                         expandedWidth = 54.dp,
                     )
                     Spacer(Modifier.height(16.dp))
-                    Text("Episodes", style = MaterialTheme.typography.displaySmall)
+                    Text(
+                        stringResource(R.string.tv_episodes),
+                        style = MaterialTheme.typography.displaySmall,
+                    )
                     Spacer(Modifier.height(18.dp))
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         itemsIndexed(episodes, key = { index, episode -> "${episode.itemId}:$index" }) { _, episode ->
@@ -258,7 +263,7 @@ internal fun PostPlayOverlay(
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Text(
-                                        episode.subtitle ?: "Next",
+                                        episode.subtitle ?: stringResource(R.string.tv_player_next),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = TelevisionColors.PaperMuted,
                                         modifier = Modifier.width(64.dp),
@@ -278,7 +283,7 @@ internal fun PostPlayOverlay(
                                     if (focused) {
                                         Icon(
                                             Icons.Default.PlayArrow,
-                                            contentDescription = "Play",
+                                            contentDescription = stringResource(R.string.play),
                                             modifier = Modifier.size(18.dp),
                                         )
                                     }
@@ -293,7 +298,7 @@ internal fun PostPlayOverlay(
                         .align(Alignment.Bottom),
                 ) {
                     Text(
-                        preview?.subtitle ?: "Episode",
+                        preview?.subtitle ?: stringResource(R.string.tv_episode),
                         style = MaterialTheme.typography.labelLarge,
                         color = TelevisionColors.PaperMuted,
                     )
@@ -312,13 +317,17 @@ internal fun PostPlayOverlay(
                     .padding(start = 67.dp, bottom = 48.dp),
             ) {
                 Text(
-                    if (upNext != null) "Up next" else "Playback complete",
+                if (upNext != null) {
+                    stringResource(R.string.tv_player_up_next)
+                } else {
+                    stringResource(R.string.tv_player_playback_complete)
+                },
                     style = MaterialTheme.typography.labelLarge,
                     color = TelevisionColors.PaperMuted,
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    upNext?.title ?: "That’s all",
+                upNext?.title ?: stringResource(R.string.tv_player_that_is_all),
                     style = MaterialTheme.typography.displayLarge,
                     fontWeight = FontWeight.Bold,
                     maxLines = 2,
@@ -331,8 +340,13 @@ internal fun PostPlayOverlay(
                 Spacer(Modifier.height(20.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     if (upNext != null) {
+                        val playNextLabel = if (countdownSeconds != null) {
+                            stringResource(R.string.tv_player_play_next_countdown, countdownSeconds)
+                        } else {
+                            stringResource(R.string.tv_player_play_next)
+                        }
                         PlayerCompactActionButton(
-                            label = countdownSeconds?.let { "Play next · $it" } ?: "Play next",
+                            label = playNextLabel,
                             icon = Icons.Default.PlayArrow,
                             onClick = onPlayNext,
                             focusRequester = primary,
@@ -341,7 +355,7 @@ internal fun PostPlayOverlay(
                         )
                         if (episodes.isNotEmpty()) {
                             PlayerCompactActionButton(
-                                label = "Episodes",
+                                label = stringResource(R.string.tv_episodes),
                                 icon = Icons.Default.VideoLibrary,
                                 onClick = { browsingEpisodes = true },
                                 expandedWidth = 118.dp,
@@ -349,7 +363,7 @@ internal fun PostPlayOverlay(
                         }
                     } else {
                         PlayerCompactActionButton(
-                            label = "Play again",
+                            label = stringResource(R.string.tv_player_play_again),
                             icon = Icons.Default.Refresh,
                             onClick = onReplay,
                             focusRequester = primary,
@@ -358,7 +372,7 @@ internal fun PostPlayOverlay(
                         )
                     }
                     PlayerCompactActionButton(
-                        label = "Back",
+                        label = stringResource(R.string.tv_back),
                         icon = Icons.AutoMirrored.Filled.ArrowBack,
                         onClick = onBack,
                         expandedWidth = 90.dp,
@@ -397,7 +411,16 @@ private fun LegacyPostPlayOverlay(
     LaunchedEffect(upNext?.itemId) { runCatching { primary.requestFocus() } }
     ModalScrim {
         if (upNext != null) {
-            Text("Up next", style = MaterialTheme.typography.titleMedium, color = TelevisionColors.PaperMuted)
+        val playNextLabel = if (countdownSeconds != null) {
+            stringResource(R.string.tv_player_play_next_countdown, countdownSeconds)
+        } else {
+            stringResource(R.string.tv_player_play_next)
+        }
+        Text(
+            stringResource(R.string.tv_player_up_next),
+            style = MaterialTheme.typography.titleMedium,
+            color = TelevisionColors.PaperMuted,
+        )
             AsyncImage(
                 model = upNext.thumbUrl,
                 contentDescription = upNext.title,
@@ -415,16 +438,19 @@ private fun LegacyPostPlayOverlay(
             upNext.subtitle?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium, color = TelevisionColors.PaperMuted)
             }
-            PlayerTextButton(
-                label = countdownSeconds?.let { "Play next · $it" } ?: "Play next",
+        PlayerTextButton(
+            label = playNextLabel,
                 onClick = onPlayNext,
                 focusRequester = primary,
                 modifier = Modifier.width(220.dp),
             )
         } else {
-            Text("Playback complete", style = MaterialTheme.typography.displaySmall)
+            Text(
+                stringResource(R.string.tv_player_playback_complete),
+                style = MaterialTheme.typography.displaySmall,
+            )
             PlayerTextButton(
-                label = "Play again",
+                label = stringResource(R.string.tv_player_play_again),
                 icon = Icons.Default.Refresh,
                 onClick = onReplay,
                 focusRequester = primary,
@@ -432,7 +458,7 @@ private fun LegacyPostPlayOverlay(
             )
         }
         PlayerTextButton(
-            label = "Back",
+            label = stringResource(R.string.tv_back),
             icon = Icons.AutoMirrored.Filled.ArrowBack,
             onClick = onBack,
             modifier = Modifier.width(160.dp),

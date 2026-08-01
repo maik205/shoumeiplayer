@@ -42,10 +42,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import com.maik205.shoumeiplayer.R
+import com.maik205.shoumeiplayer.ui.i18n.resolve
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionEmptyState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionAppTopNavigation
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionErrorState
@@ -64,6 +67,8 @@ import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.yield
 
@@ -126,28 +131,52 @@ fun TelevisionLiveScreen(
             )
             when {
                 state.loading -> TelevisionLoadingState(
-                    label = "Loading guide",
+                    label = stringResource(R.string.tv_loading_guide),
                     shape = TelevisionLoadingShape.Guide,
                     modifier = Modifier.padding(horizontal = TelevisionDimensions.SafeHorizontal),
                 )
                 state.error != null && state.channels.isEmpty() -> TelevisionErrorState(
-                    title = "The guide is unavailable",
-                    message = state.error,
+                    title = stringResource(R.string.tv_live_error_title),
+                    message = state.error.resolve(),
                     onRetry = onRefresh,
+                    retryLabel = stringResource(R.string.retry),
                     modifier = Modifier.padding(horizontal = TelevisionDimensions.SafeHorizontal),
                 )
                 state.channels.isEmpty() -> TelevisionEmptyState(
-                    title = "No live channels",
+                    title = stringResource(R.string.tv_live_empty_title),
+                    actionLabel = stringResource(R.string.retry),
+                    onAction = onRefresh,
+                    requestInitialFocus = true,
                     modifier = Modifier.padding(horizontal = TelevisionDimensions.SafeHorizontal),
                 )
-                else -> GuideTimeline(
-                    state = state,
-                    onFocusChanged = { guideFocused = it },
-                    onFocusProgram = onFocusProgram,
-                    onOpenProgram = onOpenProgram,
-                    onPlayChannel = onPlay,
-                    modifier = Modifier.weight(1f),
-                )
+                else -> {
+                    if (state.refreshing) {
+                        Text(
+                            text = stringResource(R.string.tv_refreshing),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TelevisionColors.PaperMuted,
+                            modifier = Modifier.padding(horizontal = TelevisionDimensions.SafeHorizontal),
+                        )
+                    }
+                    if (state.error != null || state.programError != null) {
+                        TelevisionErrorState(
+                            title = stringResource(R.string.tv_live_partial_error_title),
+                            message = (state.error ?: state.programError)?.resolve(),
+                            onRetry = onRefresh,
+                            retryLabel = stringResource(R.string.retry),
+                            requestInitialFocus = false,
+                            modifier = Modifier.padding(horizontal = TelevisionDimensions.SafeHorizontal),
+                        )
+                    }
+                    GuideTimeline(
+                        state = state,
+                        onFocusChanged = { guideFocused = it },
+                        onFocusProgram = onFocusProgram,
+                        onOpenProgram = onOpenProgram,
+                        onPlayChannel = onPlay,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
 
@@ -207,7 +236,7 @@ private fun LiveHero(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TelevisionFocusRevealButton(
-                label = "Back",
+                label = stringResource(R.string.tv_back),
                 icon = Icons.AutoMirrored.Filled.ArrowBack,
                 onClick = onBack,
                 focusRequester = focusRequester.takeIf { program == null },
@@ -216,7 +245,7 @@ private fun LiveHero(
             )
             Spacer(Modifier.weight(1f))
             TelevisionFocusRevealButton(
-                label = "Refresh",
+                label = stringResource(R.string.tv_refresh),
                 icon = Icons.Default.Refresh,
                 onClick = onRefresh,
                 expandedWidth = 108.dp,
@@ -237,9 +266,21 @@ private fun LiveHero(
                 Column(modifier = Modifier.width(if (compact) 630.dp else 720.dp)) {
                     Text(
                         text = if (compact) {
-                            "${program.item.title}   ${program.timeLabel}"
+                            stringResource(
+                                R.string.tv_live_title_time,
+                                program.item.title,
+                                stringResource(
+                                    R.string.tv_live_time_range,
+                                    program.startLabel,
+                                    program.endLabel,
+                                ),
+                            )
                         } else {
-                            program.timeLabel
+                            stringResource(
+                                R.string.tv_live_time_range,
+                                program.startLabel,
+                                program.endLabel,
+                            )
                         },
                         style = if (compact) {
                             MaterialTheme.typography.titleLarge
@@ -272,7 +313,7 @@ private fun LiveHero(
                 }
                 Spacer(Modifier.width(20.dp))
                 TelevisionFocusRevealButton(
-                    label = "Watch",
+                    label = stringResource(R.string.tv_watch),
                     icon = Icons.Default.PlayArrow,
                     onClick = onPlay,
                     focusRequester = focusRequester,
@@ -325,7 +366,7 @@ private fun GuideTimeline(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Live",
+                text = stringResource(R.string.tv_live_label),
                 style = MaterialTheme.typography.labelLarge,
                 color = TelevisionColors.PaperMuted,
                 modifier = Modifier.width(ChannelWidth),
@@ -363,7 +404,7 @@ private fun GuideTimeline(
             }
             item(key = "end") {
                 Text(
-                    text = "That is the full guide",
+                    text = stringResource(R.string.tv_live_end),
                     style = MaterialTheme.typography.titleSmall,
                     color = TelevisionColors.PaperMuted,
                     modifier = Modifier
@@ -432,6 +473,14 @@ private fun GuideChannelRow(
                 .width(TimelineWidth)
                 .height(54.dp),
         ) {
+            if (channel.programs.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.tv_live_no_programs),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TelevisionColors.PaperMuted,
+                    modifier = Modifier.align(Alignment.CenterStart),
+                )
+            }
             channel.programs.forEach { program ->
                 val start = positionFraction(program.start, windowStart, windowEnd)
                 val end = positionFraction(program.end, windowStart, windowEnd)
@@ -488,6 +537,7 @@ private fun positionFraction(
 }
 
 private fun guideClock(value: Instant): String = DateTimeFormatter
-    .ofPattern("HH:mm")
+    .ofLocalizedTime(FormatStyle.SHORT)
+    .withLocale(Locale.getDefault())
     .withZone(ZoneId.systemDefault())
     .format(value)

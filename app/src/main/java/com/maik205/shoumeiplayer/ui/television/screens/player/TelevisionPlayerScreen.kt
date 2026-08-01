@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ClosedCaption
@@ -59,14 +60,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.player.PlayerState
 import com.maik205.shoumeiplayer.player.PlayerTrack
 import com.maik205.shoumeiplayer.player.TrackType
 import com.maik205.shoumeiplayer.feature.player.PlayerUiState
 import com.maik205.shoumeiplayer.feature.player.PlayerTimelineState
+import com.maik205.shoumeiplayer.feature.player.PlayerMessage
+import com.maik205.shoumeiplayer.feature.player.PlayerMessageKind
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import kotlinx.coroutines.delay
@@ -77,6 +82,81 @@ private const val MINI_SEEK_TIMEOUT_MS = 1_500L
 private const val EXIT_ARM_TIMEOUT_MS = 2_000L
 private const val STILL_WATCHING_TIMEOUT_MS = 2L * 60L * 60L * 1_000L
 private const val POST_PLAY_SECONDS = 10
+
+private enum class FrameMode(val engineValue: String) {
+    Fit("Fit"),
+    Fill("Fill"),
+    Original("Original"),
+    Aspect16By9("16:9"),
+    Aspect4By3("4:3"),
+}
+
+private enum class HdrMode(val engineValue: String) {
+    Automatic("Auto"),
+    Passthrough("Passthrough"),
+    ToneMap("Tone map"),
+    ConvertToSdr("Convert to SDR"),
+}
+
+private enum class DeinterlaceMode(val engineValue: String) {
+    Automatic("Auto"),
+    On("On"),
+    Off("Off"),
+}
+
+private enum class SleepTimer {
+    Off,
+    Minutes15,
+    Minutes30,
+    Minutes45,
+    Hour,
+    EndOfEpisode,
+}
+
+@Composable
+private fun FrameMode.label(): String = when (this) {
+    FrameMode.Fit -> stringResource(R.string.tv_player_fit)
+    FrameMode.Fill -> stringResource(R.string.tv_player_fill)
+    FrameMode.Original -> stringResource(R.string.tv_player_original)
+    FrameMode.Aspect16By9 -> stringResource(R.string.tv_player_aspect_16_9)
+    FrameMode.Aspect4By3 -> stringResource(R.string.tv_player_aspect_4_3)
+}
+
+@Composable
+private fun HdrMode.label(): String = when (this) {
+    HdrMode.Automatic -> stringResource(R.string.tv_auto)
+    HdrMode.Passthrough -> stringResource(R.string.tv_settings_passthrough)
+    HdrMode.ToneMap -> stringResource(R.string.tv_settings_tone_map)
+    HdrMode.ConvertToSdr -> stringResource(R.string.tv_player_convert_sdr)
+}
+
+@Composable
+private fun DeinterlaceMode.label(): String = when (this) {
+    DeinterlaceMode.Automatic -> stringResource(R.string.tv_auto)
+    DeinterlaceMode.On -> stringResource(R.string.on)
+    DeinterlaceMode.Off -> stringResource(R.string.off)
+}
+
+@Composable
+private fun SleepTimer.label(): String = when (this) {
+    SleepTimer.Off -> stringResource(R.string.off)
+    SleepTimer.Minutes15 -> stringResource(R.string.tv_player_15_min)
+    SleepTimer.Minutes30 -> stringResource(R.string.tv_player_30_min)
+    SleepTimer.Minutes45 -> stringResource(R.string.tv_player_45_min)
+    SleepTimer.Hour -> stringResource(R.string.tv_player_1_hr)
+    SleepTimer.EndOfEpisode -> stringResource(R.string.tv_player_end_episode)
+}
+
+@Composable
+internal fun PlayerMessage.resolveMessage(): String = when (kind) {
+    PlayerMessageKind.MetadataLoadFailed -> stringResource(R.string.tv_player_metadata_failed)
+    PlayerMessageKind.PlaybackLoadFailed -> stringResource(R.string.tv_player_playback_failed)
+    PlayerMessageKind.StreamSwapFailed -> stringResource(R.string.tv_player_swap_failed)
+    PlayerMessageKind.ShelvesLoadFailed -> stringResource(R.string.tv_player_shelves_failed)
+    PlayerMessageKind.MusicContextLoadFailed -> stringResource(R.string.tv_player_music_context_failed)
+    PlayerMessageKind.AdjacencyLoadFailed -> stringResource(R.string.tv_player_adjacency_failed)
+    PlayerMessageKind.NetworkPaused -> stringResource(R.string.tv_player_network_paused)
+}
 
 /**
  * Google TV playback entry point. The video surface is deliberately lifecycle-neutral: surface
@@ -95,7 +175,9 @@ internal fun TelevisionPlayerContent(
 ) {
     val audio = audioOnly || state.isAudio
     val activity = LocalContext.current as? Activity
-    val playbackError = state.error ?: (state.state as? PlayerState.Error)?.message
+    val engineFailed = state.state is PlayerState.Error
+    val playbackError = state.error?.resolveMessage()
+        ?: if (engineFailed) stringResource(R.string.tv_player_playback_failed) else null
     val seekIntervalMs = state.seekIntervalSeconds.toLong() * 1_000L
 
     DisposableEffect(activity, audio, state.state) {
@@ -134,11 +216,11 @@ internal fun TelevisionPlayerContent(
     var shuffleEnabled by remember { mutableStateOf(false) }
     var repeatEnabled by remember { mutableStateOf(false) }
     var postPlaySeconds by remember { mutableStateOf<Int?>(null) }
-    var frameMode by remember { mutableStateOf("Fit") }
-    var hdrMode by remember { mutableStateOf("Auto") }
-    var videoTrack by remember { mutableStateOf("HEVC Main 10") }
-    var deinterlaceMode by remember { mutableStateOf("Auto") }
-    var sleepTimer by remember { mutableStateOf("Off") }
+    var frameMode by remember { mutableStateOf(FrameMode.Fit) }
+    var hdrMode by remember { mutableStateOf(HdrMode.Automatic) }
+    var videoTrack by remember { mutableStateOf("") }
+    var deinterlaceMode by remember { mutableStateOf(DeinterlaceMode.Automatic) }
+    var sleepTimer by remember { mutableStateOf(SleepTimer.Off) }
 
     fun noteInteraction() {
         interactionTick++
@@ -259,7 +341,7 @@ internal fun TelevisionPlayerContent(
     }
 
     LaunchedEffect(state.state, state.upNext?.itemId, sleepTimer) {
-        if (state.state == PlayerState.Ended && sleepTimer == "End of episode") {
+        if (state.state == PlayerState.Ended && sleepTimer == SleepTimer.EndOfEpisode) {
             exitPlayer()
             return@LaunchedEffect
         }
@@ -277,10 +359,10 @@ internal fun TelevisionPlayerContent(
 
     LaunchedEffect(sleepTimer) {
         val timeoutMs = when (sleepTimer) {
-            "15 min" -> 15L * 60L * 1_000L
-            "30 min" -> 30L * 60L * 1_000L
-            "45 min" -> 45L * 60L * 1_000L
-            "1 hr" -> 60L * 60L * 1_000L
+            SleepTimer.Minutes15 -> 15L * 60L * 1_000L
+            SleepTimer.Minutes30 -> 30L * 60L * 1_000L
+            SleepTimer.Minutes45 -> 45L * 60L * 1_000L
+            SleepTimer.Hour -> 60L * 60L * 1_000L
             else -> null
         }
         timeoutMs?.let {
@@ -492,6 +574,7 @@ internal fun TelevisionPlayerContent(
                 onToggleSuggestedCoverMode = { suggestedCoverMode = !suggestedCoverMode },
                 onPlayItem = controller::switchTo,
                 onInteraction = ::noteInteraction,
+                onRetryContext = controller::retryMusicContext,
             )
         } else {
             VideoSurface(
@@ -563,7 +646,23 @@ internal fun TelevisionPlayerContent(
 
         state.notice?.let {
             Text(
-                text = it,
+                text = it.resolveMessage(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = TelevisionColors.Paper,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 22.dp)
+                    .background(TelevisionColors.Black.copy(alpha = 0.86f))
+                    .padding(horizontal = 18.dp, vertical = 10.dp),
+            )
+        }
+
+        if (state.loading && playbackError == null) {
+            PlayerLoadingOverlay()
+        }
+        if (state.swapping) {
+            Text(
+                text = stringResource(R.string.tv_player_swapping),
                 style = MaterialTheme.typography.bodyMedium,
                 color = TelevisionColors.Paper,
                 modifier = Modifier
@@ -575,31 +674,45 @@ internal fun TelevisionPlayerContent(
         }
 
         when (panel) {
-            TelevisionPlayerPanel.Audio -> PlayerSelectionPanel(
-                title = "Audio",
-                rows = audioRows(state.audioTracks) {
+            TelevisionPlayerPanel.Audio -> {
+                val trackRows = audioRows(state.audioTracks) {
                     controller.selectTrack(it)
                     closePanel()
-                },
-                onDismiss = ::closePanel,
-                modifier = Modifier.align(Alignment.CenterEnd),
-            )
+                }
+                val rows = if (trackRows.isEmpty()) {
+                    listOf(
+                        PlayerSelectionRow(
+                            key = "audio:none",
+                            label = stringResource(R.string.tv_player_no_audio_tracks),
+                            onClick = {},
+                        ),
+                    )
+                } else {
+                    trackRows
+                }
+                PlayerSelectionPanel(
+                    title = stringResource(R.string.tv_audio),
+                    rows = rows,
+                    onDismiss = ::closePanel,
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                )
+            }
 
             TelevisionPlayerPanel.Subtitles -> {
                 val selectableTracks = state.subtitleTracks.filterNot {
-                    it.id == -1 || it.label.equals("Off", ignoreCase = true)
+                    it.id == -1
                 }
                 val off = PlayerTrack(
                     id = -1,
                     type = TrackType.SUBTITLE,
-                    label = "Off",
+                    label = stringResource(R.string.off),
                     selected = state.subtitleTracks.none(PlayerTrack::selected) ||
                         state.subtitleTracks.any {
-                            it.selected && (it.id == -1 || it.label.equals("Off", ignoreCase = true))
+                            it.selected && it.id == -1
                         },
                 )
                 PlayerSelectionPanel(
-                    title = "Subtitles",
+                    title = stringResource(R.string.tv_subtitles),
                     rows = subtitleRows(listOf(off) + selectableTracks) {
                         controller.selectTrack(it)
                         closePanel()
@@ -609,18 +722,32 @@ internal fun TelevisionPlayerContent(
                 )
             }
 
-            TelevisionPlayerPanel.Chapters -> PlayerSelectionPanel(
-                title = "Chapters",
-                rows = chapterRows(state.chapters) {
+            TelevisionPlayerPanel.Chapters -> {
+                val availableChapterRows = chapterRows(state.chapters) {
                     controller.seekTo(it.positionMs)
                     closePanel()
-                },
-                onDismiss = ::closePanel,
-                modifier = Modifier.align(Alignment.CenterEnd),
-            )
+                }
+                val rows = if (availableChapterRows.isEmpty()) {
+                    listOf(
+                        PlayerSelectionRow(
+                            key = "chapters:none",
+                            label = stringResource(R.string.tv_player_no_chapters),
+                            onClick = {},
+                        ),
+                    )
+                } else {
+                    availableChapterRows
+                }
+                PlayerSelectionPanel(
+                    title = stringResource(R.string.tv_detail_chapters),
+                    rows = rows,
+                    onDismiss = ::closePanel,
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                )
+            }
 
             TelevisionPlayerPanel.Quality -> PlayerSelectionPanel(
-                title = "Quality",
+                title = stringResource(R.string.tv_quality),
                 rows = qualityRows(state.quality) {
                     controller.setQuality(it)
                     closePanel()
@@ -630,7 +757,7 @@ internal fun TelevisionPlayerContent(
             )
 
             TelevisionPlayerPanel.Speed -> PlayerSelectionPanel(
-                title = "Playback speed",
+                title = stringResource(R.string.tv_player_playback_speed),
                 rows = speedRows(state.speed) {
                     controller.setSpeed(it)
                     closePanel()
@@ -640,14 +767,20 @@ internal fun TelevisionPlayerContent(
             )
 
             TelevisionPlayerPanel.Frame -> PlayerSelectionPanel(
-                title = "Frame",
+                title = stringResource(R.string.tv_player_frame),
                 rows = selectionRows(
                     prefix = "frame",
                     selected = frameMode,
-                    values = listOf("Fit", "Fill", "Original", "16:9", "4:3"),
+                    values = listOf(
+                        PlayerSelectionOption(FrameMode.Fit, FrameMode.Fit.label()),
+                        PlayerSelectionOption(FrameMode.Fill, FrameMode.Fill.label()),
+                        PlayerSelectionOption(FrameMode.Original, FrameMode.Original.label()),
+                        PlayerSelectionOption(FrameMode.Aspect16By9, FrameMode.Aspect16By9.label()),
+                        PlayerSelectionOption(FrameMode.Aspect4By3, FrameMode.Aspect4By3.label()),
+                    ),
                 ) {
                     frameMode = it
-                    controller.setFrameMode(it)
+                    controller.setFrameMode(it.engineValue)
                     closePanel()
                 },
                 onDismiss = ::closePanel,
@@ -655,14 +788,19 @@ internal fun TelevisionPlayerContent(
             )
 
             TelevisionPlayerPanel.Hdr -> PlayerSelectionPanel(
-                title = "HDR handling",
+                title = stringResource(R.string.tv_player_hdr_handling),
                 rows = selectionRows(
                     prefix = "hdr",
                     selected = hdrMode,
-                    values = listOf("Auto", "Passthrough", "Tone map", "Convert to SDR"),
+                    values = listOf(
+                        PlayerSelectionOption(HdrMode.Automatic, HdrMode.Automatic.label()),
+                        PlayerSelectionOption(HdrMode.Passthrough, HdrMode.Passthrough.label()),
+                        PlayerSelectionOption(HdrMode.ToneMap, HdrMode.ToneMap.label()),
+                        PlayerSelectionOption(HdrMode.ConvertToSdr, HdrMode.ConvertToSdr.label()),
+                    ),
                 ) {
                     hdrMode = it
-                    controller.setHdrMode(it)
+                    controller.setHdrMode(it.engineValue)
                     closePanel()
                 },
                 onDismiss = ::closePanel,
@@ -670,7 +808,7 @@ internal fun TelevisionPlayerContent(
             )
 
             TelevisionPlayerPanel.VideoTrack -> PlayerSelectionPanel(
-                title = "Video",
+                title = stringResource(R.string.tv_player_video),
                 rows = state.videoTracks.map { track ->
                     PlayerSelectionRow(
                         key = "video:${track.id}",
@@ -684,14 +822,20 @@ internal fun TelevisionPlayerContent(
                         },
                     )
                 }.ifEmpty {
-                    listOf(PlayerSelectionRow("video:none", "No alternate video tracks", onClick = {}))
+                    listOf(
+                        PlayerSelectionRow(
+                            "video:none",
+                            stringResource(R.string.tv_player_no_alternate_video_tracks),
+                            onClick = {},
+                        ),
+                    )
                 },
                 onDismiss = ::closePanel,
                 modifier = Modifier.align(Alignment.CenterEnd),
             )
 
             TelevisionPlayerPanel.AudioDelay -> PlaybackDelayPanel(
-                title = "Audio delay",
+                title = stringResource(R.string.tv_player_audio_delay),
                 valueMs = state.audioDelayMs,
                 onChange = controller::setAudioDelayMs,
                 onDismiss = ::closePanel,
@@ -699,7 +843,7 @@ internal fun TelevisionPlayerContent(
             )
 
             TelevisionPlayerPanel.SubtitleDelay -> PlaybackDelayPanel(
-                title = "Subtitle delay",
+                title = stringResource(R.string.tv_player_subtitle_delay),
                 valueMs = state.subtitleDelayMs,
                 onChange = controller::setSubtitleDelayMs,
                 onDismiss = ::closePanel,
@@ -707,14 +851,18 @@ internal fun TelevisionPlayerContent(
             )
 
             TelevisionPlayerPanel.Deinterlace -> PlayerSelectionPanel(
-                title = "Deinterlace",
+                title = stringResource(R.string.tv_player_deinterlace),
                 rows = selectionRows(
                     prefix = "deinterlace",
                     selected = deinterlaceMode,
-                    values = listOf("Auto", "On", "Off"),
+                    values = listOf(
+                        PlayerSelectionOption(DeinterlaceMode.Automatic, DeinterlaceMode.Automatic.label()),
+                        PlayerSelectionOption(DeinterlaceMode.On, DeinterlaceMode.On.label()),
+                        PlayerSelectionOption(DeinterlaceMode.Off, DeinterlaceMode.Off.label()),
+                    ),
                 ) {
                     deinterlaceMode = it
-                    controller.setDeinterlaceMode(it)
+                    controller.setDeinterlaceMode(it.engineValue)
                     closePanel()
                 },
                 onDismiss = ::closePanel,
@@ -722,28 +870,58 @@ internal fun TelevisionPlayerContent(
             )
 
             TelevisionPlayerPanel.Sleep -> PlayerSelectionPanel(
-                title = "Sleep timer",
+                title = stringResource(R.string.tv_player_sleep_timer),
                 rows = selectionRows(
                     prefix = "sleep",
                     selected = sleepTimer,
-                    values = listOf("Off", "15 min", "30 min", "45 min", "1 hr", "End of episode"),
+                    values = listOf(
+                        PlayerSelectionOption(SleepTimer.Off, SleepTimer.Off.label()),
+                        PlayerSelectionOption(SleepTimer.Minutes15, SleepTimer.Minutes15.label()),
+                        PlayerSelectionOption(SleepTimer.Minutes30, SleepTimer.Minutes30.label()),
+                        PlayerSelectionOption(SleepTimer.Minutes45, SleepTimer.Minutes45.label()),
+                        PlayerSelectionOption(SleepTimer.Hour, SleepTimer.Hour.label()),
+                        PlayerSelectionOption(SleepTimer.EndOfEpisode, SleepTimer.EndOfEpisode.label()),
+                    ),
                 ) { sleepTimer = it; closePanel() },
                 onDismiss = ::closePanel,
                 modifier = Modifier.align(Alignment.CenterEnd),
             )
 
             TelevisionPlayerPanel.Information -> PlayerSelectionPanel(
-                title = "Playback information",
+                title = stringResource(R.string.tv_player_playback_information),
                 rows = listOf(
-                    PlayerSelectionRow("info:source", "Source", state.playMethod ?: state.quality.label, onClick = {}),
-                    PlayerSelectionRow("info:container", "Container", state.container ?: "Unknown", onClick = {}),
-                    PlayerSelectionRow("info:video", "Video", state.videoDescription ?: videoTrack, onClick = {}),
-                    PlayerSelectionRow("info:color", "Color", state.effectiveHdrMode, onClick = {}),
-                    PlayerSelectionRow("info:audio", "Audio", state.audioDescription ?: state.audioTracks.firstOrNull { it.selected }?.label ?: "Unknown", onClick = {}),
-                    PlayerSelectionRow("info:output", "Output", state.activeAudioRoute, onClick = {}),
-                    PlayerSelectionRow("info:display", "Display", state.displayDescription ?: "TV", onClick = {}),
-                    PlayerSelectionRow("info:decoder", "Decoder", "mpv / hardware", onClick = {}),
-                    PlayerSelectionRow("info:dropped", "Dropped frames", "0", onClick = {}),
+                    PlayerSelectionRow("info:source", stringResource(R.string.tv_player_source), state.playMethod.playMethodLabel() ?: state.quality.descriptionLabel(), onClick = {}),
+                    PlayerSelectionRow("info:container", stringResource(R.string.tv_player_container), state.container ?: stringResource(R.string.tv_unknown), onClick = {}),
+                PlayerSelectionRow(
+                    "info:video",
+                    stringResource(R.string.tv_player_video),
+                    state.videoInfo.descriptionLabel() ?: if (videoTrack.isBlank()) {
+                        stringResource(R.string.tv_unknown)
+                    } else {
+                        videoTrack
+                    },
+                    onClick = {},
+                ),
+                PlayerSelectionRow(
+                    "info:color",
+                    stringResource(R.string.tv_player_color),
+                    state.effectiveHdrMode.descriptionLabel() ?: stringResource(R.string.tv_unknown),
+                    onClick = {},
+                ),
+                    PlayerSelectionRow("info:audio", stringResource(R.string.tv_audio), state.audioInfo.descriptionLabel() ?: state.audioTracks.firstOrNull { it.selected }?.label ?: stringResource(R.string.tv_unknown), onClick = {}),
+                PlayerSelectionRow(
+                    "info:output",
+                    stringResource(R.string.tv_player_output),
+                    if (state.activeAudioRoute.isBlank()) {
+                        stringResource(R.string.tv_player_unknown_output)
+                    } else {
+                        state.activeAudioRoute
+                    },
+                    onClick = {},
+                ),
+                    PlayerSelectionRow("info:display", stringResource(R.string.tv_player_display), streamResolutionLabel(state.displayWidth, state.displayHeight) ?: stringResource(R.string.tv_android_tv), onClick = {}),
+                    PlayerSelectionRow("info:decoder", stringResource(R.string.tv_player_decoder), stringResource(R.string.tv_player_mpv_hardware), onClick = {}),
+                    PlayerSelectionRow("info:dropped", stringResource(R.string.tv_player_dropped_frames), "0", onClick = {}),
                 ),
                 onDismiss = ::closePanel,
                 modifier = Modifier.align(Alignment.CenterEnd),
@@ -769,42 +947,47 @@ internal fun TelevisionPlayerContent(
             )
 
             TelevisionPlayerPanel.More -> PlayerSelectionPanel(
-                title = "More",
+                title = stringResource(R.string.tv_player_more),
                 rows = listOf(
                     PlayerSelectionRow(
                         key = "more:speed",
-                        label = "Playback speed",
-                        detail = "${state.speed}x",
+                        label = stringResource(R.string.tv_player_playback_speed),
+                        detail = stringResource(R.string.tv_player_playback_speed_value, state.speed),
                         onClick = { openPanel(TelevisionPlayerPanel.Speed) },
                     ),
                     PlayerSelectionRow(
                         key = "more:quality",
-                        label = "Frame",
-                        detail = frameMode,
+                        label = stringResource(R.string.tv_player_frame),
+                        detail = frameMode.label(),
                         onClick = { openPanel(TelevisionPlayerPanel.Frame) },
                     ),
                     PlayerSelectionRow(
                         key = "more:hdr",
-                        label = "HDR handling",
-                        detail = hdrMode,
+                        label = stringResource(R.string.tv_player_hdr_handling),
+                        detail = hdrMode.label(),
                         onClick = { openPanel(TelevisionPlayerPanel.Hdr) },
                     ),
-                    PlayerSelectionRow("more:video", "Video", videoTrack, onClick = { openPanel(TelevisionPlayerPanel.VideoTrack) }),
-                    PlayerSelectionRow("more:audio-delay", "Audio delay", signedPlaybackDelay(state.audioDelayMs), onClick = { openPanel(TelevisionPlayerPanel.AudioDelay) }),
-                    PlayerSelectionRow("more:subtitle-delay", "Subtitle delay", signedPlaybackDelay(state.subtitleDelayMs), onClick = { openPanel(TelevisionPlayerPanel.SubtitleDelay) }),
-                    PlayerSelectionRow("more:deinterlace", "Deinterlace", deinterlaceMode, onClick = { openPanel(TelevisionPlayerPanel.Deinterlace) }),
-                    PlayerSelectionRow("more:sleep", "Sleep timer", sleepTimer, onClick = { openPanel(TelevisionPlayerPanel.Sleep) }),
-                    PlayerSelectionRow("more:information", "Playback information", "Stream details", onClick = { openPanel(TelevisionPlayerPanel.Information) }),
+                  PlayerSelectionRow(
+                      "more:video",
+                      stringResource(R.string.tv_player_video),
+                      if (videoTrack.isBlank()) stringResource(R.string.tv_unknown) else videoTrack,
+                      onClick = { openPanel(TelevisionPlayerPanel.VideoTrack) },
+                  ),
+                    PlayerSelectionRow("more:audio-delay", stringResource(R.string.tv_player_audio_delay), signedPlaybackDelay(state.audioDelayMs), onClick = { openPanel(TelevisionPlayerPanel.AudioDelay) }),
+                    PlayerSelectionRow("more:subtitle-delay", stringResource(R.string.tv_player_subtitle_delay), signedPlaybackDelay(state.subtitleDelayMs), onClick = { openPanel(TelevisionPlayerPanel.SubtitleDelay) }),
+                    PlayerSelectionRow("more:deinterlace", stringResource(R.string.tv_player_deinterlace), deinterlaceMode.label(), onClick = { openPanel(TelevisionPlayerPanel.Deinterlace) }),
+                    PlayerSelectionRow("more:sleep", stringResource(R.string.tv_player_sleep_timer), sleepTimer.label(), onClick = { openPanel(TelevisionPlayerPanel.Sleep) }),
+                    PlayerSelectionRow("more:information", stringResource(R.string.tv_player_playback_information), stringResource(R.string.tv_player_stream_details), onClick = { openPanel(TelevisionPlayerPanel.Information) }),
                     PlayerSelectionRow(
                         key = "more:options",
-                        label = "Legacy timing controls",
-                        detail = "Audio and subtitle timing",
+                        label = stringResource(R.string.tv_player_legacy_timing),
+                        detail = stringResource(R.string.tv_player_timing_detail),
                         onClick = { openPanel(TelevisionPlayerPanel.Options) },
                     ),
                     PlayerSelectionRow(
                         key = "more:extras",
-                        label = "While you watch",
-                        detail = "Similar titles and cast",
+                        label = stringResource(R.string.tv_player_while_watching),
+                        detail = stringResource(R.string.tv_player_similar_cast),
                         onClick = { openPanel(TelevisionPlayerPanel.Extras) },
                     ),
                 ),
@@ -821,6 +1004,7 @@ internal fun TelevisionPlayerContent(
                 onOpenPerson = { person ->
                     leavePlayer { onNavigateToPerson(person.id, person.name) }
                 },
+                onRetry = controller::loadShelves,
             )
 
             null -> Unit
@@ -859,6 +1043,26 @@ internal fun TelevisionPlayerContent(
                     controller.play()
                 },
                 onStop = ::exitPlayer,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlayerLoadingOverlay() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(TelevisionColors.Black.copy(alpha = 0.78f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator()
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = stringResource(R.string.tv_player_loading),
+                style = MaterialTheme.typography.titleLarge,
+                color = TelevisionColors.Paper,
             )
         }
     }

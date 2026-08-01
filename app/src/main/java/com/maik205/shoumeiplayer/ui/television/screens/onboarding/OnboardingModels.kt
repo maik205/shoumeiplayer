@@ -18,9 +18,10 @@ data class ServerChoiceUi(
 data class ConnectUiState(
     val address: String = "",
     val servers: List<ServerChoiceUi> = emptyList(),
-    val discovering: Boolean = true,
+    val discovering: Boolean = false,
     val connecting: Boolean = false,
     val error: UiText? = null,
+    val discoveryError: UiText? = null,
 )
 
 @Immutable
@@ -47,6 +48,7 @@ data class LoginUiState(
     val quickConnectLoading: Boolean = false,
     val quickConnectCode: String? = null,
     val quickConnectAvailable: Boolean = false,
+    val quickConnectChecking: Boolean = true,
     val error: UiText? = null,
 )
 

@@ -60,6 +60,8 @@ import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.player.PlaybackSpeed
 import com.maik205.shoumeiplayer.player.PlayerTrack
 import com.maik205.shoumeiplayer.player.VideoQuality
+import androidx.compose.ui.res.stringResource
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.feature.player.PlayerShelfItem
 import com.maik205.shoumeiplayer.feature.player.CastMemberUi
 import com.maik205.shoumeiplayer.feature.player.ChapterMark
@@ -79,6 +81,7 @@ internal fun PlayerExtrasOverlay(
     onDismiss: () -> Unit,
     onOpenItem: (String) -> Unit,
     onOpenPerson: (CastMemberUi) -> Unit,
+    onRetry: () -> Unit,
 ) {
     val backFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { backFocus.requestFocus() } }
@@ -96,13 +99,13 @@ internal fun PlayerExtrasOverlay(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             PlayerActionButton(
-                label = "Back",
+                label = stringResource(R.string.tv_back),
                 icon = Icons.AutoMirrored.Filled.ArrowBack,
                 onClick = onDismiss,
                 focusRequester = backFocus,
             )
             Spacer(Modifier.width(16.dp))
-            Text("While you watch", style = MaterialTheme.typography.displaySmall)
+            Text(stringResource(R.string.tv_player_while_watching), style = MaterialTheme.typography.displaySmall)
         }
         Spacer(Modifier.height(26.dp))
         LazyColumn(
@@ -112,7 +115,7 @@ internal fun PlayerExtrasOverlay(
             if (state.similar.isNotEmpty()) {
                 item(key = "similar") {
                     ExtrasMediaRow(
-                        title = "More like this",
+                        title = stringResource(R.string.tv_player_more_like),
                         items = state.similar,
                         onOpen = onOpenItem,
                     )
@@ -123,10 +126,29 @@ internal fun PlayerExtrasOverlay(
                     CastRow(state.cast, onOpenPerson)
                 }
             }
-            if (state.similar.isEmpty() && state.cast.isEmpty()) {
+            if (state.shelvesError != null) {
+                item(key = "empty") {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            text = state.shelvesError.resolveMessage(),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = TelevisionColors.PaperMuted,
+                        )
+                        PlayerActionButton(
+                            label = stringResource(R.string.retry),
+                            icon = Icons.Default.Refresh,
+                            onClick = onRetry,
+                        )
+                    }
+                }
+            } else if (state.similar.isEmpty() && state.cast.isEmpty()) {
                 item(key = "empty") {
                     Text(
-                        if (state.shelvesLoading) "Loading…" else "Nothing else is available for this title.",
+                        text = if (state.shelvesLoading) {
+                            stringResource(R.string.tv_loading_more)
+                        } else {
+                            stringResource(R.string.tv_player_empty_extras)
+                        },
                         style = MaterialTheme.typography.bodyLarge,
                         color = TelevisionColors.PaperMuted,
                     )
@@ -188,7 +210,7 @@ private fun CastRow(
     }
     val railState = rememberLazyListState()
     Column {
-        Text("Cast", style = MaterialTheme.typography.headlineSmall)
+        Text(stringResource(R.string.tv_player_cast), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
         LazyRow(
             state = railState,

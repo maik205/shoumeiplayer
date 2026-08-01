@@ -1,5 +1,6 @@
 package com.maik205.shoumeiplayer.feature.player
 
+import com.maik205.shoumeiplayer.domain.settings.HdrMode
 import com.maik205.shoumeiplayer.player.PlaybackMetricsSink
 import com.maik205.shoumeiplayer.player.PlaybackOwnershipCoordinator
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,8 +14,8 @@ import kotlinx.coroutines.flow.StateFlow
  * them keeps the constructor from growing every time another ambient signal is wired in.
  */
 data class PlayerObservabilityInputs(
-    val audioRouteLabel: StateFlow<String> = MutableStateFlow("System default"),
-    val effectiveHdrMode: StateFlow<String> = MutableStateFlow("Automatic"),
+    val audioRouteLabel: StateFlow<String> = MutableStateFlow(""),
+    val effectiveHdrMode: StateFlow<HdrMode?> = MutableStateFlow<HdrMode?>(null),
     val networkAvailable: StateFlow<Boolean> = MutableStateFlow(true),
     val networkTransport: StateFlow<String> = MutableStateFlow("unknown"),
     val metricsSink: PlaybackMetricsSink? = null,

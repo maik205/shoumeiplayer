@@ -42,10 +42,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.domain.model.DetailMediaStream
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionBackground
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionEmptyState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionErrorState
@@ -85,6 +87,16 @@ internal fun DetailHero(
             it.type.equals("Audio", true) ||
             it.type.equals("Subtitle", true)
     }
+    val defaultStreamLabel = stringResource(R.string.tv_default)
+    val subtitleFallbackLabel = stringResource(R.string.tv_on)
+    val audioOptions = mutableListOf<String>()
+    for (stream in audioStreams) {
+        audioOptions += stream.streamLabel(defaultStreamLabel)
+    }
+    val subtitleOptions = mutableListOf(stringResource(R.string.off))
+    for (stream in subtitleStreams) {
+        subtitleOptions += stream.streamLabel(subtitleFallbackLabel)
+    }
 
     Box(
         modifier = modifier.fillMaxWidth(),
@@ -98,7 +110,7 @@ internal fun DetailHero(
                 ),
         ) {
             TelevisionFocusRevealButton(
-                label = "Back",
+                label = stringResource(R.string.tv_back),
                 icon = Icons.AutoMirrored.Filled.ArrowBack,
                 onClick = onBack,
                 focusRequester = backFocus,
@@ -153,7 +165,11 @@ internal fun DetailHero(
                     )
                 }
                 TelevisionFocusRevealButton(
-                    label = if (hero.favorite) "In my list" else "My list",
+                    label = if (hero.favorite) {
+                        stringResource(R.string.tv_in_my_list)
+                    } else {
+                        stringResource(R.string.tv_my_list)
+                    },
                     icon = if (hero.favorite) Icons.Default.Check else Icons.Default.Add,
                     onClick = onToggleFavorite,
                     expandedWidth = 118.dp,
@@ -169,7 +185,11 @@ internal fun DetailHero(
                     )
                 ) {
                     TelevisionFocusRevealButton(
-                        label = if (hero.watched) "Mark unwatched" else "Mark watched",
+                        label = if (hero.watched) {
+                            stringResource(R.string.tv_mark_unwatched)
+                        } else {
+                            stringResource(R.string.tv_mark_watched)
+                        },
                         icon = if (hero.watched) Icons.Default.Replay else Icons.Default.DoneAll,
                         onClick = onTogglePlayed,
                         expandedWidth = 156.dp,
@@ -183,8 +203,8 @@ internal fun DetailHero(
                 Row(horizontalArrangement = Arrangement.spacedBy(26.dp)) {
                     if (audioStreams.isNotEmpty()) {
                         DetailChoiceField(
-                            label = "Audio",
-                            options = audioStreams.map { it.streamLabel("Default") },
+                            label = stringResource(R.string.tv_audio),
+                            options = audioOptions,
                             selectedIndex = audioChoice,
                             icon = Icons.AutoMirrored.Filled.VolumeUp,
                             onSelect = onSelectAudio,
@@ -192,15 +212,15 @@ internal fun DetailHero(
                         )
                     }
                     DetailChoiceField(
-                        label = "Subtitles",
-                        options = listOf("Off") + subtitleStreams.map { it.streamLabel("On") },
+                        label = stringResource(R.string.tv_subtitles),
+                        options = subtitleOptions,
                         selectedIndex = subtitleChoice,
                         icon = Icons.Default.ClosedCaption,
                         onSelect = onSelectSubtitle,
                         onFocused = onHeroControlFocused,
                     )
                     DetailChoiceField(
-                        label = "Quality",
+                        label = stringResource(R.string.tv_quality),
                         options = qualityOptions,
                         selectedIndex = qualityChoice,
                         icon = Icons.Default.HighQuality,
@@ -240,65 +260,84 @@ internal fun DetailHero(
     }
 }
 
+@Composable
 private fun DetailMediaStream?.streamLabel(fallback: String): String {
     if (this == null) return fallback
-    return displayTitle
-        ?.takeIf(String::isNotBlank)
-        ?: listOfNotNull(
-            language?.uppercase()?.takeIf(String::isNotBlank),
-            codec?.uppercase()?.takeIf(String::isNotBlank),
-            channels?.let { "$it ch" },
-        ).joinToString(" ").ifBlank { fallback }
+    val title = displayTitle?.takeIf(String::isNotBlank)
+    if (title != null) return title
+    val labels = mutableListOf<String>()
+    language?.uppercase()?.takeIf(String::isNotBlank)?.let(labels::add)
+    codec?.uppercase()?.takeIf(String::isNotBlank)?.let(labels::add)
+    if (channels != null) labels += stringResource(R.string.tv_channels_count, channels)
+    val label = labels.joinToString(" ")
+    return if (label.isBlank()) fallback else label
 }
 
+@Composable
 internal fun detailQualityOptions(streams: List<DetailMediaStream>): List<String> {
     val height = streams.firstOrNull { it.type.equals("Video", true) }?.height
-    return buildList {
-        add("Auto")
-        if (height == null || height >= 2160) add("4K")
-        if (height == null || height >= 1080) add("1080p")
-        if (height == null || height >= 720) add("720p")
-        add("480p")
-    }
+    val options = mutableListOf(stringResource(R.string.tv_auto))
+    if (height == null || height >= 2160) options += stringResource(R.string.tv_resolution_4k)
+    if (height == null || height >= 1080) options += stringResource(R.string.tv_resolution_1080p)
+    if (height == null || height >= 720) options += stringResource(R.string.tv_resolution_720p)
+    options += stringResource(R.string.tv_resolution_480p)
+    return options
 }
 
+@Composable
 private fun detailEyebrow(state: TelevisionDetailState): String {
     val item = state.item ?: return detailKindLabel(state.kind)
     if (state.kind == DetailKind.Episode) {
-        return listOfNotNull(
+        val label = listOfNotNull(
             item.seriesName?.takeIf(String::isNotBlank),
             episodeLabel(item.parentIndexNumber, item.indexNumber),
-        ).joinToString("  ·  ").ifBlank { "Episode" }
+        ).joinToString("  ·  ")
+        return if (label.isBlank()) stringResource(R.string.tv_episode) else label
     }
     return detailKindLabel(state.kind)
 }
 
+@Composable
 private fun detailMetadata(state: TelevisionDetailState): List<String> {
     val item = state.item ?: return emptyList()
-    return when (state.kind) {
-        DetailKind.Series -> buildList {
-            item.productionYear?.let { add(it.toString()) }
-            item.episodeCount?.takeIf { it > 0 }?.let { add("$it episodes") }
-            playbackQualityLabel(state.playbackItem?.mediaStreams.orEmpty())?.let(::add)
-            item.genres.firstOrNull()?.takeIf(String::isNotBlank)?.let(::add)
-            item.officialRating?.takeIf(String::isNotBlank)?.let(::add)
-        }
-
-        DetailKind.Episode -> buildList {
-            item.runTimeTicks?.takeIf { it > 0 }?.let {
-                state.hero?.runtimeLabel?.let(::add)
+    val metadata = mutableListOf<String>()
+    when (state.kind) {
+        DetailKind.Series -> {
+            item.productionYear?.let { metadata += it.toString() }
+            val episodeCount = item.episodeCount?.takeIf { it > 0 }
+            if (episodeCount != null) {
+                metadata += stringResource(R.string.tv_episodes_count, episodeCount)
             }
-            detailDateLabel(item.premiereDate)?.let(::add)
-            item.officialRating?.takeIf(String::isNotBlank)?.let(::add)
-            playbackQualityLabel(state.playbackItem?.mediaStreams.orEmpty())?.let(::add)
+            val quality = playbackQualityLabel(state.playbackItem?.mediaStreams.orEmpty())
+            if (quality != null) metadata += quality
+            val genre = item.genres.firstOrNull()?.takeIf(String::isNotBlank)
+            if (genre != null) metadata += genre
+            val rating = item.officialRating?.takeIf(String::isNotBlank)
+            if (rating != null) metadata += rating
         }
 
-        else -> state.hero?.metadata.orEmpty()
+        DetailKind.Episode -> {
+            if (item.runTimeTicks?.let { it > 0 } == true) {
+                state.hero?.runtimeLabel?.let { metadata += it }
+            }
+            val date = detailDateLabel(item.premiereDate)
+            if (date != null) metadata += date
+            val rating = item.officialRating?.takeIf(String::isNotBlank)
+            if (rating != null) metadata += rating
+            val quality = playbackQualityLabel(state.playbackItem?.mediaStreams.orEmpty())
+            if (quality != null) metadata += quality
+        }
+
+        else -> metadata += state.hero?.metadata.orEmpty()
     }
+    return metadata
 }
 
+@Composable
 private fun detailPlayLabel(state: TelevisionDetailState): String {
-    val action = if (state.playableResumeTicks > 0) "Resume" else "Play"
+    val action = stringResource(
+        if (state.playableResumeTicks > 0) R.string.resume else R.string.play,
+    )
     if (state.kind != DetailKind.Series) return action
     val nextUp = state.nextUp ?: return action
     return listOfNotNull(
@@ -307,33 +346,40 @@ private fun detailPlayLabel(state: TelevisionDetailState): String {
     ).joinToString(" ")
 }
 
+@Composable
 private fun episodeLabel(seasonNumber: Int?, episodeNumber: Int?): String? =
     if (seasonNumber != null || episodeNumber != null) {
-        "S${seasonNumber ?: 0} E${episodeNumber ?: 0}"
+        stringResource(
+            R.string.tv_season_episode,
+            seasonNumber ?: 0,
+            episodeNumber ?: 0,
+        )
     } else {
         null
     }
 
+@Composable
 private fun playbackQualityLabel(streams: List<DetailMediaStream>): String? {
     val height = streams.firstOrNull { it.type.equals("Video", true) }?.height ?: return null
     return when {
-        height >= 2160 -> "4K"
-        height >= 1080 -> "1080p"
-        height >= 720 -> "720p"
-        else -> "${height}p"
+        height >= 2160 -> stringResource(R.string.tv_resolution_4k)
+        height >= 1080 -> stringResource(R.string.tv_resolution_1080p)
+        height >= 720 -> stringResource(R.string.tv_resolution_720p)
+        else -> stringResource(R.string.tv_resolution_height, height)
     }
 }
 
+@Composable
 private fun detailKindLabel(kind: DetailKind): String = when (kind) {
-    DetailKind.Film -> "Movie"
-    DetailKind.Series -> "Series"
-    DetailKind.Episode -> "Episode"
-    DetailKind.Album -> "Album"
-    DetailKind.Artist -> "Artist"
-    DetailKind.Playlist -> "Playlist"
-    DetailKind.AudioBook -> "Audiobook"
-    DetailKind.Collection -> "Collection"
-    DetailKind.Person -> "Person"
-    DetailKind.Live -> "Live"
-    DetailKind.Generic -> "Media"
+    DetailKind.Film -> stringResource(R.string.tv_detail_movie)
+    DetailKind.Series -> stringResource(R.string.tv_detail_series_kind)
+    DetailKind.Episode -> stringResource(R.string.tv_episode)
+    DetailKind.Album -> stringResource(R.string.tv_detail_album_kind)
+    DetailKind.Artist -> stringResource(R.string.tv_detail_artist_kind)
+    DetailKind.Playlist -> stringResource(R.string.tv_detail_playlist_kind)
+    DetailKind.AudioBook -> stringResource(R.string.tv_detail_audiobook_kind)
+    DetailKind.Collection -> stringResource(R.string.tv_detail_collection_kind)
+    DetailKind.Person -> stringResource(R.string.tv_detail_person_kind)
+    DetailKind.Live -> stringResource(R.string.tv_detail_live_kind)
+    DetailKind.Generic -> stringResource(R.string.tv_detail_media_kind)
 }

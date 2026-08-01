@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,6 +51,7 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.maik205.shoumeiplayer.domain.model.ArtworkShape
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
+import com.maik205.shoumeiplayer.core.designsystem.tv.R
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import kotlinx.coroutines.coroutineScope
@@ -373,7 +375,7 @@ fun TelevisionProgressMark(
         ) {
             Icon(
                 imageVector = Icons.Default.Check,
-                contentDescription = "Watched",
+                contentDescription = stringResource(R.string.ds_watched),
                 modifier = Modifier.size(18.dp),
                 tint = TelevisionColors.Paper,
             )

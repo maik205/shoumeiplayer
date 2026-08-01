@@ -42,11 +42,14 @@ import androidx.tv.material3.Text
 import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.domain.settings.ClientSettings
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionAppTopNavigation
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionErrorState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusScale
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
 import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
+import com.maik205.shoumeiplayer.ui.i18n.UiText
+import com.maik205.shoumeiplayer.ui.i18n.resolve
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 
@@ -62,6 +65,9 @@ fun TelevisionSettingsScreen(
     onSwitchProfile: () -> Unit,
     onTestConnection: () -> Unit,
     onRefreshLibraries: () -> Unit,
+    libraryRefreshing: Boolean,
+    libraryRefreshError: UiText?,
+    onRetrySettings: () -> Unit,
     onQuickConnect: () -> Unit,
     onClearArtworkCache: () -> Unit,
     onNavigateHome: () -> Unit,
@@ -174,6 +180,35 @@ fun TelevisionSettingsScreen(
                 }
             }
             Spacer(Modifier.height(8.dp))
+            val settingsError = state.error
+            if (settingsError != null) {
+                TelevisionErrorState(
+                    title = stringResource(R.string.tv_settings_error_title),
+                    message = settingsError.resolve(),
+                    onRetry = onRetrySettings,
+                    retryLabel = stringResource(R.string.retry),
+                    requestInitialFocus = false,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
+            if (libraryRefreshError != null) {
+                TelevisionErrorState(
+                    title = stringResource(R.string.tv_settings_libraries_error_title),
+                    message = libraryRefreshError.resolve(),
+                    onRetry = onRefreshLibraries,
+                    retryLabel = stringResource(R.string.retry),
+                    requestInitialFocus = false,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
+            if (libraryRefreshing) {
+                Text(
+                    text = stringResource(R.string.tv_refreshing),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TelevisionColors.PaperMuted,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
             SettingsSectionContent(
                 section = section,
                 rows = settingsRows(
@@ -222,9 +257,10 @@ fun TelevisionSettingsScreen(
             navigationState = navigationState,
         )
 
-        activeChoice?.let { row ->
+        val choice = activeChoice
+        if (choice != null) {
             SettingsChoiceDrawer(
-                row = row,
+                row = choice,
                 onSelect = { selectedOption ->
                     activeChoice = activeChoice?.copy(
                         value = selectedOption.label,

@@ -52,10 +52,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.res.stringResource
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.domain.model.DetailItem
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusScale
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
@@ -81,33 +83,43 @@ internal fun DetailAbout(state: TelevisionDetailState) {
             item.people.firstOrNull {
                 it.type.equals("Writer", ignoreCase = true) ||
                     it.type.equals("Producer", ignoreCase = true)
-            }?.name?.let { add("Created by" to it) }
-            item.status?.let { add("Status" to it) }
-            state.seasons.size.takeIf { it > 0 }?.let { add("Seasons" to it.toString()) }
-            item.episodeCount?.takeIf { it > 0 }?.let { add("Episodes" to it.toString()) }
-            item.genres.takeIf { it.isNotEmpty() }?.let { add("Genres" to it.joinToString(", ")) }
-            item.officialRating?.let { add("Rating" to it) }
+            }?.name?.let { add(R.string.tv_detail_created_by to it) }
+            item.status?.let { add(R.string.tv_detail_status to it) }
+            state.seasons.size.takeIf { it > 0 }?.let {
+                add(R.string.tv_detail_seasons to it.toString())
+            }
+            item.episodeCount?.takeIf { it > 0 }?.let {
+                add(R.string.tv_episodes to it.toString())
+            }
+            item.genres.takeIf { it.isNotEmpty() }?.let {
+                add(R.string.tv_detail_genres to it.joinToString(", "))
+            }
+            item.officialRating?.let { add(R.string.tv_detail_rating to it) }
         }
 
         DetailKind.Episode -> buildList {
             item.people.firstOrNull {
                 it.type.equals("Director", ignoreCase = true)
-            }?.name?.let { add("Director" to it) }
+            }?.name?.let { add(R.string.tv_detail_director to it) }
             item.people.firstOrNull {
                 it.type.equals("Writer", ignoreCase = true)
-            }?.name?.let { add("Writer" to it) }
-            item.seriesName?.let { add("Series" to it) }
-            item.seasonName?.let { add("Season" to it) }
-            detailDateLabel(item.premiereDate)?.let { add("Release" to it) }
-            item.officialRating?.let { add("Rating" to it) }
+            }?.name?.let { add(R.string.tv_detail_writer to it) }
+            item.seriesName?.let { add(R.string.tv_detail_series to it) }
+            item.seasonName?.let { add(R.string.tv_detail_season to it) }
+            detailDateLabel(item.premiereDate)?.let { add(R.string.tv_detail_release to it) }
+            item.officialRating?.let { add(R.string.tv_detail_rating to it) }
         }
 
         else -> buildList {
-            item.studios.firstOrNull()?.let { add("Studio" to it) }
-            item.genres.takeIf { it.isNotEmpty() }?.let { add("Genres" to it.joinToString(", ")) }
-            item.officialRating?.let { add("Rating" to it) }
-            item.communityRating?.let { add("Community" to String.format(Locale.US, "%.1f", it)) }
-            item.status?.let { add("Status" to it) }
+            item.studios.firstOrNull()?.let { add(R.string.tv_detail_studio to it) }
+            item.genres.takeIf { it.isNotEmpty() }?.let {
+                add(R.string.tv_detail_genres to it.joinToString(", "))
+            }
+            item.officialRating?.let { add(R.string.tv_detail_rating to it) }
+            item.communityRating?.let {
+                add(R.string.tv_detail_community to String.format(Locale.getDefault(), "%.1f", it))
+            }
+            item.status?.let { add(R.string.tv_detail_status to it) }
         }
     }
     if (facts.isEmpty()) return
@@ -122,15 +134,15 @@ internal fun DetailAbout(state: TelevisionDetailState) {
                 bottom = 28.dp,
             ),
     ) {
-        TelevisionRowHeader(title = "About this title")
+        TelevisionRowHeader(title = stringResource(R.string.tv_detail_about))
         Spacer(Modifier.height(14.dp))
         Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
             facts.chunked(3).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(42.dp)) {
-                    row.forEach { (label, value) ->
+                    row.forEach { (labelRes, value) ->
                         Column(modifier = Modifier.width(220.dp)) {
                             Text(
-                                text = label,
+                                text = stringResource(labelRes),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = TelevisionColors.PaperMuted,
                             )

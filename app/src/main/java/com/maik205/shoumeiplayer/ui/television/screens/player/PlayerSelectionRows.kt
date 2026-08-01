@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -57,6 +58,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.player.PlaybackSpeed
 import com.maik205.shoumeiplayer.player.PlayerTrack
 import com.maik205.shoumeiplayer.player.VideoQuality
@@ -73,74 +75,110 @@ import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import java.util.Locale
 
+@Composable
 internal fun audioRows(
     tracks: List<PlayerTrack>,
     onSelect: (PlayerTrack) -> Unit,
-): List<PlayerSelectionRow> = tracks.map { track ->
-    val language = displayTrackLanguage(track.language)
-    val label = track.label
-        .takeUnless { it.isBlank() || it.equals(track.language, ignoreCase = true) }
-        ?: language
-    PlayerSelectionRow(
-        key = "audio:${track.id}",
-        label = label,
-        detail = language.takeUnless { it.equals(label, ignoreCase = true) },
-        selected = track.selected,
-        onClick = { onSelect(track) },
-    )
+): List<PlayerSelectionRow> {
+    val rows = mutableListOf<PlayerSelectionRow>()
+    for (track in tracks) {
+        val language = displayTrackLanguage(track.language)
+        val label = track.label
+            .takeUnless { it.isBlank() || it.equals(track.language, ignoreCase = true) }
+            ?: language
+        rows += PlayerSelectionRow(
+            key = "audio:${track.id}",
+            label = label,
+            detail = language.takeUnless { it.equals(label, ignoreCase = true) },
+            selected = track.selected,
+            onClick = { onSelect(track) },
+        )
+    }
+    return rows
 }
 
+@Composable
 internal fun subtitleRows(
     tracks: List<PlayerTrack>,
     onSelect: (PlayerTrack) -> Unit,
-): List<PlayerSelectionRow> = tracks.map { track ->
-    val language = displayTrackLanguage(track.language)
-    val label = track.label
-        .takeUnless { it.isBlank() || it.equals(track.language, ignoreCase = true) }
-        ?: language
-    PlayerSelectionRow(
-        key = "subtitle:${track.id}",
-        label = label,
-        detail = language.takeUnless { it.equals(label, ignoreCase = true) },
-        selected = track.selected,
-        onClick = { onSelect(track) },
-    )
+): List<PlayerSelectionRow> {
+    val rows = mutableListOf<PlayerSelectionRow>()
+    for (track in tracks) {
+        val language = displayTrackLanguage(track.language)
+        val label = track.label
+            .takeUnless { it.isBlank() || it.equals(track.language, ignoreCase = true) }
+            ?: language
+        rows += PlayerSelectionRow(
+            key = "subtitle:${track.id}",
+            label = label,
+            detail = language.takeUnless { it.equals(label, ignoreCase = true) },
+            selected = track.selected,
+            onClick = { onSelect(track) },
+        )
+    }
+    return rows
 }
 
+@Composable
 internal fun chapterRows(
     chapters: List<ChapterMark>,
     onSelect: (ChapterMark) -> Unit,
-): List<PlayerSelectionRow> = chapters.mapIndexed { index, chapter ->
-    PlayerSelectionRow(
-        key = "chapter:${chapter.positionMs}",
-        label = chapter.name?.takeIf(String::isNotBlank) ?: "Chapter ${index + 1}",
-        detail = formatPlayerTime(chapter.positionMs),
-        onClick = { onSelect(chapter) },
-    )
+): List<PlayerSelectionRow> {
+    val rows = mutableListOf<PlayerSelectionRow>()
+    for ((index, chapter) in chapters.withIndex()) {
+        rows += PlayerSelectionRow(
+            key = "chapter:${chapter.positionMs}",
+            label = chapter.name?.takeIf(String::isNotBlank)
+                ?: stringResource(R.string.tv_player_episode_number, index + 1),
+            detail = formatPlayerTime(chapter.positionMs),
+            onClick = { onSelect(chapter) },
+        )
+    }
+    return rows
 }
 
+@Composable
 private fun displayTrackLanguage(language: String?): String {
     val value = language?.trim().orEmpty()
     return when (value.lowercase(Locale.ROOT)) {
-        "ja", "jpn" -> "Japanese"
-        "en", "eng" -> "English"
-        "vi", "vie" -> "Vietnamese"
-        "und", "" -> "Unknown language"
+        "ja", "jpn" -> stringResource(R.string.tv_settings_japanese)
+        "en", "eng" -> stringResource(R.string.tv_settings_english)
+        "vi", "vie" -> stringResource(R.string.tv_settings_vietnamese)
+        "und", "" -> stringResource(R.string.tv_player_unknown_language)
         else -> value
     }
 }
 
+@Composable
 internal fun qualityRows(
     selected: VideoQuality,
     onSelect: (VideoQuality) -> Unit,
-): List<PlayerSelectionRow> = VideoQuality.Ladder.map { quality ->
-    PlayerSelectionRow(
-        key = "quality:${quality.name}",
-        label = quality.label,
-        detail = if (quality == VideoQuality.AUTO) "Prefer direct play" else "Maximum stream quality",
-        selected = quality == selected,
-        onClick = { onSelect(quality) },
-    )
+): List<PlayerSelectionRow> {
+    val rows = mutableListOf<PlayerSelectionRow>()
+    for (quality in VideoQuality.Ladder) {
+        rows += PlayerSelectionRow(
+            key = "quality:${quality.name}",
+            label = stringResource(
+                when (quality) {
+                    VideoQuality.AUTO -> R.string.tv_auto
+                    VideoQuality.UHD -> R.string.tv_resolution_4k
+                    VideoQuality.FHD -> R.string.tv_resolution_1080p
+                    VideoQuality.HD -> R.string.tv_resolution_720p
+                    VideoQuality.SD -> R.string.tv_resolution_480p
+                },
+            ),
+            detail = stringResource(
+                if (quality == VideoQuality.AUTO) {
+                    R.string.tv_player_prefer_direct_play
+                } else {
+                    R.string.tv_player_max_stream_quality
+                },
+            ),
+            selected = quality == selected,
+            onClick = { onSelect(quality) },
+        )
+    }
+    return rows
 }
 
 internal fun speedRows(
@@ -167,8 +205,9 @@ internal fun formatPlayerTime(ms: Long): String {
     }
 }
 
+@Composable
 internal fun signedDelay(valueMs: Long): String = when {
-    valueMs > 0L -> "+${valueMs} ms"
-    valueMs < 0L -> "${valueMs} ms"
-    else -> "0 ms"
+    valueMs > 0L -> stringResource(R.string.tv_player_delay_positive, valueMs)
+    valueMs < 0L -> stringResource(R.string.tv_player_delay_negative, valueMs)
+    else -> stringResource(R.string.tv_player_delay_zero)
 }

@@ -3,6 +3,7 @@ package com.maik205.shoumeiplayer.ui.television.screens.settings
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.domain.result.ApiResult
 import com.maik205.shoumeiplayer.data.cache.ArtworkCache
 import com.maik205.shoumeiplayer.data.repo.AuthRepository
@@ -10,6 +11,9 @@ import com.maik205.shoumeiplayer.domain.settings.ClientSettings
 import com.maik205.shoumeiplayer.data.session.SessionStore
 import com.maik205.shoumeiplayer.data.session.SettingsStore
 import com.maik205.shoumeiplayer.domain.settings.DevicePlaybackCapabilities
+import com.maik205.shoumeiplayer.ui.i18n.UiText
+import com.maik205.shoumeiplayer.ui.i18n.toUiText
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -36,28 +40,30 @@ data class TelevisionSettingsState(
     val serverName: String? = null,
     val serverVersion: String? = null,
     val testingConnection: Boolean = false,
-    val connectionMessage: String? = null,
+    val connectionMessage: UiText? = null,
     val quickConnectLoading: Boolean = false,
-    val quickConnectCode: String? = null,
-    val artworkCacheSize: String = "Calculating…",
+    val quickConnectCode: UiText? = null,
+    val artworkCacheSize: UiText = UiText.Resource(R.string.tv_cache_calculating),
     val clearingArtworkCache: Boolean = false,
+    val error: UiText? = null,
 )
 
 sealed interface TelevisionSettingsEvent {
     data object Profiles : TelevisionSettingsEvent
     data object Connect : TelevisionSettingsEvent
-    data class CacheMessage(val message: String) : TelevisionSettingsEvent
+    data class CacheMessage(val message: UiText) : TelevisionSettingsEvent
 }
 
 private data class TelevisionSettingsSupplement(
     val serverName: String? = null,
     val serverVersion: String? = null,
     val testingConnection: Boolean = false,
-    val connectionMessage: String? = null,
+    val connectionMessage: UiText? = null,
     val quickConnectLoading: Boolean = false,
-    val quickConnectCode: String? = null,
-    val artworkCacheSize: String = "Calculating…",
+    val quickConnectCode: UiText? = null,
+    val artworkCacheSize: UiText = UiText.Resource(R.string.tv_cache_calculating),
     val clearingArtworkCache: Boolean = false,
+    val error: UiText? = null,
 )
 
 class TelevisionSettingsViewModel(
@@ -70,6 +76,7 @@ class TelevisionSettingsViewModel(
     private val supplement = MutableStateFlow(TelevisionSettingsSupplement())
     private var quickConnectJob: Job? = null
     private var quickConnectSecret: String? = null
+    private var lastRetryAction: (() -> Unit)? = null
 
     val state: StateFlow<TelevisionSettingsState> = combine(
         settingsStore.settings,
@@ -90,6 +97,7 @@ class TelevisionSettingsViewModel(
             quickConnectCode = supplement.quickConnectCode,
             artworkCacheSize = supplement.artworkCacheSize,
             clearingArtworkCache = supplement.clearingArtworkCache,
+            error = supplement.error,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -114,34 +122,63 @@ class TelevisionSettingsViewModel(
     }
 
     fun update(transform: (ClientSettings) -> ClientSettings) {
-        viewModelScope.launch { settingsStore.update(transform) }
+        lastRetryAction = { update(transform) }
+        viewModelScope.launch {
+            try {
+                settingsStore.update(transform)
+                supplement.update { it.copy(error = null) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Throwable) {
+                supplement.update { it.copy(error = UiText.Resource(R.string.tv_settings_save_failed)) }
+            }
+        }
+    }
+
+    fun retryLastUpdate() {
+        lastRetryAction?.invoke()
     }
 
     fun clearArtworkCache() {
         if (supplement.value.clearingArtworkCache) return
+        lastRetryAction = ::clearArtworkCache
         viewModelScope.launch {
             supplement.update { it.copy(clearingArtworkCache = true) }
-            runCatching {
-                withContext(Dispatchers.IO) { artworkCache.clear() }
-            }.onSuccess { clearedBytes ->
+            try {
+                val clearedBytes = withContext(Dispatchers.IO) { artworkCache.clear() }
                 supplement.update {
                     it.copy(
                         artworkCacheSize = formatCacheSize(0L),
                         clearingArtworkCache = false,
+                        error = null,
                     )
                 }
                 _events.emit(
                     TelevisionSettingsEvent.CacheMessage(
                         if (clearedBytes > 0) {
-                            "${formatCacheSize(clearedBytes)} of artwork cache cleared"
+                            UiText.Resource(
+                                R.string.tv_cache_cleared,
+                                listOf(formatCacheSize(clearedBytes).asDisplayValue()),
+                            )
                         } else {
-                            "Artwork cache is already empty"
+                            UiText.Resource(R.string.tv_cache_already_empty)
                         },
                     ),
                 )
-            }.onFailure {
-                supplement.update { it.copy(clearingArtworkCache = false) }
-                _events.emit(TelevisionSettingsEvent.CacheMessage("Couldn't clear artwork cache"))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                supplement.update {
+                    it.copy(
+                        clearingArtworkCache = false,
+                        error = UiText.Resource(R.string.tv_cache_clear_failed),
+                    )
+                }
+                _events.emit(
+                    TelevisionSettingsEvent.CacheMessage(
+                        UiText.Resource(R.string.tv_cache_clear_failed),
+                    ),
+                )
                 refreshArtworkCacheSize()
             }
         }
@@ -149,25 +186,67 @@ class TelevisionSettingsViewModel(
 
     private fun refreshArtworkCacheSize() {
         viewModelScope.launch {
-            val bytes = withContext(Dispatchers.IO) { artworkCache.estimatedSizeBytes() }
-            supplement.update { it.copy(artworkCacheSize = formatCacheSize(bytes)) }
+            try {
+                val bytes = withContext(Dispatchers.IO) { artworkCache.estimatedSizeBytes() }
+                supplement.update { it.copy(artworkCacheSize = formatCacheSize(bytes)) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Throwable) {
+                supplement.update {
+                    it.copy(artworkCacheSize = UiText.Resource(R.string.tv_cache_size_failed))
+                }
+            }
         }
     }
 
-    private fun formatCacheSize(bytes: Long): String = when {
-        bytes < 1024L -> if (bytes == 0L) "Empty" else "$bytes B"
-        bytes < 1024L * 1024L -> "%.1f KiB".format(bytes / 1024.0)
-        bytes < 1024L * 1024L * 1024L -> "%.1f MiB".format(bytes / (1024.0 * 1024.0))
-        else -> "%.2f GiB".format(bytes / (1024.0 * 1024.0 * 1024.0))
+    private fun formatCacheSize(bytes: Long): UiText = when {
+        bytes < 1024L -> if (bytes == 0L) {
+            UiText.Resource(R.string.tv_cache_empty)
+        } else {
+            UiText.Resource(R.string.tv_cache_bytes, listOf(bytes))
+        }
+        bytes < 1024L * 1024L -> UiText.Resource(
+            R.string.tv_cache_kib,
+            listOf("%.1f".format(bytes / 1024.0)),
+        )
+        bytes < 1024L * 1024L * 1024L -> UiText.Resource(
+            R.string.tv_cache_mib,
+            listOf("%.1f".format(bytes / (1024.0 * 1024.0))),
+        )
+        else -> UiText.Resource(
+            R.string.tv_cache_gib,
+            listOf("%.2f".format(bytes / (1024.0 * 1024.0 * 1024.0))),
+        )
+    }
+
+    private fun UiText.asDisplayValue(): String = when (this) {
+        is UiText.Dynamic -> value
+        is UiText.Resource -> formatArgs.joinToString()
     }
 
     fun testConnection() {
         viewModelScope.launch {
-            val serverUrl = sessionStore.serverUrlOrNull()
-            if (serverUrl == null) {
-                supplement.update { it.copy(connectionMessage = "Not connected") }
-            } else {
-                probeServer(serverUrl, announceResult = true)
+            try {
+                val serverUrl = sessionStore.serverUrlOrNull()
+                if (serverUrl == null) {
+                    supplement.update {
+                        it.copy(
+                            testingConnection = false,
+                            connectionMessage = UiText.Resource(R.string.tv_not_connected),
+                        )
+                    }
+                } else {
+                    probeServer(serverUrl, announceResult = true)
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Throwable) {
+                supplement.update {
+                    it.copy(
+                        testingConnection = false,
+                        connectionMessage = UiText.Resource(R.string.tv_settings_connection_failed),
+                    )
+                }
             }
         }
     }
@@ -182,34 +261,46 @@ class TelevisionSettingsViewModel(
                     quickConnectCode = null,
                 )
             }
-            when (val result = authRepository.initiateQuickConnect()) {
-                is ApiResult.Failure -> supplement.update {
-                    it.copy(
-                        quickConnectLoading = false,
-                        quickConnectCode = result.error.displayMessage,
-                    )
-                }
+            try {
+                when (val result = authRepository.initiateQuickConnect()) {
+                    is ApiResult.Failure -> supplement.update {
+                        it.copy(
+                            quickConnectLoading = false,
+                            quickConnectCode = result.error.toUiText(),
+                        )
+                    }
 
-                is ApiResult.Success -> {
-                    val secret = result.data.secret?.takeIf(String::isNotBlank)
-                    val code = result.data.code?.takeIf(String::isNotBlank)
-                    if (secret == null || code == null) {
+                    is ApiResult.Success -> {
+                        val secret = result.data.secret?.takeIf(String::isNotBlank)
+                        val code = result.data.code?.takeIf(String::isNotBlank)
+                        if (secret == null || code == null) {
+                            supplement.update {
+                                it.copy(
+                                    quickConnectLoading = false,
+                                    quickConnectCode = UiText.Resource(R.string.tv_quick_connect_unavailable),
+                                )
+                            }
+                            return@launch
+                        }
+                        quickConnectSecret = secret
                         supplement.update {
                             it.copy(
                                 quickConnectLoading = false,
-                                quickConnectCode = "Unavailable",
+                                quickConnectCode = UiText.Dynamic(code),
                             )
                         }
-                        return@launch
+                        pollQuickConnectReplacement(secret)
                     }
-                    quickConnectSecret = secret
-                    supplement.update {
-                        it.copy(
-                            quickConnectLoading = false,
-                            quickConnectCode = code,
-                        )
-                    }
-                    pollQuickConnectReplacement(secret)
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Throwable) {
+                quickConnectSecret = null
+                supplement.update {
+                    it.copy(
+                        quickConnectLoading = false,
+                        quickConnectCode = UiText.Resource(R.string.tv_quick_connect_failed),
+                    )
                 }
             }
         }
@@ -222,9 +313,19 @@ class TelevisionSettingsViewModel(
     }
 
     fun signOut() {
+        lastRetryAction = ::signOut
         viewModelScope.launch {
-            authRepository.logout()
-            _events.emit(TelevisionSettingsEvent.Profiles)
+            try {
+                authRepository.logout()
+                supplement.update { it.copy(error = null) }
+                _events.emit(TelevisionSettingsEvent.Profiles)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Throwable) {
+                supplement.update {
+                    it.copy(error = UiText.Resource(R.string.tv_settings_account_action_failed))
+                }
+            }
         }
     }
 
@@ -235,9 +336,19 @@ class TelevisionSettingsViewModel(
     }
 
     fun forgetServer() {
+        lastRetryAction = ::forgetServer
         viewModelScope.launch {
-            authRepository.forgetServer()
-            _events.emit(TelevisionSettingsEvent.Connect)
+            try {
+                authRepository.forgetServer()
+                supplement.update { it.copy(error = null) }
+                _events.emit(TelevisionSettingsEvent.Connect)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Throwable) {
+                supplement.update {
+                    it.copy(error = UiText.Resource(R.string.tv_settings_account_action_failed))
+                }
+            }
         }
     }
 
@@ -251,61 +362,103 @@ class TelevisionSettingsViewModel(
                 connectionMessage = if (announceResult) null else it.connectionMessage,
             )
         }
-        when (val result = authRepository.validateServer(serverUrl)) {
-            is ApiResult.Failure -> supplement.update {
+        try {
+            when (val result = authRepository.validateServer(serverUrl)) {
+                is ApiResult.Failure -> supplement.update {
+                    it.copy(
+                        serverName = null,
+                        serverVersion = null,
+                        testingConnection = false,
+                        connectionMessage = if (announceResult) result.error.toUiText() else null,
+                    )
+                }
+
+                is ApiResult.Success -> supplement.update {
+                    it.copy(
+                        serverName = result.data.serverName,
+                        serverVersion = result.data.version,
+                        testingConnection = false,
+                        connectionMessage = if (announceResult) {
+                            UiText.Resource(R.string.tv_connected)
+                        } else {
+                            null
+                        },
+                    )
+                }
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Throwable) {
+            supplement.update {
                 it.copy(
                     serverName = null,
                     serverVersion = null,
                     testingConnection = false,
-                    connectionMessage = if (announceResult) result.error.displayMessage else null,
-                )
-            }
-
-            is ApiResult.Success -> supplement.update {
-                it.copy(
-                    serverName = result.data.serverName,
-                    serverVersion = result.data.version,
-                    testingConnection = false,
-                    connectionMessage = if (announceResult) "Connected" else null,
+                    connectionMessage = if (announceResult) {
+                        UiText.Resource(R.string.tv_settings_connection_failed)
+                    } else {
+                        null
+                    },
                 )
             }
         }
     }
 
     private suspend fun pollQuickConnectReplacement(secret: String) {
-        repeat(QUICK_CONNECT_MAX_POLLS) {
-            if (quickConnectSecret != secret) return
-            delay(QUICK_CONNECT_POLL_MS)
-            when (val state = authRepository.pollQuickConnect(secret)) {
-                is ApiResult.Failure -> Unit
-                is ApiResult.Success -> if (state.data.authenticated) {
-                    val message = when (
-                        val replacement = authRepository.replaceSessionWithQuickConnect(secret)
-                    ) {
-                        is ApiResult.Failure -> replacement.error.displayMessage
-                        is ApiResult.Success -> when {
-                            !replacement.data.tokenChanged -> "Session verified"
-                            replacement.data.oldTokenRevoked -> "Session replaced"
-                            else -> "Replaced · revocation pending"
+        try {
+            repeat(QUICK_CONNECT_MAX_POLLS) {
+                if (quickConnectSecret != secret) return
+                delay(QUICK_CONNECT_POLL_MS)
+                when (val state = authRepository.pollQuickConnect(secret)) {
+                    is ApiResult.Failure -> {
+                        quickConnectSecret = null
+                        supplement.update {
+                            it.copy(
+                                quickConnectLoading = false,
+                                quickConnectCode = state.error.toUiText(),
+                            )
                         }
+                        return
                     }
-                    quickConnectSecret = null
-                    supplement.update {
-                        it.copy(
-                            quickConnectLoading = false,
-                            quickConnectCode = message,
-                        )
+                    is ApiResult.Success -> if (state.data.authenticated) {
+                        val message = when (
+                            val replacement = authRepository.replaceSessionWithQuickConnect(secret)
+                        ) {
+                            is ApiResult.Failure -> replacement.error.toUiText()
+                            is ApiResult.Success -> when {
+                                !replacement.data.tokenChanged -> UiText.Resource(R.string.tv_session_verified)
+                                replacement.data.oldTokenRevoked -> UiText.Resource(R.string.tv_session_replaced)
+                                else -> UiText.Resource(R.string.tv_session_replaced_pending)
+                            }
+                        }
+                        quickConnectSecret = null
+                        supplement.update {
+                            it.copy(
+                                quickConnectLoading = false,
+                                quickConnectCode = message,
+                            )
+                        }
+                        return
                     }
-                    return
                 }
             }
-        }
-        if (quickConnectSecret == secret) {
+            if (quickConnectSecret == secret) {
+                quickConnectSecret = null
+                supplement.update {
+                    it.copy(
+                        quickConnectLoading = false,
+                        quickConnectCode = UiText.Resource(R.string.tv_quick_connect_timed_out),
+                    )
+                }
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Throwable) {
             quickConnectSecret = null
             supplement.update {
                 it.copy(
                     quickConnectLoading = false,
-                    quickConnectCode = "Timed out · Try again",
+                    quickConnectCode = UiText.Resource(R.string.tv_quick_connect_failed),
                 )
             }
         }

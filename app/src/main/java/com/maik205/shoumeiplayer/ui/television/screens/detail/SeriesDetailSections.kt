@@ -52,11 +52,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.res.stringResource
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.domain.model.DetailItem
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusScale
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionMediaTile
@@ -81,7 +83,7 @@ internal fun SeriesDetailSection(
     selectedSeasonId: String?,
     onSelect: (String) -> Unit,
     episodes: List<MediaItemUi>,
-    episodeTitle: String = "Episodes",
+    episodeTitle: String,
     currentEpisodeId: String? = null,
     onPlay: (MediaItemUi) -> Unit,
 ) {
@@ -192,7 +194,10 @@ private fun SeriesNextUp(
                 if (focused) {
                     Icon(
                         imageVector = if (episode.watched) Icons.Default.Replay else Icons.Default.PlayArrow,
-                        contentDescription = if (episode.watched) "Replay ${episode.title}" else "Play ${episode.title}",
+                        contentDescription = stringResource(
+                            if (episode.watched) R.string.tv_detail_replay_item else R.string.tv_detail_play_item,
+                            episode.title,
+                        ),
                         modifier = Modifier
                             .align(Alignment.BottomStart)
                             .padding(18.dp)
@@ -214,7 +219,7 @@ private fun SeriesNextUp(
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "Next up",
+                text = stringResource(R.string.next_up),
                 style = MaterialTheme.typography.titleSmall,
                 color = TelevisionColors.PaperMuted,
                 fontWeight = FontWeight.Medium,
@@ -384,8 +389,14 @@ internal fun EpisodeRail(
                             if (focused) {
                                 Icon(
                                     imageVector = if (episode.watched) Icons.Default.Replay else Icons.Default.PlayArrow,
-                                    contentDescription =
-                                        if (episode.watched) "Replay ${episode.title}" else "Play ${episode.title}",
+                                    contentDescription = stringResource(
+                                        if (episode.watched) {
+                                            R.string.tv_detail_replay_item
+                                        } else {
+                                            R.string.tv_detail_play_item
+                                        },
+                                        episode.title,
+                                    ),
                                     modifier = Modifier
                                         .align(Alignment.BottomStart)
                                         .padding(11.dp)
@@ -400,11 +411,11 @@ internal fun EpisodeRail(
                         }
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            text = buildList {
-                                add(episodeNumberLabel(episode))
-                                episode.runtimeLabel?.let(::add)
-                                episodeQualityLabel(episode)?.let(::add)
-                            }.joinToString("  ·  "),
+                            text = listOfNotNull(
+                                episodeNumberLabel(episode),
+                                episode.runtimeLabel,
+                                episodeQualityLabel(episode),
+                            ).joinToString("  ·  "),
                             style = MaterialTheme.typography.labelSmall,
                             color = TelevisionColors.PaperMuted,
                             maxLines = 1,
@@ -505,7 +516,7 @@ private fun SeasonSelector(
             )
             Icon(
                 imageVector = Icons.Default.ArrowDropDown,
-                contentDescription = "Choose season",
+                contentDescription = stringResource(R.string.tv_detail_choose_season),
                 modifier = Modifier.size(18.dp),
             )
         }
@@ -551,7 +562,7 @@ private fun SeasonSelector(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = "Season",
+                        text = stringResource(R.string.tv_detail_season),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -589,7 +600,7 @@ private fun SeasonSelector(
                                     if (isSelected) {
                                         Icon(
                                             imageVector = Icons.Default.Check,
-                                            contentDescription = "Selected",
+                                            contentDescription = stringResource(R.string.tv_selected),
                                             modifier = Modifier.size(18.dp),
                                         )
                                     }
@@ -603,20 +614,27 @@ private fun SeasonSelector(
     }
 }
 
+@Composable
 private fun episodeNumberLabel(episode: MediaItemUi): String =
     if (episode.seasonNumber != null || episode.episodeNumber != null) {
-        "S${episode.seasonNumber ?: 0} E${episode.episodeNumber ?: 0}"
+        stringResource(
+            R.string.tv_season_episode,
+            episode.seasonNumber ?: 0,
+            episode.episodeNumber ?: 0,
+        )
     } else {
-        "Episode"
+        stringResource(R.string.tv_episode)
     }
 
-private fun episodeMetadata(episode: MediaItemUi, item: DetailItem?): List<String> = buildList {
-    episode.runtimeLabel?.let(::add)
-    detailDateLabel(episode.premiereDate)?.let(::add)
-    episode.officialRating?.let(::add)
-    episodeQualityLabel(episode, item)?.let(::add)
-}
+@Composable
+private fun episodeMetadata(episode: MediaItemUi, item: DetailItem?): List<String> = listOfNotNull(
+    episode.runtimeLabel,
+    detailDateLabel(episode.premiereDate),
+    episode.officialRating,
+    episodeQualityLabel(episode, item),
+)
 
+@Composable
 private fun episodeQualityLabel(episode: MediaItemUi, item: DetailItem? = null): String? {
     val height = item?.mediaStreams
         ?.firstOrNull { it.type.equals("Video", ignoreCase = true) }
@@ -629,26 +647,35 @@ private fun episodeQualityLabel(episode: MediaItemUi, item: DetailItem? = null):
                 it.contains("720", ignoreCase = true)
         }
 
-        height >= 2160 -> "4K"
-        height >= 1080 -> "1080p"
-        height >= 720 -> "720p"
-        else -> "${height}p"
+        height >= 2160 -> stringResource(R.string.tv_resolution_4k)
+        height >= 1080 -> stringResource(R.string.tv_resolution_1080p)
+        height >= 720 -> stringResource(R.string.tv_resolution_720p)
+        else -> stringResource(R.string.tv_resolution_height, height)
     }
 }
 
+@Composable
 private fun episodeCredits(item: DetailItem?): String? {
     item ?: return null
     val director = item.people.firstOrNull { it.type.equals("Director", ignoreCase = true) }?.name
     val writer = item.people.firstOrNull { it.type.equals("Writer", ignoreCase = true) }?.name
-    return listOfNotNull(
-        director?.let { "Directed by $it" },
-        writer?.let { "Written by $it" },
-    ).joinToString("  ·  ").ifBlank { null }
+    val credits = mutableListOf<String>()
+    if (director != null) {
+        credits += stringResource(R.string.tv_detail_directed_by, director)
+    }
+    if (writer != null) {
+        credits += stringResource(R.string.tv_detail_written_by, writer)
+    }
+    return credits.joinToString("  ·  ").ifBlank { null }
 }
 
 internal fun detailDateLabel(value: String?): String? {
     val isoDate = value?.take(10)?.takeIf(String::isNotBlank) ?: return null
     return runCatching {
-        LocalDate.parse(isoDate).format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH))
+        LocalDate.parse(isoDate).format(
+            DateTimeFormatter
+                .ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
+                .withLocale(Locale.getDefault()),
+        )
     }.getOrDefault(isoDate)
 }
