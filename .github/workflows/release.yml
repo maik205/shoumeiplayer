@@ -50,13 +50,32 @@ jobs:
           test "$(git ls-tree HEAD native/mpv/upstream | awk '{print $3}')" = \
             "$(git -C native/mpv/upstream rev-parse HEAD)"
 
+      # `secrets` isn't available in step `if:` conditions (same restriction as `runner` in a
+      # job-level env -- see the "Set keystore path" comment above), so whether signing is
+      # configured has to be computed in a step body first and read back via GITHUB_OUTPUT.
+      - name: Check signing configuration
+        id: signing
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [[ -n "$ANDROID_KEYSTORE_BASE64" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Signing is optional: with no ANDROID_KEYSTORE_BASE64 secret configured, this step is
+      # skipped and the build below produces an unsigned .aab/APK (AGP just omits the signing
+      # config rather than failing). An unsigned APK cannot be installed as-is -- add the four
+      # ANDROID_KEYSTORE_* / ANDROID_KEY_* secrets once a real release identity exists.
       - name: Decode the upload keystore
+        if: steps.signing.outputs.configured == 'true'
         shell: bash
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           set -euo pipefail
-          test -n "$ANDROID_KEYSTORE_BASE64"
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$SHOUMEI_KEYSTORE_PATH"
 
       - name: Set up Java
@@ -68,22 +87,33 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6
 
-      - name: Build the signed release bundle
-        run: ./gradlew --no-daemon :app:bundleRelease
+      # bundleRelease is the Play Store artifact (.aab); assembleRelease with no ABI/density/
+      # language splits configured produces a single universal APK carrying both ABIs' native
+      # libs, which -- unlike the .aab -- is directly sideloadable as one file.
+      - name: Build the release bundle and universal APK
+        run: ./gradlew --no-daemon :app:bundleRelease :app:assembleRelease
 
-      - name: Create checksums
+      - name: Collect release artifacts
+        id: artifacts
         shell: bash
         run: |
-          cd app/build/outputs/bundle/release
-          sha256sum app-release.aab > app-release.aab.sha256
+          set -euo pipefail
+          dir="$RUNNER_TEMP/release-artifacts"
+          mkdir -p "$dir"
+          cp app/build/outputs/bundle/release/app-release.aab "$dir/"
+          cp app/build/outputs/apk/release/*.apk "$dir/"
+          (cd "$dir" && sha256sum -- * > SHA256SUMS.txt)
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+          if [[ "${{ steps.signing.outputs.configured }}" != "true" ]]; then
+            echo "### :warning: Unsigned build" >> "$GITHUB_STEP_SUMMARY"
+            echo "No signing secrets are configured, so this APK is unsigned and cannot be installed as-is." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Preserve workflow artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: shoumei-player-${{ github.ref_name }}
-          path: |
-            app/build/outputs/bundle/release/app-release.aab
-            app/build/outputs/bundle/release/app-release.aab.sha256
+          path: ${{ steps.artifacts.outputs.dir }}/*
           if-no-files-found: error
 
       - name: Publish the immutable GitHub release
@@ -95,5 +125,4 @@ jobs:
             --verify-tag \
             --generate-notes \
             --title "Shoumei Player ${SHOUMEI_RELEASE_TAG#v}" \
-            app/build/outputs/bundle/release/app-release.aab \
-            app/build/outputs/bundle/release/app-release.aab.sha256
+            "${{ steps.artifacts.outputs.dir }}"/*
