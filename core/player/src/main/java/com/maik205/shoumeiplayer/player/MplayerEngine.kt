@@ -38,7 +38,11 @@ class MplayerEngine : PlayerEngine {
 
     // TODO(mplayer): bind via JNI to ../mplayer
     override fun load(item: PlayRequest) {
-        Log.d(TAG, "load(item=$item)")
+        // PlayRequest.url and .headers carry the Jellyfin access token (query param and/or
+        // Authorization header) -- never log the request itself, only its redacted form.
+        val redactedUrl = redactPlaybackUrl(item.url)
+        val redactedHeaders = redactPlaybackHeaders(item.headers)
+        Log.d(TAG, "load(url=$redactedUrl, headers=$redactedHeaders, itemId=${item.itemId})")
         _state.value = PlayerState.Error("mplayer engine not yet implemented")
     }
 

@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cstring>
 #include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -20,7 +21,12 @@ std::thread event_thread;
 std::atomic<bool> running{false};
 std::atomic<bool> initialized{false};
 std::atomic<int64_t> last_timeline_dispatch_ms{0};
-std::mutex lock;
+// Readers (setPropertyString, command, ...) take a shared lock for the full duration of their
+// mpv_* call, not just while fetching the pointer -- otherwise destroy() could free the handle
+// between "read the pointer" and "use the pointer" on another thread. destroy() takes the
+// exclusive lock, so it cannot call mpv_terminate_destroy until every in-flight call has
+// finished, and any call that starts after nulls out `handle` sees it and returns immediately.
+std::shared_mutex handle_mutex;
 
 const char *chars(JNIEnv *env, jstring value) {
     return value ? env->GetStringUTFChars(value, nullptr) : nullptr;
@@ -131,11 +137,6 @@ void event_loop(mpv_handle *ctx) {
     }
     vm->DetachCurrentThread();
 }
-
-mpv_handle *current() {
-    std::lock_guard<std::mutex> guard(lock);
-    return handle;
-}
 } // namespace
 
 extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *java_vm, void *) {
@@ -149,35 +150,44 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *java_vm, void *) {
 
 #define JNI_METHOD(name) Java_com_maik205_mpvroid_MpvNative_##name
 
-extern "C" JNIEXPORT void JNICALL JNI_METHOD(create)(JNIEnv *env, jobject self, jobject) {
-    std::lock_guard<std::mutex> guard(lock);
-    if (handle) return;
+extern "C" JNIEXPORT jboolean JNICALL JNI_METHOD(create)(JNIEnv *env, jobject self, jobject) {
+    std::unique_lock<std::shared_mutex> guard(handle_mutex);
+    if (handle) return JNI_TRUE;
     bridge = env->NewGlobalRef(self);
     handle = mpv_create();
     if (!handle) {
         env->DeleteGlobalRef(bridge);
         bridge = nullptr;
         __android_log_print(ANDROID_LOG_ERROR, "MpvNative", "mpv_create failed");
+        return JNI_FALSE;
     }
+    return JNI_TRUE;
 }
 
-extern "C" JNIEXPORT void JNICALL JNI_METHOD(init)(JNIEnv *, jobject) {
-    if (initialized.load(std::memory_order_acquire)) return;
-    auto *ctx = current();
-    if (!ctx || mpv_initialize(ctx) < 0) return;
+extern "C" JNIEXPORT jboolean JNICALL JNI_METHOD(init)(JNIEnv *, jobject) {
+    if (initialized.load(std::memory_order_acquire)) return JNI_TRUE;
+    mpv_handle *ctx;
+    {
+        std::shared_lock<std::shared_mutex> guard(handle_mutex);
+        ctx = handle;
+    }
+    if (!ctx) return JNI_FALSE;
+    int result = mpv_initialize(ctx);
+    if (result < 0) {
+        __android_log_print(ANDROID_LOG_ERROR, "MpvNative", "mpv_initialize failed: %d", result);
+        return JNI_FALSE;
+    }
     initialized.store(true, std::memory_order_release);
     mpv_request_log_messages(ctx, "warn");
     running.store(true, std::memory_order_release);
     event_thread = std::thread(event_loop, ctx);
+    return JNI_TRUE;
 }
 
 extern "C" JNIEXPORT void JNICALL JNI_METHOD(destroy)(JNIEnv *env, jobject) {
-    mpv_handle *ctx;
-    {
-        std::lock_guard<std::mutex> guard(lock);
-        ctx = handle;
-        handle = nullptr;
-    }
+    std::unique_lock<std::shared_mutex> guard(handle_mutex);
+    mpv_handle *ctx = handle;
+    handle = nullptr;
     if (!ctx) return;
     running.store(false, std::memory_order_release);
     initialized.store(false, std::memory_order_release);
@@ -196,19 +206,19 @@ extern "C" JNIEXPORT void JNICALL JNI_METHOD(destroy)(JNIEnv *env, jobject) {
 
 extern "C" JNIEXPORT void JNICALL JNI_METHOD(attachSurface)(
     JNIEnv *env, jobject, jobject value) {
-    auto *ctx = current();
-    if (!ctx || !value) return;
+    std::shared_lock<std::shared_mutex> guard(handle_mutex);
+    if (!handle || !value) return;
     if (surface) env->DeleteGlobalRef(surface);
     surface = env->NewGlobalRef(value);
     int64_t window = reinterpret_cast<intptr_t>(surface);
-    mpv_set_property(ctx, "wid", MPV_FORMAT_INT64, &window);
+    mpv_set_property(handle, "wid", MPV_FORMAT_INT64, &window);
 }
 
 extern "C" JNIEXPORT void JNICALL JNI_METHOD(detachSurface)(JNIEnv *env, jobject) {
-    auto *ctx = current();
-    if (!ctx) return;
+    std::shared_lock<std::shared_mutex> guard(handle_mutex);
+    if (!handle) return;
     int64_t detached = -1;
-    mpv_set_property(ctx, "wid", MPV_FORMAT_INT64, &detached);
+    mpv_set_property(handle, "wid", MPV_FORMAT_INT64, &detached);
     if (surface) {
         env->DeleteGlobalRef(surface);
         surface = nullptr;
@@ -217,13 +227,13 @@ extern "C" JNIEXPORT void JNICALL JNI_METHOD(detachSurface)(JNIEnv *env, jobject
 
 extern "C" JNIEXPORT jint JNICALL JNI_METHOD(setOptionString)(
     JNIEnv *env, jobject, jstring name, jstring value) {
-    auto *ctx = current();
-    if (!ctx) return -1;
+    std::shared_lock<std::shared_mutex> guard(handle_mutex);
+    if (!handle) return -1;
     const char *n = chars(env, name);
     const char *v = chars(env, value);
     int result = initialized.load(std::memory_order_acquire)
-        ? mpv_set_property_string(ctx, n, v)
-        : mpv_set_option_string(ctx, n, v);
+        ? mpv_set_property_string(handle, n, v)
+        : mpv_set_option_string(handle, n, v);
     release_chars(env, value, v);
     release_chars(env, name, n);
     return result;
@@ -231,41 +241,41 @@ extern "C" JNIEXPORT jint JNICALL JNI_METHOD(setOptionString)(
 
 extern "C" JNIEXPORT void JNICALL JNI_METHOD(setPropertyString)(
     JNIEnv *env, jobject, jstring name, jstring value) {
-    auto *ctx = current();
-    if (!ctx) return;
+    std::shared_lock<std::shared_mutex> guard(handle_mutex);
+    if (!handle) return;
     const char *n = chars(env, name);
     const char *v = chars(env, value);
-    mpv_set_property_string(ctx, n, v);
+    mpv_set_property_string(handle, n, v);
     release_chars(env, value, v);
     release_chars(env, name, n);
 }
 
 extern "C" JNIEXPORT void JNICALL JNI_METHOD(setPropertyBoolean)(
     JNIEnv *env, jobject, jstring name, jboolean value) {
-    auto *ctx = current();
-    if (!ctx) return;
+    std::shared_lock<std::shared_mutex> guard(handle_mutex);
+    if (!handle) return;
     const char *n = chars(env, name);
     int flag = value;
-    mpv_set_property(ctx, n, MPV_FORMAT_FLAG, &flag);
+    mpv_set_property(handle, n, MPV_FORMAT_FLAG, &flag);
     release_chars(env, name, n);
 }
 
 extern "C" JNIEXPORT void JNICALL JNI_METHOD(setPropertyDouble)(
     JNIEnv *env, jobject, jstring name, jdouble value) {
-    auto *ctx = current();
-    if (!ctx) return;
+    std::shared_lock<std::shared_mutex> guard(handle_mutex);
+    if (!handle) return;
     const char *n = chars(env, name);
     double number = value;
-    mpv_set_property(ctx, n, MPV_FORMAT_DOUBLE, &number);
+    mpv_set_property(handle, n, MPV_FORMAT_DOUBLE, &number);
     release_chars(env, name, n);
 }
 
 extern "C" JNIEXPORT jstring JNICALL JNI_METHOD(getPropertyString)(
     JNIEnv *env, jobject, jstring name) {
-    auto *ctx = current();
-    if (!ctx) return nullptr;
+    std::shared_lock<std::shared_mutex> guard(handle_mutex);
+    if (!handle) return nullptr;
     const char *n = chars(env, name);
-    char *value = mpv_get_property_string(ctx, n);
+    char *value = mpv_get_property_string(handle, n);
     release_chars(env, name, n);
     if (!value) return nullptr;
     jstring result = env->NewStringUTF(value);
@@ -275,17 +285,17 @@ extern "C" JNIEXPORT jstring JNICALL JNI_METHOD(getPropertyString)(
 
 extern "C" JNIEXPORT void JNICALL JNI_METHOD(observeProperty)(
     JNIEnv *env, jobject, jstring name, jint format) {
-    auto *ctx = current();
-    if (!ctx) return;
+    std::shared_lock<std::shared_mutex> guard(handle_mutex);
+    if (!handle) return;
     const char *n = chars(env, name);
-    mpv_observe_property(ctx, 0, n, static_cast<mpv_format>(format));
+    mpv_observe_property(handle, 0, n, static_cast<mpv_format>(format));
     release_chars(env, name, n);
 }
 
 extern "C" JNIEXPORT void JNICALL JNI_METHOD(command)(
     JNIEnv *env, jobject, jobjectArray values) {
-    auto *ctx = current();
-    if (!ctx || !values) return;
+    std::shared_lock<std::shared_mutex> guard(handle_mutex);
+    if (!handle || !values) return;
     jsize count = env->GetArrayLength(values);
     std::vector<std::string> owned;
     owned.reserve(count);
@@ -300,5 +310,5 @@ extern "C" JNIEXPORT void JNICALL JNI_METHOD(command)(
     args.reserve(owned.size() + 1);
     for (const auto &value : owned) args.push_back(value.c_str());
     args.push_back(nullptr);
-    mpv_command(ctx, args.data());
+    mpv_command(handle, args.data());
 }

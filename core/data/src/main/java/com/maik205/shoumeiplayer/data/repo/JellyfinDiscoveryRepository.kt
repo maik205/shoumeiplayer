@@ -129,7 +129,7 @@ internal fun normalizeDiscoveredServers(
 
 private fun normalizeDiscoveredAddress(raw: String?): String? {
     if (raw.isNullOrBlank()) return null
-    val normalized = normalizeServerUrl(raw)
+    val normalized = normalizeServerUrl(raw, defaultScheme = "http")
     val uri = runCatching { URI(normalized) }.getOrNull() ?: return null
     val scheme = uri.scheme?.lowercase()
     if (scheme !in setOf("http", "https") || uri.host.isNullOrBlank()) return null

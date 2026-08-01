@@ -8,6 +8,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.maik205.shoumeiplayer.domain.settings.ClientSettings
@@ -44,9 +45,7 @@ internal class SystemPlayerEngine(context: Context) : PlayerEngine {
 
     init {
         val dataSourceFactory = DefaultDataSource.Factory(context.applicationContext, httpFactory)
-        player = ExoPlayer.Builder(context.applicationContext)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
-            .build()
+        player = buildPlayer(context, dataSourceFactory)
         player.addListener(object : Player.Listener {
             override fun onEvents(player: Player, events: Player.Events) {
                 refresh()
@@ -64,6 +63,12 @@ internal class SystemPlayerEngine(context: Context) : PlayerEngine {
         }
     }
 
+    @OptIn(UnstableApi::class)
+    private fun buildPlayer(context: Context, dataSourceFactory: DefaultDataSource.Factory): ExoPlayer =
+        ExoPlayer.Builder(context.applicationContext)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
+            .build()
+
     override fun setSurface(surface: Surface?) {
         currentSurface = surface
         player.setVideoSurface(surface)
@@ -71,6 +76,7 @@ internal class SystemPlayerEngine(context: Context) : PlayerEngine {
 
     override fun configure(settings: ClientSettings) = Unit
 
+    @OptIn(UnstableApi::class)
     override fun load(item: PlayRequest) {
         httpFactory.setDefaultRequestProperties(item.headers)
         val mediaItem = MediaItem.Builder()

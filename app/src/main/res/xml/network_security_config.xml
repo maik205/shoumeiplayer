@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android's network-security-config can only scope cleartextTrafficPermitted by domain name,
+  not by IP range, and most self-hosted Jellyfin servers are reached by bare LAN IP literal
+  (e.g. 192.168.1.50) rather than a hostname, so it cannot statically express "private
+  networks only" without breaking that primary use case. Instead, JellyfinClient rejects any
+  http:// request whose host is not a private/loopback IPv4 literal or a .local/.lan/.home/
+  .internal/localhost name (see PrivateNetworkGuard.kt) before it ever reaches this layer.
+-->
 <network-security-config>
     <base-config cleartextTrafficPermitted="true">
         <trust-anchors>

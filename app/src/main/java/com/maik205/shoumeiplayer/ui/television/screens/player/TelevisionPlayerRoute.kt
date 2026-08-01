@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import com.maik205.shoumeiplayer.di.player.JellyfinPlaybackMetadataLoader
 import com.maik205.shoumeiplayer.feature.player.PlayerViewModel
+import com.maik205.shoumeiplayer.feature.player.PlayerObservabilityInputs
 import com.maik205.shoumeiplayer.feature.player.PlaybackUserDataMutator
 import com.maik205.shoumeiplayer.feature.player.TrackController
 import com.maik205.shoumeiplayer.domain.result.ApiResult
@@ -54,21 +55,25 @@ fun TelevisionPlayerScreen(
             teardownScope = container.applicationScope,
             settingsStore = container.settingsStore,
             initialQualityLabel = initialQualityLabel,
-            audioRouteLabel = container.audioRouteLabel,
-            effectiveHdrMode = container.effectiveHdrModeLabel,
-            networkAvailable = container.networkMonitor.snapshot.map { it.validated }
-                .stateIn(
-                    container.applicationScope,
-                    SharingStarted.Eagerly,
-                    container.networkMonitor.snapshot.value.validated,
-                ),
-            networkTransport = container.networkMonitor.snapshot.map { it.transport }
-                .stateIn(
-                    container.applicationScope,
-                    SharingStarted.Eagerly,
-                    container.networkMonitor.snapshot.value.transport,
-                ),
-            metricsSink = if (audioOnly) null else container.newPlaybackMetricsSink(),
+            observability = PlayerObservabilityInputs(
+                audioRouteLabel = container.audioRouteLabel,
+                effectiveHdrMode = container.effectiveHdrModeLabel,
+                networkAvailable = container.networkMonitor.snapshot.map { it.validated }
+                    .stateIn(
+                        container.applicationScope,
+                        SharingStarted.Eagerly,
+                        container.networkMonitor.snapshot.value.validated,
+                    ),
+                networkTransport = container.networkMonitor.snapshot.map { it.transport }
+                    .stateIn(
+                        container.applicationScope,
+                        SharingStarted.Eagerly,
+                        container.networkMonitor.snapshot.value.transport,
+                    ),
+                metricsSink = if (audioOnly) null else container.newPlaybackMetricsSink(),
+                backgroundAudio = audioOnly,
+                playbackOwnershipCoordinator = container.playbackOwnershipCoordinator,
+            ),
             userDataMutator = object : PlaybackUserDataMutator {
                 override suspend fun setFavorite(itemId: String, favorite: Boolean): Boolean =
                     (container.libraryRepository.setFavorite(itemId, favorite) as? ApiResult.Success)
@@ -80,8 +85,6 @@ fun TelevisionPlayerScreen(
                         ?.data
                         ?.played == played
             },
-            backgroundAudio = audioOnly,
-            playbackOwnershipCoordinator = container.playbackOwnershipCoordinator,
         )
     }
     val controller = remember(viewModel) { PlayerViewModelController(viewModel) }

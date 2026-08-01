@@ -19,9 +19,7 @@ import com.maik205.shoumeiplayer.player.PlayerState
 import com.maik205.shoumeiplayer.player.PlayerTrack
 import com.maik205.shoumeiplayer.player.PlaybackMetricsEvent
 import com.maik205.shoumeiplayer.player.AudioPlaybackHandoff
-import com.maik205.shoumeiplayer.player.PlaybackMetricsSink
 import com.maik205.shoumeiplayer.player.PlaybackOwner
-import com.maik205.shoumeiplayer.player.PlaybackOwnershipCoordinator
 import com.maik205.shoumeiplayer.player.toPlaybackMetricsState
 import com.maik205.shoumeiplayer.player.TrackType
 import com.maik205.shoumeiplayer.player.VideoQuality
@@ -70,14 +68,8 @@ class PlayerViewModel(
     private val teardownScope: CoroutineScope,
     private val settingsStore: PlayerSettingsRepository? = null,
     private val initialQualityLabel: String? = null,
-    private val audioRouteLabel: StateFlow<String> = MutableStateFlow("System default"),
-    private val effectiveHdrMode: StateFlow<String> = MutableStateFlow("Automatic"),
-    private val networkAvailable: StateFlow<Boolean> = MutableStateFlow(true),
-    private val networkTransport: StateFlow<String> = MutableStateFlow("unknown"),
-    private val metricsSink: PlaybackMetricsSink? = null,
     private val userDataMutator: PlaybackUserDataMutator? = null,
-    private val backgroundAudio: Boolean = false,
-    private val playbackOwnershipCoordinator: PlaybackOwnershipCoordinator? = null,
+    private val observability: PlayerObservabilityInputs = PlayerObservabilityInputs(),
 ) : ViewModel() {
 
     private data class LocalState(
@@ -205,7 +197,7 @@ class PlayerViewModel(
         engine.durationMs,
         trackGroups,
         localState,
-        audioRouteLabel,
+        observability.audioRouteLabel,
     ) { play, engineDurationMs, tracks, local, activeAudioRoute ->
         val duration = engineDurationMs ?: local.itemDurationMs
         PlayerUiState(
@@ -260,12 +252,12 @@ class PlayerViewModel(
         )
     }
 
-    val uiState: StateFlow<PlayerUiState> = combine(baseUiState, effectiveHdrMode) { state, hdrMode ->
+    val uiState: StateFlow<PlayerUiState> = combine(baseUiState, observability.effectiveHdrMode) { state, hdrMode ->
         state.copy(effectiveHdrMode = hdrMode)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlayerUiState())
 
     init {
-        playbackOwnershipCoordinator?.acquire(PlaybackOwner.VIDEO) {
+        observability.playbackOwnershipCoordinator?.acquire(PlaybackOwner.VIDEO) {
             sessionCoordinator.finish(engine)
             engine.stop()
             AudioPlaybackHandoff.clear()
@@ -273,7 +265,7 @@ class PlayerViewModel(
         startInitialPlayback()
         viewModelScope.launch {
             engine.state.collect { state ->
-                metricsSink?.record(
+                observability.metricsSink?.record(
                     PlaybackMetricsEvent(
                         itemId = currentItemId,
                         state = state.toPlaybackMetricsState(),
@@ -286,15 +278,15 @@ class PlayerViewModel(
             }
         }
         viewModelScope.launch {
-            combine(networkAvailable, networkTransport) { available, transport -> available to transport }
+            combine(observability.networkAvailable, observability.networkTransport) { available, transport -> available to transport }
                 .distinctUntilChanged()
-                .collect { (available, transport) -> metricsSink?.recordNetwork(transport, available) }
+                .collect { (available, transport) -> observability.metricsSink?.recordNetwork(transport, available) }
         }
         viewModelScope.launch {
-            engine.tracks.collect { metricsSink?.recordTracks(it) }
+            engine.tracks.collect { observability.metricsSink?.recordTracks(it) }
         }
         viewModelScope.launch {
-            networkAvailable.collect { available ->
+            observability.networkAvailable.collect { available ->
                 if (!available) {
                     if (engine.state.value == PlayerState.Playing || engine.state.value == PlayerState.Buffering) {
                         pausedForNetwork = true
@@ -814,7 +806,7 @@ class PlayerViewModel(
             }
         }
 
-        if (backgroundAudio && item?.isAudio == true) {
+        if (observability.backgroundAudio && item?.isAudio == true) {
             AudioPlaybackHandoff.offerResolved(null, r)
         }
         engine.load(
@@ -832,7 +824,7 @@ class PlayerViewModel(
             ),
         )
 
-        if (!backgroundAudio || item?.isAudio != true) {
+        if (!observability.backgroundAudio || item?.isAudio != true) {
             sessionCoordinator.attach(
                 resolved = r,
                 engine = engine,
@@ -966,11 +958,11 @@ class PlayerViewModel(
     }
 
     override fun onCleared() {
-        playbackOwnershipCoordinator?.release(PlaybackOwner.VIDEO)
-        if (!backgroundAudio || !localState.value.isAudio) {
+        observability.playbackOwnershipCoordinator?.release(PlaybackOwner.VIDEO)
+        if (!observability.backgroundAudio || !localState.value.isAudio) {
             finishPlayback()
             engine.stop()
         }
-        metricsSink?.close()
+        observability.metricsSink?.close()
     }
 }

@@ -106,7 +106,7 @@ android {
             isMinifyEnabled = false
         }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             if (hasCompleteSigningConfiguration) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -119,6 +119,9 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+    lint {
+        baseline = file("lint-baseline.xml")
     }
     buildFeatures {
         compose = true

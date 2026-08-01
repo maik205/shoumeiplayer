@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.3.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.3.1)" variant="all" version="9.3.1">
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 29 (current min is 28): `android.os.PowerManager#THERMAL_STATUS_NONE`"
+        errorLine1="                    PowerManager.THERMAL_STATUS_NONE"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/maik205/shoumeiplayer/ui/television/components/TelevisionMedia.kt"
+            line="320"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 29 (current min is 28): `android.os.PowerManager#THERMAL_STATUS_MODERATE`"
+        errorLine1="    status &lt; PowerManager.THERMAL_STATUS_MODERATE"
+        errorLine2="             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/maik205/shoumeiplayer/ui/television/components/TelevisionMedia.kt"
+            line="350"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="RememberInComposition"
+        message="Calling a @RememberInComposition annotated declaration inside composition without using `remember`"
+        errorLine1="        else -> focusRequesters.getOrPut(&quot;settings&quot;) { FocusRequester() }"
+        errorLine2="                                                       ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/maik205/shoumeiplayer/ui/television/components/TelevisionNavigation.kt"
+            line="181"
+            column="56"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of `compileSdk` than 36 is available: 37"
+        errorLine1="        version = release(36) {"
+        errorLine2="                  ^">
+        <location
+            file="build.gradle.kts"
+            line="9"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="    modifier: Modifier = Modifier,"
+        errorLine2="    ~~~~~~~~">
+        <location
+            file="src/main/java/com/maik205/shoumeiplayer/ui/television/components/TelevisionNavigation.kt"
+            line="96"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="    modifier: Modifier = Modifier,"
+        errorLine2="    ~~~~~~~~">
+        <location
+            file="src/main/java/com/maik205/shoumeiplayer/ui/television/components/TelevisionNavigation.kt"
+            line="440"
+            column="5"/>
+    </issue>
+
+</issues>

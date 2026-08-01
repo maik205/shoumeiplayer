@@ -47,29 +47,26 @@ and passes Jellyfin auth headers through `http-header-fields`.
 
 ## Architecture
 
-Single `:app` module, layered by package, manual dependency injection (no
-Hilt/KSP — the object graph is small and this avoids build fragility on
-AGP 9.2 / Kotlin 2.4), unidirectional data flow with `StateFlow`-based
-ViewModels.
+Eight Gradle modules, manual dependency injection (no Hilt/KSP — the object
+graph is small and this avoids build fragility on AGP 9.2 / Kotlin 2.4),
+unidirectional data flow with `StateFlow`-based ViewModels.
 
 ```
-com.maik205.shoumeiplayer
-├── ShoumeiApp.kt            // Application; owns AppContainer
-├── di/AppContainer.kt       // constructs client, repos, engine; vm factories
-├── data/
-│   ├── api/                 // JellyfinClient (Ktor), request/response DTOs
-│   ├── session/             // SessionStore: DataStore-backed server url + token + userId
-│   └── repo/                // AuthRepository, LibraryRepository, PlaybackRepository
-├── player/
-│   ├── PlayerEngine.kt      // engine-agnostic contract
-│   ├── MpvEngine.kt         // real engine: official libmpv via app-owned JNI
-│   ├── MplayerEngine.kt     // stub impl, JNI TODOs → ../mplayer (planned successor)
-│   └── SimulatedPlayerEngine.kt // fake clock for tests / UI work
-└── ui/
-    ├── theme/
-    ├── navigation/          // NavHost, typed (kotlinx-serialization) routes
-    ├── components/          // MediaCard, MediaRow, PosterImage, focus helpers
-    └── screens/             // serverentry, login, home, library, detail, player, search, settings
+:app                  // ShoumeiApp/AppContainer (DI root), UI screens, platform glue
+  ├── di/AppContainer.kt     // constructs client, repos, engine; vm factories
+  ├── platform/media/        // Android-side PlayerEngine decorators (audio focus,
+  │                          // caption prefs, audio route, HDR policy, frame rate),
+  │                          // ShoumeiAudioPlaybackService (Media3 MediaSessionService)
+  └── ui/                    // theme, navigation (typed routes), components, screens
+:feature:player        // PlayerViewModel and its session/queue/track/metadata collaborators
+:core:jellyfin          // JellyfinClient (Ktor), request/response DTOs
+:core:data              // SessionStore/SettingsStore (DataStore), repositories
+                        // (Auth/Library/PlaybackRepository), caches
+:core:player            // PlayerEngine contract, MpvEngine (real engine),
+                        // SwitchingPlayerEngine, MplayerEngine (stub), SystemPlayerEngine
+:core:model             // Shared domain types (ApiResult, ClientSettings, ...)
+:core:designsystem-tv   // Compose TV design-system components
+:mpvroid                // MpvNative JNI facade + the mpv_jni.cpp bridge (native/mpv submodule)
 ```
 
 Key data-layer choices:
@@ -107,10 +104,14 @@ it. On first run it asks for a Jellyfin server URL, then username/password.
 
 - Both debug and release builds use `MpvEngine`. Gradle deliberately refuses
   to assemble an APK when the official `libmpv.so` build is absent.
-- Home-lab Jellyfin servers are frequently plain HTTP rather than HTTPS.
-  Cleartext traffic is allowed via a scoped network security config, so
-  entering `http://192.168.x.x:8096`-style addresses works without any
-  extra configuration.
+- Home-lab Jellyfin servers are frequently plain HTTP rather than HTTPS, so
+  cleartext traffic is allowed at the manifest/network-security-config level
+  (Android's config can't express "private networks only" by IP range) but
+  gated in code: `JellyfinClient` refuses any `http://` request whose host
+  isn't a private/loopback IPv4 literal or a `.local`/`.lan`/`.home`/
+  `.internal`/`localhost` name. Entering `http://192.168.x.x:8096`-style
+  addresses works without extra configuration; a bare public hostname is
+  pushed to `https://` instead of silently defaulting to cleartext.
 
 Run JVM unit tests with:
 
@@ -141,4 +142,4 @@ Run JVM unit tests with:
 | M3 | Core UI: navigation, ServerEntry, Login, Home, components | Done |
 | M4 | Browse UI: Library, Detail, Search | Done |
 | M5 | Player UI: player screen, OSD, progress reporting | Done |
-| M6 | Polish: Settings, 401 handling, focus/overscan pass, build+tests green | Done (32 unit tests; debug + release builds green, zero compile warnings) |
+| M6 | Polish: Settings, 401 handling, focus/overscan pass, build+tests green | Done (240 unit tests; debug + release builds green) |
