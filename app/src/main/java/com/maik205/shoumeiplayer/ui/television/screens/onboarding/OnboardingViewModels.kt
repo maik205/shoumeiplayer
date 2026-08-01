@@ -6,10 +6,13 @@ import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.domain.result.ApiError
 import com.maik205.shoumeiplayer.domain.result.ApiResult
 import com.maik205.shoumeiplayer.data.ImageUrlBuilder
+import com.maik205.shoumeiplayer.data.api.dto.PublicSystemInfo
 import com.maik205.shoumeiplayer.data.repo.AuthRepository
 import com.maik205.shoumeiplayer.data.repo.JellyfinDiscoveryRepository
 import com.maik205.shoumeiplayer.data.session.RememberedServer
+import com.maik205.shoumeiplayer.data.session.ServerConnectionCandidate
 import com.maik205.shoumeiplayer.data.session.normalizeServerUrl
+import com.maik205.shoumeiplayer.data.session.serverConnectionCandidates
 import com.maik205.shoumeiplayer.ui.i18n.UiText
 import com.maik205.shoumeiplayer.ui.i18n.toUiText
 import kotlinx.coroutines.CancellationException
@@ -44,7 +47,13 @@ class ConnectViewModel(
     private var discoveredServers: List<ServerChoiceUi> = emptyList()
     private var rememberedServers: List<RememberedServer> = emptyList()
     private var activeServerId: String? = null
-    private var lastConnectionAddresses: List<String> = emptyList()
+    private var lastConnectionCandidates: List<ServerConnectionCandidate> = emptyList()
+    private var pendingInsecureActivation: PendingInsecureActivation? = null
+
+    private data class PendingInsecureActivation(
+        val candidate: ServerConnectionCandidate,
+        val systemInfo: PublicSystemInfo,
+    )
 
     init {
         viewModelScope.launch {
@@ -67,8 +76,10 @@ class ConnectViewModel(
                     .removePrefix("https://")
                     .removePrefix("http://"),
                 error = null,
+                insecureConnection = null,
             )
         }
+        pendingInsecureActivation = null
     }
 
     fun refresh() {
@@ -97,7 +108,7 @@ class ConnectViewModel(
     }
 
     fun connectSelected(server: ServerChoiceUi) {
-        connect(listOf(server.address))
+        connect(serverConnectionCandidates(server.address, prioritizeHttps = true))
     }
 
     fun connectManual() {
@@ -106,33 +117,77 @@ class ConnectViewModel(
             _state.update { it.copy(error = UiText.Resource(R.string.tv_enter_server_address)) }
             return
         }
-        connect(
-            if (raw.contains("://")) {
-                listOf(raw)
-            } else {
-                listOf("https://$raw", "http://$raw")
-            },
-        )
+        connect(serverConnectionCandidates(raw, prioritizeHttps = !raw.contains("://")))
     }
 
     fun retryConnection() {
-        if (lastConnectionAddresses.isNotEmpty()) {
-            connect(lastConnectionAddresses)
+        if (lastConnectionCandidates.isNotEmpty()) {
+            connect(lastConnectionCandidates)
         } else {
             connectManual()
         }
     }
 
-    private fun connect(addresses: List<String>) {
+    fun acceptInsecureConnection() {
+        val pending = pendingInsecureActivation ?: return
         if (_state.value.connecting) return
-        lastConnectionAddresses = addresses
         viewModelScope.launch {
             _state.update { it.copy(connecting = true, error = null) }
             try {
+                auth.activateServer(pending.candidate.url, pending.systemInfo)
+                pendingInsecureActivation = null
+                _state.update { it.copy(connecting = false, insecureConnection = null) }
+                _events.emit(
+                    ConnectEvent.Connected(
+                        resumeSession = auth.hasActiveSession(),
+                    ),
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                _state.update {
+                    it.copy(
+                        connecting = false,
+                        error = UiText.Resource(R.string.tv_connection_failed),
+                    )
+                }
+            }
+        }
+    }
+
+    fun cancelInsecureConnection() {
+        pendingInsecureActivation = null
+        _state.update { it.copy(insecureConnection = null, error = null) }
+    }
+
+    private fun connect(candidates: List<ServerConnectionCandidate>) {
+        if (_state.value.connecting) return
+        lastConnectionCandidates = candidates
+        pendingInsecureActivation = null
+        viewModelScope.launch {
+            _state.update {
+                it.copy(
+                    connecting = true,
+                    error = null,
+                    insecureConnection = null,
+                )
+            }
+            try {
                 var lastFailure: ApiResult.Failure? = null
-                for (address in addresses.distinct()) {
-                    when (val result = auth.validateServer(address)) {
+                for (candidate in candidates.distinctBy(ServerConnectionCandidate::url)) {
+                    when (val result = auth.probeServer(candidate.url)) {
                         is ApiResult.Success -> {
+                            if (candidate.requiresInsecureWarning) {
+                                pendingInsecureActivation = PendingInsecureActivation(candidate, result.data)
+                                _state.update {
+                                    it.copy(
+                                        connecting = false,
+                                        insecureConnection = InsecureConnectionUi(candidate.url),
+                                    )
+                                }
+                                return@launch
+                            }
+                            auth.activateServer(candidate.url, result.data)
                             _state.update { it.copy(connecting = false) }
                             _events.emit(
                                 ConnectEvent.Connected(

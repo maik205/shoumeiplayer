@@ -68,21 +68,30 @@ class AuthRepository(
             )
         }
 
-    suspend fun validateServer(rawUrl: String): ApiResult<PublicSystemInfo> {
+    suspend fun probeServer(rawUrl: String): ApiResult<PublicSystemInfo> {
         val normalized = normalizeServerUrl(rawUrl)
-        val result = client.get<PublicSystemInfo>(
+        return client.get<PublicSystemInfo>(
             "/System/Info/Public",
             baseUrlOverride = normalized,
             includeToken = false,
             invalidateSessionOnUnauthorized = false,
         )
+    }
+
+    suspend fun activateServer(rawUrl: String, systemInfo: PublicSystemInfo) {
+        val normalized = normalizeServerUrl(rawUrl)
+        if (sessionStore.serverUrlOrNull() != normalized) cachedUser = null
+        sessionStore.activateServer(
+            url = normalized,
+            serverId = systemInfo.id,
+            serverName = systemInfo.serverName,
+        )
+    }
+
+    suspend fun validateServer(rawUrl: String): ApiResult<PublicSystemInfo> {
+        val result = probeServer(rawUrl)
         if (result is ApiResult.Success) {
-            if (sessionStore.serverUrlOrNull() != normalized) cachedUser = null
-            sessionStore.activateServer(
-                url = normalized,
-                serverId = result.data.id,
-                serverName = result.data.serverName,
-            )
+            activateServer(rawUrl, result.data)
         }
         return result
     }

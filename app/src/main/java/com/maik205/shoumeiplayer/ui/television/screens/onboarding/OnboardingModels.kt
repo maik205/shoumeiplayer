@@ -15,6 +15,11 @@ data class ServerChoiceUi(
 )
 
 @Immutable
+data class InsecureConnectionUi(
+    val address: String,
+)
+
+@Immutable
 data class ConnectUiState(
     val address: String = "",
     val servers: List<ServerChoiceUi> = emptyList(),
@@ -22,6 +27,7 @@ data class ConnectUiState(
     val connecting: Boolean = false,
     val error: UiText? = null,
     val discoveryError: UiText? = null,
+    val insecureConnection: InsecureConnectionUi? = null,
 )
 
 @Immutable

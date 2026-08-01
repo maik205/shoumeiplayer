@@ -407,6 +407,10 @@
     <string name="tv_recovery_admin">Ask your server administrator to reset this account.</string>
 
     <string name="tv_connection_failed">Couldn’t connect to that server. Try again.</string>
+    <string name="tv_insecure_http_title">Unencrypted connection</string>
+    <string name="tv_insecure_http_message">This connection uses unencrypted HTTP. Your sign-in details and media traffic could be visible to others on the network.</string>
+    <string name="tv_use_http_anyway">Use HTTP anyway</string>
+    <string name="tv_cancel_insecure_connection">Cancel</string>
 
     <!-- Friendly connection failures. Each message is complete so translators can reorder freely. -->
     <string name="tv_connection_quiet">That server stayed quiet. Try again.</string>

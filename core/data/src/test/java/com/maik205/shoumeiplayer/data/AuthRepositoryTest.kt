@@ -14,6 +14,25 @@ import org.junit.Test
 class AuthRepositoryTest {
 
     @Test
+    fun `probeServer does not persist until the caller accepts the endpoint`() = runTest {
+        val sessionStore = FakeJellyfin.newSessionStore()
+        val client = FakeJellyfin.client(
+            routes = mapOf("/System/Info/Public" to fakeRoute(FakeJellyfin.fixture("system_info_public.json"))),
+            sessions = sessionStore,
+        )
+        val repo = AuthRepository(client, sessionStore)
+
+        val result = repo.probeServer("myserver.local:8096/")
+
+        assertTrue(result is ApiResult.Success)
+        assertNull(sessionStore.serverUrl.first())
+
+        repo.activateServer("myserver.local:8096/", (result as ApiResult.Success).data)
+
+        assertEquals("https://myserver.local:8096", sessionStore.serverUrl.first())
+    }
+
+    @Test
     fun `validateServer success persists normalized server url and returns system info`() = runTest {
         val sessionStore = FakeJellyfin.newSessionStore()
         val client = FakeJellyfin.client(

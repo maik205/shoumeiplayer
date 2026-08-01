@@ -105,13 +105,14 @@ it. On first run it asks for a Jellyfin server URL, then username/password.
 - Both debug and release builds use `MpvEngine`. Gradle deliberately refuses
   to assemble an APK when the official `libmpv.so` build is absent.
 - Home-lab Jellyfin servers are frequently plain HTTP rather than HTTPS, so
-  cleartext traffic is allowed at the manifest/network-security-config level
-  (Android's config can't express "private networks only" by IP range) but
-  gated in code: `JellyfinClient` refuses any `http://` request whose host
-  isn't a private/loopback IPv4 literal or a `.local`/`.lan`/`.home`/
-  `.internal`/`localhost` name. Entering `http://192.168.x.x:8096`-style
-  addresses works without extra configuration; a bare public hostname is
-  pushed to `https://` instead of silently defaulting to cleartext.
+  cleartext traffic remains available at the manifest/network-security-config
+  layer for arbitrary private IP literals (Android's config cannot express
+  "private networks only" by IP range). It is gated in code:
+  `JellyfinClient` refuses any `http://` request whose host is not a
+  private/loopback IPv4 literal or a `.local`/`.lan`/`.home`/`.internal`/
+  `localhost` name. Onboarding probes `https://` first, falls back to an
+  eligible local HTTP endpoint only after a localized warning and explicit
+  confirmation, and never silently enables public cleartext.
 
 Run JVM unit tests with:
 

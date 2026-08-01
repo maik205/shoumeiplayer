@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.LockReset
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -94,10 +95,19 @@ fun ConnectScreen(
     onServerClick: (ServerChoiceUi) -> Unit,
     onConnect: () -> Unit,
     onRetryConnection: () -> Unit,
+    onAcceptInsecureConnection: () -> Unit,
+    onCancelInsecureConnection: () -> Unit,
 ) {
     val addressFocus = remember { FocusRequester() }
     val firstServerFocus = remember { FocusRequester() }
+    val insecureAllowFocus = remember { FocusRequester() }
     var initialFocusAssigned by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state.insecureConnection) {
+        if (state.insecureConnection != null) {
+            runCatching { insecureAllowFocus.requestFocus() }
+        }
+    }
 
     LaunchedEffect(state.servers, state.discovering) {
         if (!state.discovering && !initialFocusAssigned) {
@@ -243,6 +253,58 @@ fun ConnectScreen(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                 contentDescription = stringResource(R.string.connect),
                                 modifier = Modifier.size(23.dp),
+                            )
+                        }
+                    }
+                }
+
+                state.insecureConnection?.let { insecureConnection ->
+                    Spacer(Modifier.height(18.dp))
+                    Column(modifier = Modifier.focusGroup()) {
+                        Row(verticalAlignment = Alignment.Top) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = TelevisionColors.PaperMuted,
+                                modifier = Modifier.size(28.dp),
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.tv_insecure_http_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    text = stringResource(R.string.tv_insecure_http_message),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TelevisionColors.PaperSoft,
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = insecureConnection.address,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = TelevisionColors.PaperMuted,
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            TelevisionFocusRevealButton(
+                                label = stringResource(R.string.tv_use_http_anyway),
+                                icon = Icons.AutoMirrored.Filled.ArrowForward,
+                                onClick = onAcceptInsecureConnection,
+                                enabled = !state.connecting,
+                                focusRequester = insecureAllowFocus,
+                                expandedWidth = 164.dp,
+                            )
+                            TelevisionFocusRevealButton(
+                                label = stringResource(R.string.tv_cancel_insecure_connection),
+                                icon = Icons.AutoMirrored.Filled.ArrowBack,
+                                onClick = onCancelInsecureConnection,
+                                enabled = !state.connecting,
+                                expandedWidth = 116.dp,
                             )
                         }
                     }

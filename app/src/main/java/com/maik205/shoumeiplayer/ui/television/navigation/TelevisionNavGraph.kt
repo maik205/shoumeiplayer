@@ -196,6 +196,8 @@ fun TelevisionNavGraph(
                 onServerClick = viewModel::connectSelected,
                 onConnect = viewModel::connectManual,
                 onRetryConnection = viewModel::retryConnection,
+                onAcceptInsecureConnection = viewModel::acceptInsecureConnection,
+                onCancelInsecureConnection = viewModel::cancelInsecureConnection,
             )
         }
 
