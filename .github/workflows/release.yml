@@ -17,12 +17,20 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SHOUMEI_RELEASE_TAG: ${{ github.ref_name }}
-      SHOUMEI_KEYSTORE_PATH: ${{ runner.temp }}/shoumei-upload.jks
       SHOUMEI_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       SHOUMEI_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
       SHOUMEI_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
     steps:
+      # The `runner` context is only available inside step expressions/scripts, never in a
+      # job-level `env:` block -- putting `${{ runner.temp }}` up there makes GitHub reject the
+      # whole workflow file at parse time (every run then fails instantly with 0 jobs, regardless
+      # of the `on.push.tags` filter). $RUNNER_TEMP is the equivalent real shell env var GitHub
+      # injects into every step, so it's computed here and exported via GITHUB_ENV instead.
+      - name: Set keystore path
+        shell: bash
+        run: echo "SHOUMEI_KEYSTORE_PATH=$RUNNER_TEMP/shoumei-upload.jks" >> "$GITHUB_ENV"
+
       - name: Check out the pinned release commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:

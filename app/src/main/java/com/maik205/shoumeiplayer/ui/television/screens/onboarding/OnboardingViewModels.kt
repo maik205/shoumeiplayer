@@ -11,7 +11,7 @@ import com.maik205.shoumeiplayer.data.repo.JellyfinDiscoveryRepository
 import com.maik205.shoumeiplayer.data.session.RememberedServer
 import com.maik205.shoumeiplayer.data.session.normalizeServerUrl
 import com.maik205.shoumeiplayer.ui.i18n.UiText
-import com.maik205.shoumeiplayer.ui.i18n.asDynamicUiText
+import com.maik205.shoumeiplayer.ui.i18n.toUiText
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -186,7 +186,7 @@ class ProfilesViewModel(
             val activeUserId = auth.activeUserId()
             when (val result = auth.accountSwitcherUsers()) {
                 is ApiResult.Failure -> _state.update {
-                    it.copy(loading = false, error = result.error.displayMessage.asDynamicUiText())
+                    it.copy(loading = false, error = result.error.toUiText())
                 }
 
                 is ApiResult.Success -> _state.update {
@@ -284,7 +284,7 @@ class TelevisionLoginViewModel(
                         _state.update {
                             it.copy(
                                 signingIn = false,
-                                error = error.displayMessage.asDynamicUiText(),
+                                error = error.toUiText(),
                             )
                         }
                     }
@@ -308,7 +308,7 @@ class TelevisionLoginViewModel(
                 is ApiResult.Failure -> _state.update {
                     it.copy(
                         quickConnectLoading = false,
-                        error = initiated.error.displayMessage.asDynamicUiText(),
+                        error = initiated.error.toUiText(),
                     )
                 }
 
@@ -349,7 +349,7 @@ class TelevisionLoginViewModel(
 
                         is ApiResult.Failure -> {
                             _state.update {
-                                it.copy(error = authenticated.error.displayMessage.asDynamicUiText())
+                                it.copy(error = authenticated.error.toUiText())
                             }
                             return
                         }
@@ -388,7 +388,7 @@ class TelevisionRecoveryViewModel(
                 is ApiResult.Failure -> _state.update {
                     it.copy(
                         requesting = false,
-                        error = response.error.displayMessage.asDynamicUiText(),
+                        error = response.error.toUiText(),
                     )
                 }
 

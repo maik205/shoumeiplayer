@@ -40,7 +40,6 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import com.maik205.shoumeiplayer.player.PlaybackMetricsSink
 
 class AppContainer(
@@ -94,18 +93,21 @@ class AppContainer(
     val playbackOwnershipCoordinator: PlaybackOwnershipCoordinator by lazy {
         PlaybackOwnershipCoordinator()
     }
-    private val playbackBackend by lazy {
-        runBlocking { settingsStore.current().playbackBackend }
-    }
     // Official libmpv via the app-owned JNI bridge is the real engine in both build types.
     // MplayerEngine remains the
     // planned native successor behind this same PlayerEngine interface (see
     // docs/mplayer-integration.md); SimulatedPlayerEngine stays for JVM unit tests.
+    //
+    // The engine chain is built with the default (mpv) backend rather than blocking here on the
+    // persisted setting: PlayerViewModel.startInitialPlayback() reads settingsStore and calls
+    // engine.configure() before anything is loaded, and SwitchingPlayerEngine swaps backends
+    // inside configure() if the persisted choice differs -- so the real backend is always in
+    // place before playback starts, without a synchronous DataStore read on the main thread.
     private val audioRouteEngine by lazy {
         AndroidAudioRoutePlayerEngine(context, hdrEngine)
     }
     private val frameRateEngine by lazy {
-        AndroidFrameRatePlayerEngine(PlayerEngineFactory.create(context, playbackBackend))
+        AndroidFrameRatePlayerEngine(PlayerEngineFactory.create(context))
     }
     private val hdrEngine by lazy {
         AndroidHdrPolicyPlayerEngine(context, frameRateEngine)

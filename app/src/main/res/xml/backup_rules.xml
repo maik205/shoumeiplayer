@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android <=11 (API <= 30) auto backup rules. Session tokens and remembered-server credentials
+  live in the "shoumei_session" DataStore and must never leave the device via cloud backup;
+  restoring them onto another device would silently hand out this account's Jellyfin access.
+-->
+<full-backup-content>
+    <exclude domain="file" path="datastore/shoumei_session.preferences_pb" />
+</full-backup-content>

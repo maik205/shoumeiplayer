@@ -9,6 +9,17 @@ sealed interface ApiError {
     data class Serialization(val message: String) : ApiError
     data class Unknown(val message: String) : ApiError
 
+    /**
+     * English copy baked into a data-layer model -- not localizable, and this module has no
+     * Android resources to route it through anyway. Kept only so the many existing plain-`String`
+     * UI-state fields still compile; new code (and any state field that already speaks `UiText`)
+     * should go through `com.maik205.shoumeiplayer.ui.i18n.toUiText()` in the app module instead,
+     * which resolves this same information from `strings.xml`.
+     */
+    @Deprecated(
+        "App-owned copy does not belong in core/model. Use ApiError.toUiText() (ui.i18n) instead.",
+        ReplaceWith("this.toUiText()", "com.maik205.shoumeiplayer.ui.i18n.toUiText"),
+    )
     val displayMessage: String
         get() = when (this) {
             is Unauthorized -> "Session expired. Please sign in again."

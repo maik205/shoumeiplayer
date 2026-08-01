@@ -63,11 +63,11 @@ class SessionStore(private val store: DataStore<Preferences>) : SessionProvider 
     override suspend fun current(): Session? = session.first()
 
     override suspend fun deviceId(): String {
-        val existing = store.data.first()[SessionKeys.DEVICE_ID]
-        if (existing != null) return existing
-        val generated = UUID.randomUUID().toString()
-        store.edit { prefs -> prefs[SessionKeys.DEVICE_ID] = generated }
-        return generated
+        val generatedIfNeeded = UUID.randomUUID().toString()
+        val prefs = store.edit { prefs ->
+            if (prefs[SessionKeys.DEVICE_ID] == null) prefs[SessionKeys.DEVICE_ID] = generatedIfNeeded
+        }
+        return checkNotNull(prefs[SessionKeys.DEVICE_ID])
     }
 
     override suspend fun serverUrlOrNull(): String? = readActiveServer(store.data.first())?.url
@@ -279,10 +279,17 @@ private fun serverDisplayName(url: String): String =
         ?.takeIf(String::isNotBlank)
         ?: url.removePrefix("http://").removePrefix("https://")
 
-fun normalizeServerUrl(raw: String): String {
+/**
+ * [defaultScheme] is "https" for manually-typed addresses (a bare hostname should not silently
+ * become an unencrypted request to whatever that name resolves to) but discovery overrides it to
+ * "http": Jellyfin's UDP discovery only ever hears back from same-LAN servers, so there is no
+ * public-network guessing risk, and defaulting a discovered address to https would routinely fail
+ * against a home server's self-signed/absent TLS setup right after onboarding finds it.
+ */
+fun normalizeServerUrl(raw: String, defaultScheme: String = "https"): String {
     var url = raw.trim()
     if (!url.contains("://")) {
-        url = "http://$url"
+        url = "$defaultScheme://$url"
     }
     url = url.trimEnd('/')
     val webIndexSuffix = "/web/index.html"

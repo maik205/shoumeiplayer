@@ -17,6 +17,7 @@ internal class SwitchingPlayerEngine(
     private val create: (PlaybackBackend) -> PlayerEngine,
 ) : PlayerEngine {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+    private var released = false
     private var backend = initialBackend
     private var delegate = create(initialBackend)
     private var observationJobs: List<Job> = emptyList()
@@ -58,6 +59,7 @@ internal class SwitchingPlayerEngine(
 
     @Synchronized
     override fun configure(settings: ClientSettings) {
+        if (released) return
         if (settings.playbackBackend != backend) {
             delegate.stop()
             delegate.release()
@@ -84,7 +86,10 @@ internal class SwitchingPlayerEngine(
     override fun selectTrack(track: PlayerTrack) = delegate.selectTrack(track)
     override fun stop() = delegate.stop()
 
+    @Synchronized
     override fun release() {
+        if (released) return
+        released = true
         delegate.release()
         scope.cancel()
     }

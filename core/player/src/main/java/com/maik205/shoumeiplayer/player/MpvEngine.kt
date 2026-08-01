@@ -84,63 +84,75 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
     private var systemCaBundlePath: String? = null
 
     init {
-        MpvNative.create(context.applicationContext)
+        if (!MpvNative.create(context.applicationContext)) {
+            _state.value = PlayerState.Error("mpv failed to initialize (mpv_create)")
+        }
         // Findroid MPVPlayer option set (player/local/.../mpv/MPVPlayer.kt).
-        MpvNative.setOptionString("config", "no")
-        MpvNative.setOptionString("profile", "fast")
-        MpvNative.setOptionString("vo", "gpu")
-        MpvNative.setOptionString("gpu-context", "android")
-        MpvNative.setOptionString("opengl-es", "yes")
-        MpvNative.setOptionString("ao", "audiotrack")
-        MpvNative.setOptionString("audio-set-media-role", "yes")
+        setOption("config", "no")
+        setOption("profile", "fast")
+        setOption("vo", "gpu")
+        setOption("gpu-context", "android")
+        setOption("opengl-es", "yes")
+        setOption("ao", "audiotrack")
+        setOption("audio-set-media-role", "yes")
         // mediacodec-copy is the TV-safe variant: it survives surface loss and
         // keeps subtitle/filter paths working where direct rendering does not.
-        MpvNative.setOptionString("hwdec", "mediacodec-copy")
-        MpvNative.setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
-        systemCaBundlePath = createSystemCaBundle(
-            File("/system/etc/security/cacerts"),
-            File(context.cacheDir, "mpv-system-ca-bundle.pem"),
-        )?.absolutePath
-        MpvNative.setOptionString("tls-verify", "yes")
-        MpvNative.setOptionString("tls-ca-file", systemCaBundlePath.orEmpty())
+        setOption("hwdec", "mediacodec-copy")
+        setOption("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
+        systemCaBundlePath = run {
+            // The app's own HTTPS trust (Ktor/OkHttp, via network_security_config.xml) includes
+            // user-installed CAs, but mpv gets its trust anchors from a plain file it reads
+            // itself. Scanning /system/etc/security/cacerts alone misses anything the user
+            // installed, so those are appended from AndroidCAStore -- the same trust source
+            // Android's own HTTPS stack consults -- rather than the unreadable
+            // /data/misc/user/{uid}/cacerts-added directory the OS keeps them in on disk.
+            val bundleFile = File(context.cacheDir, "mpv-system-ca-bundle.pem")
+            createSystemCaBundle(File("/system/etc/security/cacerts"), bundleFile)
+            appendUserCaCertificates(bundleFile)
+            bundleFile.takeIf { it.exists() && it.length() > 0L }?.absolutePath
+        }
+        setOption("tls-verify", "yes")
+        setOption("tls-ca-file", systemCaBundlePath.orEmpty())
         // --- network stream cache -------------------------------------------------
         // Jellyfin streams are remote HTTP; without a real cache every hiccup on the LAN
         // becomes a visible stall. The values below are the Findroid-era defaults.
         // cache: enable the stream cache for network sources (mpv disables it for some).
-        MpvNative.setOptionString("cache", "yes")
+        setOption("cache", "yes")
         // cache-secs: how much decoded-ahead material the cache is allowed to keep; 30s is
         // enough to ride out a Wi-Fi dropout without hoarding memory on a TV box.
-        MpvNative.setOptionString("cache-secs", "30")
+        setOption("cache-secs", "30")
         // demuxer-readahead-secs: how far the demuxer reads past the playhead. 20s keeps the
         // buffered bar meaningfully ahead while staying under demuxer-max-bytes for HD video.
-        MpvNative.setOptionString("demuxer-readahead-secs", "20")
+        setOption("demuxer-readahead-secs", "20")
         // demuxer-max-bytes: hard ceiling on the forward cache — 64MiB is the practical cap
         // for an Android TV heap and comfortably holds the 20s readahead above.
-        MpvNative.setOptionString("demuxer-max-bytes", "${min(64, memoryBudgetMiB)}MiB")
+        setOption("demuxer-max-bytes", "${min(64, memoryBudgetMiB)}MiB")
         // demuxer-max-back-bytes: backwards cache, so short back-seeks are instant instead of
         // forcing a new HTTP range request.
-        MpvNative.setOptionString("demuxer-max-back-bytes", "${min(32, memoryBudgetMiB / 2)}MiB")
+        setOption("demuxer-max-back-bytes", "${min(32, memoryBudgetMiB / 2)}MiB")
         // cache-pause-initial: hold playback until the cache has filled once, so the first
         // frame is followed by continuous video instead of an immediate re-buffer.
-        MpvNative.setOptionString("cache-pause-initial", "yes")
+        setOption("cache-pause-initial", "yes")
         // cache-pause-wait: seconds of data to accumulate before resuming after an underrun.
         // Small (1s) so a brief stall does not turn into a long visible freeze.
-        MpvNative.setOptionString("cache-pause-wait", "1")
+        setOption("cache-pause-wait", "1")
         // network-timeout: give up on a dead connection after 15s instead of hanging forever;
         // the resulting end-file surfaces as PlayerState.Error.
-        MpvNative.setOptionString("network-timeout", "15")
+        setOption("network-timeout", "15")
         // stream-buffer-size is deliberately left at mpv's default — raising it only adds
         // latency in front of the demuxer cache that is already sized above.
-        MpvNative.setOptionString("sub-scale-with-window", "yes")
-        MpvNative.setOptionString("sub-use-margins", "no")
-        MpvNative.setOptionString("save-position-on-quit", "no")
-        MpvNative.setOptionString("ytdl", "no")
-        MpvNative.setOptionString("idle", "yes")
+        setOption("sub-scale-with-window", "yes")
+        setOption("sub-use-margins", "no")
+        setOption("save-position-on-quit", "no")
+        setOption("ytdl", "no")
+        setOption("idle", "yes")
         // keep-open so the Ended state is observable instead of mpv going idle.
-        MpvNative.setOptionString("keep-open", "yes")
+        setOption("keep-open", "yes")
         // No window until a Surface is attached.
-        MpvNative.setOptionString("force-window", "no")
-        MpvNative.init()
+        setOption("force-window", "no")
+        if (!MpvNative.init()) {
+            _state.value = PlayerState.Error("mpv failed to initialize (mpv_initialize)")
+        }
         MpvNative.addObserver(this)
         MpvNative.addLogObserver(this)
         // DOUBLE rather than INT64: an integer-seconds position makes the seek bar and the
@@ -167,8 +179,8 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         if (released) return
         if (surface != null) {
             MpvNative.attachSurface(surface)
-            MpvNative.setOptionString("force-window", "yes")
-            MpvNative.setOptionString("vo", "gpu")
+            setOption("force-window", "yes")
+            setOption("vo", "gpu")
             surfaceAttached = true
             pendingLoad?.let { request ->
                 pendingLoad = null
@@ -176,8 +188,8 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
             }
         } else if (surfaceAttached) {
             // Must detach before the surface is destroyed.
-            MpvNative.setOptionString("vo", "null")
-            MpvNative.setOptionString("force-window", "no")
+            setOption("vo", "null")
+            setOption("force-window", "no")
             MpvNative.detachSurface()
             surfaceAttached = false
         }
@@ -196,7 +208,7 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
     override fun configure(settings: ClientSettings) {
         if (released) return
 
-        MpvNative.setOptionString(
+        setOption(
             "profile",
             when (settings.renderingProfile) {
                 RenderingProfile.Quality -> "gpu-hq"
@@ -204,7 +216,7 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
                 RenderingProfile.Fast -> "fast"
             },
         )
-        MpvNative.setOptionString(
+        setOption(
             "hwdec",
             when (settings.hardwareDecoding) {
                 HardwareDecoding.Software -> "no"
@@ -212,11 +224,11 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
                 HardwareDecoding.MediaCodecCopy -> "mediacodec-copy"
             },
         )
-        MpvNative.setOptionString(
+        setOption(
             "target-colorspace-hint",
             if (settings.hdrMode == HdrMode.Off || settings.hdrMode == HdrMode.ForceSdr) "no" else "yes",
         )
-        MpvNative.setOptionString(
+        setOption(
             "tone-mapping",
             when (settings.toneMapping) {
                 ToneMapping.Bt2390 -> "bt.2390"
@@ -226,7 +238,7 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
                 ToneMapping.Automatic -> "auto"
             },
         )
-        MpvNative.setOptionString(
+        setOption(
             "deinterlace",
             when (settings.deinterlaceMode) {
                 DeinterlaceMode.On, DeinterlaceMode.Bob -> "yes"
@@ -234,23 +246,23 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
                 DeinterlaceMode.Automatic -> "auto"
             },
         )
-        MpvNative.setOptionString("interpolation", settings.frameInterpolation.yesNo())
+        setOption("interpolation", settings.frameInterpolation.yesNo())
 
-        MpvNative.setOptionString("audio-pitch-correction", settings.pitchCorrection.yesNo())
-        MpvNative.setOptionString("audio-channels", if (settings.downmixStereo) "stereo" else "auto")
+        setOption("audio-pitch-correction", settings.pitchCorrection.yesNo())
+        setOption("audio-channels", if (settings.downmixStereo) "stereo" else "auto")
         val passthrough = buildList {
             if (settings.dolbyDigitalPassthrough) add("ac3")
             if (settings.dolbyDigitalPlusPassthrough) add("eac3")
             if (settings.dtsPassthrough) addAll(listOf("dts", "dts-hd"))
         }
-        MpvNative.setOptionString("audio-spdif", passthrough.joinToString(","))
-        MpvNative.setOptionString(
+        setOption("audio-spdif", passthrough.joinToString(","))
+        setOption(
             "alang",
             settings.preferredAudioLanguage.toMpvLanguagePreference(),
         )
 
-        MpvNative.setOptionString("sub-scale", (settings.subtitleSizePercent / 100f).toString())
-        MpvNative.setOptionString(
+        setOption("sub-scale", (settings.subtitleSizePercent / 100f).toString())
+        setOption(
             "sub-color",
             when (settings.subtitleColor) {
                 SubtitleColor.Yellow -> "#FFF176"
@@ -258,7 +270,7 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
                 SubtitleColor.White -> "#FFFFFF"
             },
         )
-        MpvNative.setOptionString(
+        setOption(
             "sub-border-size",
             when (settings.subtitleStroke) {
                 SubtitleStroke.Off -> "0"
@@ -267,39 +279,39 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
                 SubtitleStroke.Medium -> "2"
             },
         )
-        MpvNative.setOptionString("sub-bold", settings.boldSubtitles.yesNo())
-        MpvNative.setOptionString("sub-scale-with-window", settings.scaleSubtitlesWithWindow.yesNo())
-        MpvNative.setOptionString("sub-use-margins", settings.useVideoMargins.yesNo())
-        MpvNative.setOptionString(
+        setOption("sub-bold", settings.boldSubtitles.yesNo())
+        setOption("sub-scale-with-window", settings.scaleSubtitlesWithWindow.yesNo())
+        setOption("sub-use-margins", settings.useVideoMargins.yesNo())
+        setOption(
             "slang",
             settings.preferredSubtitleLanguage.toMpvLanguagePreference(),
         )
 
-        MpvNative.setOptionString("cache", settings.networkCacheEnabled.yesNo())
-        MpvNative.setOptionString("cache-secs", settings.cacheDurationSeconds.toString())
-        MpvNative.setOptionString("demuxer-readahead-secs", settings.readAheadSeconds.toString())
+        setOption("cache", settings.networkCacheEnabled.yesNo())
+        setOption("cache-secs", settings.cacheDurationSeconds.toString())
+        setOption("demuxer-readahead-secs", settings.readAheadSeconds.toString())
         val forwardCacheMiB = min(settings.forwardCacheMiB, memoryBudgetMiB)
         val backwardCacheMiB = min(settings.backwardCacheMiB, memoryBudgetMiB / 2)
-        MpvNative.setOptionString("demuxer-max-bytes", "${forwardCacheMiB}MiB")
-        MpvNative.setOptionString("demuxer-max-back-bytes", "${backwardCacheMiB}MiB")
-        MpvNative.setOptionString("cache-pause-wait", settings.resumeBufferSeconds.toString())
-        MpvNative.setOptionString("network-timeout", settings.networkTimeoutSeconds.toString())
+        setOption("demuxer-max-bytes", "${forwardCacheMiB}MiB")
+        setOption("demuxer-max-back-bytes", "${backwardCacheMiB}MiB")
+        setOption("cache-pause-wait", settings.resumeBufferSeconds.toString())
+        setOption("network-timeout", settings.networkTimeoutSeconds.toString())
         val tlsOptions = tlsMpvOptions(settings, systemCaBundlePath)
-        MpvNative.setOptionString("tls-verify", tlsOptions.verify)
+        setOption("tls-verify", tlsOptions.verify)
         // An empty value restores mpv's native CA lookup and prevents a prior Android bundle
         // from leaking into a later trust-source selection.
-        MpvNative.setOptionString("tls-ca-file", tlsOptions.caFile.orEmpty())
+        setOption("tls-ca-file", tlsOptions.caFile.orEmpty())
     }
 
     override fun setSystemCaptionStyle(style: SystemCaptionStyle?) {
         if (released || style == null) return
-        MpvNative.setOptionString("sub-scale", style.fontScale.coerceIn(0.5f, 3f).toString())
-        MpvNative.setOptionString("sub-color", style.foregroundColor.toMpvColor())
-        MpvNative.setOptionString("sub-back-color", style.backgroundColor.toMpvColor())
-        MpvNative.setOptionString("sub-border-color", style.edgeColor.toMpvColor())
-        MpvNative.setOptionString("sub-border-size", if (style.edgeType == 0) "0" else "1")
-        style.typefaceName?.takeIf(String::isNotBlank)?.let { MpvNative.setOptionString("sub-font", it) }
-        style.localeTag?.let { MpvNative.setOptionString("slang", it) }
+        setOption("sub-scale", style.fontScale.coerceIn(0.5f, 3f).toString())
+        setOption("sub-color", style.foregroundColor.toMpvColor())
+        setOption("sub-back-color", style.backgroundColor.toMpvColor())
+        setOption("sub-border-color", style.edgeColor.toMpvColor())
+        setOption("sub-border-size", if (style.edgeType == 0) "0" else "1")
+        style.typefaceName?.takeIf(String::isNotBlank)?.let { setOption("sub-font", it) }
+        style.localeTag?.let { setOption("slang", it) }
     }
 
     override fun load(item: PlayRequest) {
@@ -315,8 +327,8 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         mpvTracks = emptyList()
         externalIndexByMpvId = emptyMap()
         _tracks.value = emptyList()
-            _bufferedMs.value = null
-            _videoFps.value = null
+        _bufferedMs.value = null
+        _videoFps.value = null
         _positionMs.value = item.startPositionMs
         _durationMs.value = item.durationMs
         _state.value = PlayerState.Loading
@@ -338,7 +350,7 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         item.headers.forEach { (key, value) ->
             MpvNative.command(arrayOf("change-list", "http-header-fields", "append", "$key: $value"))
         }
-        MpvNative.setOptionString(
+        setOption(
             "start",
             if (item.startPositionMs > 0) {
                 String.format(Locale.ROOT, "+%.3f", item.startPositionMs / 1000.0)
@@ -481,6 +493,7 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         externalIndexByMpvId = emptyMap()
         pendingExternalSubtitles = emptyList()
         _positionMs.value = 0
+        _durationMs.value = null
         _bufferedMs.value = null
         _videoFps.value = null
         _state.value = PlayerState.Idle
@@ -596,6 +609,17 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
 
     // --- internals ------------------------------------------------------------
 
+    /**
+     * `MpvNative.setOptionString` already returns mpv's error code, but every call site used to
+     * discard it, so a rejected option (typo, value out of range, unsupported on this device)
+     * failed silently. This just makes the failure observable in logcat instead of changing
+     * behavior — most options here are non-critical tuning knobs, not worth surfacing to the UI.
+     */
+    private fun setOption(name: String, value: String) {
+        val result = MpvNative.setOptionString(name, value)
+        if (result < 0) Log.w(TAG, "mpv rejected option $name=$value (code $result)")
+    }
+
     private fun updateState() {
         if (released || !hasRequest) return
         if (_state.value is PlayerState.Error) return
@@ -691,5 +715,32 @@ internal fun createSystemCaBundle(systemCaDirectory: File, destination: File): F
     }
     destination
 }.getOrNull()
+
+/**
+ * Appends every user-installed CA (Settings > Security > Encryption & credentials > User
+ * credentials) to [destination] in PEM form, on top of whatever [createSystemCaBundle] already
+ * wrote. `AndroidCAStore` aliases prefixed `user:` are exactly this set, and reading it needs no
+ * special permission -- unlike the on-disk `/data/misc/user/{uid}/cacerts-added` directory the OS
+ * actually stores them in, which is not readable by an app's own uid.
+ */
+internal fun appendUserCaCertificates(destination: File): File? = runCatching {
+    val keyStore = java.security.KeyStore.getInstance("AndroidCAStore")
+    keyStore.load(null, null)
+    val userAliases = keyStore.aliases().toList().filter { it.startsWith("user:") }
+    if (userAliases.isEmpty()) return destination
+    destination.appendText(
+        userAliases.joinToString(separator = "") { alias ->
+            val certificate = keyStore.getCertificate(alias) as? java.security.cert.X509Certificate
+                ?: return@joinToString ""
+            certificate.encoded.toPem()
+        },
+    )
+    destination
+}.getOrNull()
+
+private fun ByteArray.toPem(): String {
+    val body = java.util.Base64.getEncoder().encodeToString(this).chunked(64).joinToString("\n")
+    return "-----BEGIN CERTIFICATE-----\n$body\n-----END CERTIFICATE-----\n"
+}
 
 private fun Int.toMpvColor(): String = "#%08X".format(Locale.US, this)

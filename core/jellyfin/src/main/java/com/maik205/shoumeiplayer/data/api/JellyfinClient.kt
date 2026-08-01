@@ -68,6 +68,10 @@ class JellyfinClient(
         if (enableLogging) {
             install(Logging) {
                 level = LogLevel.INFO
+                // INFO only logs method+URL today, not headers, but this is cheap insurance
+                // against a future level bump (HEADERS/ALL) silently putting the session token
+                // into logcat via the Authorization header.
+                sanitizeHeader { header -> header.equals(HttpHeaders.Authorization, ignoreCase = true) }
             }
         }
     }
@@ -86,7 +90,8 @@ class JellyfinClient(
 
     suspend fun resolveUrl(path: String, params: Map<String, Any?> = emptyMap()): String? {
         val base = sessions.serverUrlOrNull() ?: return null
-        return buildUrl(base, path, params)
+        val url = buildUrl(base, path, params)
+        return url.takeIf { cleartextRejectionReason(it) == null }
     }
 
     suspend inline fun <reified T> get(
@@ -261,6 +266,9 @@ class JellyfinClient(
         val base = baseUrlOverride ?: sessions.serverUrlOrNull()
             ?: return ApiResult.Failure(ApiError.Network("No server configured"))
         val url = buildUrl(base, path, params)
+        cleartextRejectionReason(url)?.let { reason ->
+            return ApiResult.Failure(ApiError.Network(reason))
+        }
         return try {
             val response = httpClient.request(url) {
                 this.method = method

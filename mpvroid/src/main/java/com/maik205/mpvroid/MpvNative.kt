@@ -19,8 +19,11 @@ object MpvNative {
     private val eventObservers = CopyOnWriteArrayList<EventObserver>()
     private val logObservers = CopyOnWriteArrayList<LogObserver>()
 
-    external fun create(context: Context)
-    external fun init()
+    /** False means `mpv_create` failed (e.g. out of memory); the handle is unusable. */
+    external fun create(context: Context): Boolean
+
+    /** False means `mpv_initialize` failed; the handle exists but every other call is a no-op. */
+    external fun init(): Boolean
     external fun destroy()
     external fun attachSurface(surface: Surface)
     external fun detachSurface()

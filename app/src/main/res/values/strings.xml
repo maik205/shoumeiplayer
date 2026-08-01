@@ -24,6 +24,14 @@
     <string name="off">Off</string>
     <string name="quick_connect_coming_soon">Quick Connect is not available yet</string>
 
+    <!-- ApiError.toUiText(): keep these in sync with core/model's ApiError variants. -->
+    <string name="error_session_expired">Session expired. Please sign in again.</string>
+    <string name="error_invalid_credentials">The username or password is incorrect.</string>
+    <string name="error_network">Network error: %1$s</string>
+    <string name="error_http">Server error (%1$d): %2$s</string>
+    <string name="error_serialization">Failed to parse server response: %1$s</string>
+    <string name="error_unknown">Unexpected error: %1$s</string>
+
     <!-- Nav rail (M-B9). -->
     <string name="nav_home">Home</string>
     <string name="nav_search">Search</string>

@@ -19,3 +19,12 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# mpv_jni.cpp resolves its Java-side callbacks (eventProperty*, event, logMessage) by literal
+# name+signature via JNI's GetMethodID, and its native method symbols (Java_com_maik205_mpvroid_
+# MpvNative_create, etc.) are baked into libmpvroid_jni.so by name -- R8 renaming or stripping any
+# member of this class breaks the native bridge silently (GetMethodID returns null and the call is
+# a no-op) rather than with a crash. Keep the whole class, names and all.
+-keep class com.maik205.mpvroid.MpvNative {
+    *;
+}

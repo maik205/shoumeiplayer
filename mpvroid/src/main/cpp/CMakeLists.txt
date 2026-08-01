@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(mpvroid_jni LANGUAGES CXX)
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 set(MPV_LIB "${CMAKE_CURRENT_SOURCE_DIR}/../jniLibs/${ANDROID_ABI}/libmpv.so")
 if(NOT EXISTS "${MPV_LIB}")
     message(FATAL_ERROR

@@ -161,7 +161,7 @@ class AuthExpansionTest {
 
         assertTrue(result is ApiResult.Success)
         assertNull(sessions.current())
-        assertEquals("http://new-server:8096", sessions.serverUrl.first())
+        assertEquals("https://new-server:8096", sessions.serverUrl.first())
         assertEquals(deviceId, sessions.deviceId())
         val previous = sessions.rememberedServers.first().single { it.url == "http://old-server" }
         assertEquals("token", previous.accessToken)

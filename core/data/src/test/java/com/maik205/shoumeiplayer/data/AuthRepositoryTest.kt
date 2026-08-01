@@ -26,7 +26,7 @@ class AuthRepositoryTest {
 
         assertTrue(result is ApiResult.Success)
         assertEquals("Test Server", (result as ApiResult.Success).data.serverName)
-        assertEquals("http://myserver.local:8096", sessionStore.serverUrl.first())
+        assertEquals("https://myserver.local:8096", sessionStore.serverUrl.first())
     }
 
     @Test
