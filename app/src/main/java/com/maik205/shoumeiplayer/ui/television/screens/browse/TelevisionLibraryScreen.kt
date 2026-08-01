@@ -90,6 +90,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
@@ -232,7 +233,7 @@ private fun StandardLibraryContent(
     var snapTopTick by remember { mutableIntStateOf(0) }
     val gridState = rememberLazyGridState()
     val count = maxOf(state.totalCount, state.items.size)
-    val countLabel = stringResource(R.plurals.tv_library_item_count, count, count)
+    val countLabel = pluralStringResource(R.plurals.tv_library_item_count, count, count)
     val sortingByTitle = state.sort == BrowseSort.Name
 
     CompositionLocalProvider(LocalBringIntoViewSpec provides LibraryBringIntoViewSpec) {
