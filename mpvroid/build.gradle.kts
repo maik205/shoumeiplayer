@@ -33,6 +33,17 @@ android {
         baseline = file("lint-baseline.xml")
     }
 
+    // ANDROID_STL=c++_shared makes CMake copy its own libc++_shared.so into the native build
+    // output alongside the prebuilt one already checked into jniLibs/ (needed by the prebuilt
+    // libmpv/FFmpeg .so files) -- both are the same NDK r29 STL build, so either is fine to keep;
+    // AGP just refuses to silently pick one without this. Only surfaces on a from-scratch build
+    // (mergeReleaseNativeLibs on a clean checkout), which local incremental builds never hit.
+    packaging {
+        jniLibs {
+            pickFirsts += "**/libc++_shared.so"
+        }
+    }
+
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
