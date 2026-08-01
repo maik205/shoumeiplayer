@@ -149,6 +149,7 @@ fun TelevisionNavGraph(
         TelevisionStart.Profiles -> ProfilesRoute
         TelevisionStart.Home -> HomeRoute
         TelevisionStart.Loading -> ConnectRoute
+        TelevisionStart.Error -> ConnectRoute
     }
 
     LaunchedEffect(navController) {
@@ -481,7 +482,7 @@ fun TelevisionNavGraph(
                             popUpTo(0) { inclusive = true }
                         }
                         is TelevisionSettingsEvent.CacheMessage -> {
-                            Toast.makeText(context, event.message.resolve(), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, event.message.resolve(context), Toast.LENGTH_SHORT).show()
                         }
                     }
                 }

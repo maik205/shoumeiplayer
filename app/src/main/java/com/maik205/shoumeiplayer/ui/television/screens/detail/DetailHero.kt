@@ -268,7 +268,8 @@ private fun DetailMediaStream?.streamLabel(fallback: String): String {
     val labels = mutableListOf<String>()
     language?.uppercase()?.takeIf(String::isNotBlank)?.let(labels::add)
     codec?.uppercase()?.takeIf(String::isNotBlank)?.let(labels::add)
-    if (channels != null) labels += stringResource(R.string.tv_channels_count, channels)
+    val channelCount = channels
+    if (channelCount != null) labels += stringResource(R.string.tv_channels_count, channelCount)
     val label = labels.joinToString(" ")
     return if (label.isBlank()) fallback else label
 }

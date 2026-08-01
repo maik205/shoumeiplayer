@@ -1,5 +1,6 @@
 package com.maik205.shoumeiplayer.ui.i18n
 
+import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
@@ -27,6 +28,15 @@ fun UiText.resolve(): String = when (this) {
         stringResource(id)
     } else {
         stringResource(id, *formatArgs.toTypedArray())
+    }
+    is UiText.Dynamic -> value
+}
+
+fun UiText.resolve(context: Context): String = when (this) {
+    is UiText.Resource -> if (formatArgs.isEmpty()) {
+        context.getString(id)
+    } else {
+        context.getString(id, *formatArgs.toTypedArray())
     }
     is UiText.Dynamic -> value
 }

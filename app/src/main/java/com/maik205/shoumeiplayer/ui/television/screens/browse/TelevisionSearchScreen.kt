@@ -196,15 +196,15 @@ fun TelevisionSearchScreen(
                         onClick = { onOpenItem(item) },
                     )
                 }
-                if (resultLimitReached && !searching && error == null) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        Text(
-                            text = stringResource(R.string.tv_search_limit),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TelevisionColors.PaperMuted,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
+            }
+            if (resultLimitReached && !searching && error == null) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Text(
+                        text = stringResource(R.string.tv_search_limit),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TelevisionColors.PaperMuted,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
         }

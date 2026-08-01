@@ -95,6 +95,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.R
+import com.maik205.shoumeiplayer.ui.i18n.resolve
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionBackground
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionAppTopNavigation
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionEmptyState

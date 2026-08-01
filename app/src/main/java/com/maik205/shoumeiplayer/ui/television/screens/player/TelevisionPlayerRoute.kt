@@ -166,7 +166,7 @@ private fun PlayerMediaSession(
 
     LaunchedEffect(session, viewModel, sessionActions) {
         viewModel.uiState.collect {
-            session.setMediaButtonPreferences(sessionActions.buttons())
+            session.setMediaButtonPreferences(sessionActions.buttons(context))
         }
     }
 

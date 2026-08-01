@@ -208,7 +208,8 @@ fun TelevisionDetailScreen(
                                 retryLabel = stringResource(R.string.retry),
                                 requestInitialFocus = false,
                                 modifier = Modifier.padding(
-                                    horizontal = TelevisionDimensions.SafeHorizontal,
+                                    start = TelevisionDimensions.SafeHorizontal,
+                                    end = TelevisionDimensions.SafeHorizontal,
                                     top = 24.dp,
                                 ),
                             )
@@ -224,7 +225,8 @@ fun TelevisionDetailScreen(
                                 retryLabel = stringResource(R.string.retry),
                                 requestInitialFocus = false,
                                 modifier = Modifier.padding(
-                                    horizontal = TelevisionDimensions.SafeHorizontal,
+                                    start = TelevisionDimensions.SafeHorizontal,
+                                    end = TelevisionDimensions.SafeHorizontal,
                                     top = 24.dp,
                                 ),
                             )
@@ -310,7 +312,8 @@ fun TelevisionDetailScreen(
                                     label = stringResource(R.string.tv_loading_episodes),
                                     shape = TelevisionLoadingShape.Rail,
                                     modifier = Modifier.padding(
-                                        horizontal = TelevisionDimensions.SafeHorizontal,
+                                        start = TelevisionDimensions.SafeHorizontal,
+                                        end = TelevisionDimensions.SafeHorizontal,
                                         top = 30.dp,
                                     ),
                                 )
@@ -327,7 +330,8 @@ fun TelevisionDetailScreen(
                                     retryLabel = stringResource(R.string.retry),
                                     requestInitialFocus = false,
                                     modifier = Modifier.padding(
-                                        horizontal = TelevisionDimensions.SafeHorizontal,
+                                        start = TelevisionDimensions.SafeHorizontal,
+                                        end = TelevisionDimensions.SafeHorizontal,
                                         top = 22.dp,
                                     ),
                                 )
@@ -508,7 +512,8 @@ private fun DetailSectionError(
         retryLabel = stringResource(R.string.retry),
         requestInitialFocus = false,
         modifier = Modifier.padding(
-            horizontal = TelevisionDimensions.SafeHorizontal,
+            start = TelevisionDimensions.SafeHorizontal,
+            end = TelevisionDimensions.SafeHorizontal,
             top = 22.dp,
         ),
     )

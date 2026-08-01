@@ -95,6 +95,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.R
+import com.maik205.shoumeiplayer.ui.i18n.resolve
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionBackground
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionAppTopNavigation
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionEmptyState
@@ -238,64 +239,65 @@ fun TelevisionHomeScreen(
                         }
                     }
                     if (state.error != null && state.shelves.isEmpty()) {
-                    item(key = "error") {
-                        TelevisionErrorState(
-                            title = stringResource(R.string.tv_home_error_title),
-                            message = state.error.resolve(),
-                            onRetry = onRefresh,
-                            retryLabel = stringResource(R.string.retry),
-                            modifier = Modifier.padding(
-                                start = TelevisionDimensions.SafeHorizontal,
-                                top = 17.dp,
-                            ),
-                            focusRequester = fallbackContentFocus,
-                            requestInitialFocus = false,
-                        )
-                    }
+                        item(key = "error") {
+                            TelevisionErrorState(
+                                title = stringResource(R.string.tv_home_error_title),
+                                message = state.error.resolve(),
+                                onRetry = onRefresh,
+                                retryLabel = stringResource(R.string.retry),
+                                modifier = Modifier.padding(
+                                    start = TelevisionDimensions.SafeHorizontal,
+                                    top = 17.dp,
+                                ),
+                                focusRequester = fallbackContentFocus,
+                                requestInitialFocus = false,
+                            )
+                        }
                     } else if (state.shelves.isEmpty()) {
-                    item(key = "empty") {
-                        TelevisionEmptyState(
-                            title = stringResource(R.string.home_empty_title),
-                            message = stringResource(R.string.tv_home_empty_detail),
-                            actionLabel = stringResource(R.string.retry),
-                            onAction = onRefresh,
-                            focusRequester = fallbackContentFocus,
-                            requestInitialFocus = true,
-                            modifier = Modifier.padding(
-                                start = TelevisionDimensions.SafeHorizontal,
-                                top = 17.dp,
-                            ),
-                        )
-                    }
+                        item(key = "empty") {
+                            TelevisionEmptyState(
+                                title = stringResource(R.string.home_empty_title),
+                                message = stringResource(R.string.tv_home_empty_detail),
+                                actionLabel = stringResource(R.string.retry),
+                                onAction = onRefresh,
+                                focusRequester = fallbackContentFocus,
+                                requestInitialFocus = true,
+                                modifier = Modifier.padding(
+                                    start = TelevisionDimensions.SafeHorizontal,
+                                    top = 17.dp,
+                                ),
+                            )
+                        }
                     } else {
-                    items(
-                        count = state.shelves.size,
-                        key = { index -> "${state.shelves[index].id}:$index" },
-                    ) { railIndex ->
-                        val shelf = state.shelves[railIndex]
-                        HomeShelf(
-                            shelf = shelf,
-                            title = homeShelfTitle(shelf),
-                            firstRail = railIndex == 0,
-                            heroFocusRequester = playFocus,
-                            firstItemFocusRequester = if (railIndex == 0) firstRailFocus else null,
-                            onFocused = {
-                                focusedRail = railIndex
-                                onItemFocused(it)
-                            },
-                            onClick = onOpenItem,
-                        )
-                    }
-                    item(key = "end") {
-                        EndOfLibraryMessage(
-                            seed = state.shelves.sumOf { it.items.size },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 26.dp, bottom = 9.dp),
-                        )
+                        items(
+                            count = state.shelves.size,
+                            key = { index -> "${state.shelves[index].id}:$index" },
+                        ) { railIndex ->
+                            val shelf = state.shelves[railIndex]
+                            HomeShelf(
+                                shelf = shelf,
+                                title = homeShelfTitle(shelf),
+                                firstRail = railIndex == 0,
+                                heroFocusRequester = playFocus,
+                                firstItemFocusRequester = if (railIndex == 0) firstRailFocus else null,
+                                onFocused = {
+                                    focusedRail = railIndex
+                                    onItemFocused(it)
+                                },
+                                onClick = onOpenItem,
+                            )
+                        }
+                        item(key = "end") {
+                            EndOfLibraryMessage(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 26.dp, bottom = 9.dp),
+                            )
+                        }
                     }
                 }
             }
+
         }
 
         hero?.let { current ->

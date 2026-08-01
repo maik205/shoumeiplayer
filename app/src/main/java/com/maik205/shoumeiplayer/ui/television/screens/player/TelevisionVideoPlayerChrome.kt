@@ -332,13 +332,15 @@ private fun VideoPlayerTimeline(
 
 @Composable
 private fun videoMetadata(state: PlayerUiState): String? {
+    val seasonNumber = state.seasonNumber
+    val episodeNumber = state.episodeNumber
     val episode = if (state.isEpisode) {
         val metadata = mutableListOf<String>()
-        if (state.seasonNumber != null) {
-            metadata += stringResource(R.string.tv_player_season_number, state.seasonNumber)
+        if (seasonNumber != null) {
+            metadata += stringResource(R.string.tv_player_season_number, seasonNumber)
         }
-        if (state.episodeNumber != null) {
-            metadata += stringResource(R.string.tv_player_episode_number, state.episodeNumber)
+        if (episodeNumber != null) {
+            metadata += stringResource(R.string.tv_player_episode_number, episodeNumber)
         }
         metadata.joinToString(" ")
     } else {

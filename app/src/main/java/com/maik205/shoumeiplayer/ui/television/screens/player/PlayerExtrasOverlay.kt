@@ -126,11 +126,12 @@ internal fun PlayerExtrasOverlay(
                     CastRow(state.cast, onOpenPerson)
                 }
             }
-            if (state.shelvesError != null) {
+            val shelvesError = state.shelvesError
+            if (shelvesError != null) {
                 item(key = "empty") {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
-                            text = state.shelvesError.resolveMessage(),
+                            text = shelvesError.resolveMessage(),
                             style = MaterialTheme.typography.bodyLarge,
                             color = TelevisionColors.PaperMuted,
                         )

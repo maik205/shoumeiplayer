@@ -25,7 +25,7 @@ sealed interface TelevisionStart {
     data object Error : TelevisionStart
 }
 
-class TelevisionRootViewModel(sessionStore: SessionStore) : ViewModel() {
+class TelevisionRootViewModel(private val sessionStore: SessionStore) : ViewModel() {
     private val _start = MutableStateFlow<TelevisionStart>(TelevisionStart.Loading)
     val start: StateFlow<TelevisionStart> = _start.asStateFlow()
 
