@@ -3,16 +3,15 @@ package com.maik205.shoumeiplayer.ui.television.screens.detail
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.maik205.shoumeiplayer.data.ApiResult
-import com.maik205.shoumeiplayer.data.ImageUrlBuilder
-import com.maik205.shoumeiplayer.data.api.dto.BaseItemDto
-import com.maik205.shoumeiplayer.data.api.dto.BaseItemPersonDto
-import com.maik205.shoumeiplayer.data.repo.LibraryRepository
-import com.maik205.shoumeiplayer.data.repo.PlayableTarget
-import com.maik205.shoumeiplayer.ui.television.model.MediaItemUi
-import com.maik205.shoumeiplayer.ui.television.model.toTelevisionUi
+import com.maik205.shoumeiplayer.domain.result.ApiResult
+import com.maik205.shoumeiplayer.domain.model.DetailItem
+import com.maik205.shoumeiplayer.domain.model.DetailPerson
+import com.maik205.shoumeiplayer.domain.model.PlayableTarget
+import com.maik205.shoumeiplayer.domain.repository.MediaDetailsRepository
+import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,9 +46,9 @@ data class PersonUi(
 data class TelevisionDetailState(
     val loading: Boolean = true,
     val kind: DetailKind = DetailKind.Generic,
-    val item: BaseItemDto? = null,
+    val item: DetailItem? = null,
     val hero: MediaItemUi? = null,
-    val playbackItem: BaseItemDto? = null,
+    val playbackItem: DetailItem? = null,
     val nextUp: MediaItemUi? = null,
     val playableItemId: String? = null,
     val playableResumeTicks: Long = 0,
@@ -68,19 +67,22 @@ data class TelevisionDetailState(
 }
 
 class TelevisionDetailViewModel(
-    private val repository: LibraryRepository,
-    private val images: ImageUrlBuilder,
+    private val repository: MediaDetailsRepository,
     private val itemId: String,
 ) : ViewModel() {
     private val _state = MutableStateFlow(TelevisionDetailState())
     val state: StateFlow<TelevisionDetailState> = _state.asStateFlow()
+    private var reloadJob: Job? = null
+    private var seasonJob: Job? = null
 
     init {
         reload()
     }
 
     fun reload() {
-        viewModelScope.launch {
+        reloadJob?.cancel()
+        seasonJob?.cancel()
+        reloadJob = viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null) }
             when (val result = repository.item(itemId)) {
                 is ApiResult.Failure -> _state.update {
@@ -102,7 +104,8 @@ class TelevisionDetailViewModel(
         if (_state.value.selectedSeasonId == seasonId) return
         val previousSeasonId = _state.value.selectedSeasonId
         _state.update { it.copy(selectedSeasonId = seasonId, error = null) }
-        viewModelScope.launch {
+        seasonJob?.cancel()
+        seasonJob = viewModelScope.launch {
             when (val result = repository.episodes(seriesId, seasonId)) {
                 is ApiResult.Failure -> _state.update {
                     it.copy(
@@ -111,11 +114,10 @@ class TelevisionDetailViewModel(
                     )
                 }
                 is ApiResult.Success -> {
-                    val episodes = result.data.map { it.toTelevisionUi(images) }
                     _state.update {
                         it.copy(
                             selectedSeasonId = seasonId,
-                            episodes = episodes,
+                            episodes = result.data,
                         )
                     }
                 }
@@ -125,19 +127,19 @@ class TelevisionDetailViewModel(
 
     fun toggleFavorite() {
         val current = _state.value.item ?: return
-        val favorite = current.userData?.isFavorite == true
+        val favorite = current.favorite
         viewModelScope.launch {
-            when (val result = repository.setFavorite(current.id, !favorite)) {
+            when (val result = repository.setFavorite(current, !favorite)) {
                 is ApiResult.Failure -> _state.update {
                     it.copy(error = result.error.displayMessage)
                 }
 
                 is ApiResult.Success -> {
-                    val updated = current.copy(userData = result.data)
+                    val updated = result.data
                     _state.update {
                         it.copy(
                             item = updated,
-                            hero = updated.toTelevisionUi(images),
+                            hero = updated.media,
                             playbackItem = if (it.playbackItem?.id == updated.id) updated else it.playbackItem,
                             error = null,
                         )
@@ -149,19 +151,19 @@ class TelevisionDetailViewModel(
 
     fun togglePlayed() {
         val current = _state.value.item ?: return
-        val played = current.userData?.played == true
+        val played = current.played
         viewModelScope.launch {
-            when (val result = repository.setPlayed(current.id, !played)) {
+            when (val result = repository.setPlayed(current, !played)) {
                 is ApiResult.Failure -> _state.update {
                     it.copy(error = result.error.displayMessage)
                 }
 
                 is ApiResult.Success -> {
-                    val updated = current.copy(userData = result.data)
+                    val updated = result.data
                     _state.update {
                         it.copy(
                             item = updated,
-                            hero = updated.toTelevisionUi(images),
+                            hero = updated.media,
                             playbackItem = if (it.playbackItem?.id == updated.id) updated else it.playbackItem,
                             error = null,
                         )
@@ -171,7 +173,7 @@ class TelevisionDetailViewModel(
         }
     }
 
-    private suspend fun loadDetail(item: BaseItemDto) = coroutineScope {
+    private suspend fun loadDetail(item: DetailItem) = coroutineScope {
         val kind = kindFor(item.type)
         val seriesPlayable = if (kind == DetailKind.Series) {
             async {
@@ -197,24 +199,9 @@ class TelevisionDetailViewModel(
         }
         val children = when (kind) {
             DetailKind.Album -> async { repository.albumTracks(item.id).successOrEmpty() }
-            DetailKind.Playlist -> async {
-                (repository.playlistItems(item.id) as? ApiResult.Success)?.data?.items.orEmpty()
-            }
-            DetailKind.AudioBook -> async {
-                repository.items(
-                    parentId = item.id,
-                    includeItemTypes = childTypesFor(kind),
-                    recursive = true,
-                    sortBy = "IndexNumber",
-                    sortOrder = "Ascending",
-                    limit = 500,
-                ).let { result ->
-                    (result as? ApiResult.Success)?.data?.items.orEmpty()
-                }
-            }
-            DetailKind.Collection -> async {
-                (repository.collectionItems(item.id) as? ApiResult.Success)?.data?.items.orEmpty()
-            }
+            DetailKind.Playlist -> async { repository.playlistItems(item.id).successOrEmpty() }
+            DetailKind.AudioBook -> async { repository.audioBookItems(item.id).successOrEmpty() }
+            DetailKind.Collection -> async { repository.collectionItems(item.id).successOrEmpty() }
             else -> null
         }
         val artistReleases = if (kind == DetailKind.Artist) {
@@ -229,15 +216,7 @@ class TelevisionDetailViewModel(
         }
         val personCredits = if (kind == DetailKind.Person) {
             async {
-                repository.items(
-                    personIds = listOf(item.id),
-                    recursive = true,
-                    sortBy = "PremiereDate",
-                    sortOrder = "Descending",
-                    limit = 100,
-                ).let { result ->
-                    (result as? ApiResult.Success)?.data?.items.orEmpty()
-                }
+                repository.personCredits(item.id).successOrEmpty()
             }
         } else {
             null
@@ -250,11 +229,11 @@ class TelevisionDetailViewModel(
         val playable = when (kind) {
             DetailKind.Series -> seriesPlayable?.await()
             DetailKind.Artist ->
-                choosePlayable(artistTrackItems.map { it.toTelevisionUi(images) })
+                choosePlayable(artistTrackItems)
                     ?.toPlayableTarget()
             DetailKind.Collection, DetailKind.Person -> null
             DetailKind.Album, DetailKind.Playlist, DetailKind.AudioBook ->
-                choosePlayable(childItems.map { it.toTelevisionUi(images) })
+                choosePlayable(childItems)
                     ?.toPlayableTarget()
 
             DetailKind.Live -> {
@@ -266,14 +245,14 @@ class TelevisionDetailViewModel(
                 targetId?.let {
                     PlayableTarget(
                         itemId = it,
-                        startPositionTicks = item.userData?.playbackPositionTicks ?: 0,
+                        startPositionTicks = item.resumeTicks,
                     )
                 }
             }
 
             else -> PlayableTarget(
                 itemId = item.id,
-                startPositionTicks = item.userData?.playbackPositionTicks ?: 0,
+                startPositionTicks = item.resumeTicks,
             )
         }
         val seriesNextUp = if (kind == DetailKind.Series) {
@@ -289,7 +268,7 @@ class TelevisionDetailViewModel(
                     ?.takeIf { nextSeasonId ->
                         seasonItems.isEmpty() || seasonItems.any { it.id == nextSeasonId }
                     }
-                    ?: seasonItems.firstOrNull { it.indexNumber != 0 }?.id
+                    ?: seasonItems.firstOrNull { it.episodeNumber != 0 }?.id
                     ?: seasonItems.firstOrNull()?.id
             }
 
@@ -298,7 +277,7 @@ class TelevisionDetailViewModel(
                     ?.takeIf { episodeSeasonId ->
                         seasonItems.isEmpty() || seasonItems.any { it.id == episodeSeasonId }
                     }
-                    ?: seasonItems.firstOrNull { it.indexNumber == item.parentIndexNumber }?.id
+                    ?: seasonItems.firstOrNull { it.episodeNumber == item.parentIndexNumber }?.id
                     ?: seasonItems.firstOrNull()?.id
             }
 
@@ -314,28 +293,28 @@ class TelevisionDetailViewModel(
             loading = false,
             kind = kind,
             item = item,
-            hero = item.toTelevisionUi(images),
+            hero = item.media,
             playbackItem = seriesNextUp ?: item,
-            nextUp = seriesNextUp?.toTelevisionUi(images),
+            nextUp = seriesNextUp?.media,
             playableItemId = playable?.itemId,
             playableResumeTicks = playable?.startPositionTicks ?: 0,
-            seasons = seasonItems.map { it.toTelevisionUi(images) },
+            seasons = seasonItems,
             selectedSeasonId = selectedSeason,
-            episodes = episodeItems.map { it.toTelevisionUi(images) },
-            tracks = (childItems + artistTrackItems).map { it.toTelevisionUi(images) },
-            releases = releaseItems.map { it.toTelevisionUi(images) },
-            related = related?.await().orEmpty().map { it.toTelevisionUi(images) },
+            episodes = episodeItems,
+            tracks = childItems + artistTrackItems,
+            releases = releaseItems,
+            related = related?.await().orEmpty(),
             people = item.people.map(::personUi),
-            credits = personCredits?.await().orEmpty().map { it.toTelevisionUi(images) },
+            credits = personCredits?.await().orEmpty(),
         )
     }
 
-    private fun personUi(person: BaseItemPersonDto): PersonUi = PersonUi(
+    private fun personUi(person: DetailPerson): PersonUi = PersonUi(
         id = person.id,
         name = person.name.orEmpty(),
         role = person.role,
         type = person.type,
-        imageUrl = person.primaryImageTag?.let { images.personPrimary(person.id, it, 480) },
+        imageUrl = person.imageUrl,
     )
 
     private fun choosePlayable(items: List<MediaItemUi>): MediaItemUi? =
@@ -346,7 +325,7 @@ class TelevisionDetailViewModel(
     private fun MediaItemUi.toPlayableTarget(): PlayableTarget =
         PlayableTarget(itemId = id, startPositionTicks = resumeTicks)
 
-    private suspend fun ApiResult<List<BaseItemDto>>.successOrEmpty(): List<BaseItemDto> =
+    private suspend fun ApiResult<List<MediaItemUi>>.successOrEmpty(): List<MediaItemUi> =
         (this as? ApiResult.Success)?.data.orEmpty()
 }
 

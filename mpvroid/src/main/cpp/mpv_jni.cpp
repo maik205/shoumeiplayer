@@ -4,6 +4,8 @@
 #include <mpv/client.h>
 
 #include <atomic>
+#include <chrono>
+#include <cstring>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -17,6 +19,7 @@ jobject surface = nullptr;
 std::thread event_thread;
 std::atomic<bool> running{false};
 std::atomic<bool> initialized{false};
+std::atomic<int64_t> last_timeline_dispatch_ms{0};
 std::mutex lock;
 
 const char *chars(JNIEnv *env, jstring value) {
@@ -51,6 +54,20 @@ jstring string_or_empty(JNIEnv *env, const char *value) {
 void dispatch_event(JNIEnv *env, mpv_event *event) {
     if (event->event_id == MPV_EVENT_PROPERTY_CHANGE) {
         auto *property = static_cast<mpv_event_property *>(event->data);
+        // mpv can publish time-pos/cache-time much faster than a TV UI can consume it. Keep
+        // state/track events immediate, but bound only the high-frequency timeline bridge before
+        // allocating Java strings and crossing JNI. Kotlin still reads the latest exact value
+        // directly from mpv for seeks and explicit progress reports.
+        const bool high_frequency = property->name &&
+            (strcmp(property->name, "time-pos") == 0 ||
+             strcmp(property->name, "demuxer-cache-time") == 0);
+        if (high_frequency) {
+            const auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now().time_since_epoch()).count();
+            const auto previous = last_timeline_dispatch_ms.load(std::memory_order_relaxed);
+            if (now - previous < 50) return;
+            last_timeline_dispatch_ms.store(now, std::memory_order_relaxed);
+        }
         jstring name = string_or_empty(env, property->name);
         jvalue args[2]{};
         args[0].l = name;
@@ -145,6 +162,7 @@ extern "C" JNIEXPORT void JNICALL JNI_METHOD(create)(JNIEnv *env, jobject self, 
 }
 
 extern "C" JNIEXPORT void JNICALL JNI_METHOD(init)(JNIEnv *, jobject) {
+    if (initialized.load(std::memory_order_acquire)) return;
     auto *ctx = current();
     if (!ctx || mpv_initialize(ctx) < 0) return;
     initialized.store(true, std::memory_order_release);

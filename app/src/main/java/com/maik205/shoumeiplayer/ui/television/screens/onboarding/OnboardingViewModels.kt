@@ -3,8 +3,8 @@ package com.maik205.shoumeiplayer.ui.television.screens.onboarding
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maik205.shoumeiplayer.R
-import com.maik205.shoumeiplayer.data.ApiError
-import com.maik205.shoumeiplayer.data.ApiResult
+import com.maik205.shoumeiplayer.domain.result.ApiError
+import com.maik205.shoumeiplayer.domain.result.ApiResult
 import com.maik205.shoumeiplayer.data.ImageUrlBuilder
 import com.maik205.shoumeiplayer.data.repo.AuthRepository
 import com.maik205.shoumeiplayer.data.repo.JellyfinDiscoveryRepository
@@ -276,14 +276,15 @@ class TelevisionLoginViewModel(
             when (val result = auth.login(snapshot.userName.trim(), snapshot.password)) {
                 is ApiResult.Success -> _events.emit(LoginEvent.Home)
                 is ApiResult.Failure -> {
-                    if (result.error is ApiError.Http && result.error.code == 403) {
+                    val error = result.error
+                    if (error is ApiError.Http && error.code == 403) {
                         _state.update { it.copy(signingIn = false) }
                         _events.emit(LoginEvent.AccountLocked)
                     } else {
                         _state.update {
                             it.copy(
                                 signingIn = false,
-                                error = result.error.displayMessage.asDynamicUiText(),
+                                error = error.displayMessage.asDynamicUiText(),
                             )
                         }
                     }

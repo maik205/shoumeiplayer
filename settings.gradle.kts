@@ -23,4 +23,6 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Shoumei Player"
-include(":app", ":mpvroid")
+include(":app", ":mpvroid", ":core:model", ":core:player", ":core:jellyfin", ":core:data")
+include(":feature:player")
+include(":core:designsystem-tv")

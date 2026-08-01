@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -56,8 +57,8 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingShape
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.ui.television.components.televisionLibraryNavigationKey
-import com.maik205.shoumeiplayer.ui.television.model.LibraryDestinationUi
-import com.maik205.shoumeiplayer.ui.television.model.MediaItemUi
+import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
+import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import java.time.Instant
@@ -347,7 +348,7 @@ private fun GuideTimeline(
             contentPadding = PaddingValues(bottom = 52.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            items(state.channels, key = { it.item.id }) { channel ->
+            itemsIndexed(state.channels, key = { index, channel -> "${channel.item.id}:$index" }) { _, channel ->
                 GuideChannelRow(
                     channel = channel,
                     windowStart = state.windowStart,

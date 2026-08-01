@@ -127,7 +127,7 @@ android {
     sourceSets.getByName("main") {
         // The approved redesign artwork is bundled as an Android asset so onboarding has a
         // deliberate offline backdrop before a Jellyfin server is available.
-        assets.srcDir(rootProject.file("prototype/assets"))
+        assets.directories.add(rootProject.file("prototype/assets").absolutePath)
     }
     testOptions {
         unitTests.isReturnDefaultValues = true
@@ -135,7 +135,12 @@ android {
 }
 
 dependencies {
-    implementation(project(":mpvroid"))
+    implementation(project(":core:model"))
+    implementation(project(":core:player"))
+    implementation(project(":core:jellyfin"))
+    implementation(project(":core:data"))
+    implementation(project(":feature:player"))
+    implementation(project(":core:designsystem-tv"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
@@ -151,6 +156,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.media3.common)
+    implementation(libs.androidx.media3.session)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
@@ -169,6 +176,7 @@ dependencies {
     testImplementation(libs.kotlin.test)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.ktor.client.mock)
+    testImplementation(testFixtures(project(":core:data")))
     // android.jar's org.json is a stub that returns defaults under unitTests.isReturnDefaultValues,
     // which would make MpvTrackList's track-list parsing silently produce empty results in tests.
     // A real implementation on the unit-test classpath shadows the stub.

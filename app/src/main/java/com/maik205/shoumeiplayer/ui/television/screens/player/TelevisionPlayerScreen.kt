@@ -3,6 +3,7 @@ package com.maik205.shoumeiplayer.ui.television.screens.player
 import android.view.KeyEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
@@ -57,19 +58,19 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.platform.LocalContext
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.player.PlayerState
 import com.maik205.shoumeiplayer.player.PlayerTrack
 import com.maik205.shoumeiplayer.player.TrackType
-import com.maik205.shoumeiplayer.ui.navigation.containerViewModel
-import com.maik205.shoumeiplayer.ui.screens.player.PlayerUiState
-import com.maik205.shoumeiplayer.ui.screens.player.PlayerViewModel
+import com.maik205.shoumeiplayer.feature.player.PlayerUiState
+import com.maik205.shoumeiplayer.feature.player.PlayerTimelineState
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.StateFlow
 
 private const val PLAYER_OSD_TIMEOUT_MS = 5_000L
 private const val MINI_SEEK_TIMEOUT_MS = 1_500L
@@ -83,38 +84,35 @@ private const val POST_PLAY_SECONDS = 10
  * explicit exit or ViewModel teardown, never because Compose happened to recompose.
  */
 @Composable
-fun TelevisionPlayerScreen(
-    itemId: String,
-    startPositionTicks: Long,
+internal fun TelevisionPlayerContent(
+    state: PlayerUiState,
+    timelineState: StateFlow<PlayerTimelineState>,
+    controller: TelevisionPlayerController,
     audioOnly: Boolean,
-    initialAudioStreamIndex: Int? = null,
-    initialSubtitleStreamIndex: Int? = null,
-    initialQualityLabel: String? = null,
     onExit: () -> Unit,
     onNavigateToItem: (String) -> Unit,
     onNavigateToPerson: (String, String) -> Unit,
 ) {
-    val viewModel = containerViewModel { container ->
-        PlayerViewModel(
-            engine = container.playerEngine,
-            playbackRepository = container.playbackRepository,
-            libraryRepository = container.libraryRepository,
-            authRepository = container.authRepository,
-            imageUrlBuilder = container.imageUrlBuilder,
-            reporter = container.progressReporter,
-            itemId = itemId,
-            startPositionTicks = startPositionTicks,
-            teardownScope = container.applicationScope,
-            settingsStore = container.settingsStore,
-            initialAudioStreamIndex = initialAudioStreamIndex,
-            initialSubtitleStreamIndex = initialSubtitleStreamIndex,
-            initialQualityLabel = initialQualityLabel,
-        )
-    }
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
     val audio = audioOnly || state.isAudio
+    val activity = LocalContext.current as? Activity
     val playbackError = state.error ?: (state.state as? PlayerState.Error)?.message
     val seekIntervalMs = state.seekIntervalSeconds.toLong() * 1_000L
+
+    DisposableEffect(activity, audio, state.state) {
+        val window = activity?.window
+        val shouldKeepScreenOn = shouldKeepScreenOn(audio, state.state)
+        val previouslyOwned = window?.let {
+            it.attributes.flags and android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON != 0
+        } ?: false
+        if (shouldKeepScreenOn) {
+            window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        onDispose {
+            if (shouldKeepScreenOn && !previouslyOwned) {
+                window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+        }
+    }
 
     val rootFocus = remember { FocusRequester() }
     val timelineFocus = remember { FocusRequester() }
@@ -175,7 +173,7 @@ fun TelevisionPlayerScreen(
     }
 
     fun leavePlayer(destination: () -> Unit) {
-        viewModel.stopAndReport()
+        controller.stopAndReport()
         destination()
     }
 
@@ -199,7 +197,7 @@ fun TelevisionPlayerScreen(
         }
         panel = target
         noteInteraction()
-        if (target == TelevisionPlayerPanel.Extras) viewModel.loadShelves()
+        if (target == TelevisionPlayerPanel.Extras) controller.loadShelves()
     }
 
     LaunchedEffect(Unit) {
@@ -255,7 +253,7 @@ fun TelevisionPlayerScreen(
     LaunchedEffect(interactionTick, state.state) {
         if (state.state == PlayerState.Playing || state.state == PlayerState.Buffering) {
             delay(STILL_WATCHING_TIMEOUT_MS)
-            viewModel.pause()
+            controller.pause()
             stillWatching = true
         }
     }
@@ -271,7 +269,7 @@ fun TelevisionPlayerScreen(
                 delay(1_000L)
             }
             postPlaySeconds = null
-            viewModel.playUpNext()
+            controller.playUpNext()
         } else {
             postPlaySeconds = null
         }
@@ -299,23 +297,23 @@ fun TelevisionPlayerScreen(
         if (audio && state.state == PlayerState.Ended) {
             when {
                 repeatEnabled -> {
-                    viewModel.seekTo(0)
-                    viewModel.play()
+                    controller.seekTo(0)
+                    controller.play()
                 }
                 shuffleEnabled -> state.queue
                     .filterNot { it.playing }
                     .randomOrNull()
                     ?.itemId
-                    ?.let(viewModel::switchTo)
-                hasQueuedAudioNext -> viewModel.playNextAudio()
+                    ?.let(controller::switchTo)
+                hasQueuedAudioNext -> controller.playNextAudio()
             }
         }
     }
 
-    DisposableEffect(viewModel) {
+    DisposableEffect(controller) {
         onDispose {
             // Surface loss is not playback completion. Explicit navigation above owns stop reports.
-            viewModel.setSurface(null)
+            controller.setSurface(null)
         }
     }
 
@@ -356,7 +354,7 @@ fun TelevisionPlayerScreen(
                 if (native.action != KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false
 
                 fun seek(deltaMs: Long): Boolean {
-                    viewModel.seekBy(deltaMs)
+                    controller.seekBy(deltaMs)
                     noteInteraction()
                     if (!audio && !osdVisible) miniSeekTick++
                     return true
@@ -364,19 +362,19 @@ fun TelevisionPlayerScreen(
 
                 when (native.keyCode) {
                     KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
-                        viewModel.togglePlayPause()
+                        controller.togglePlayPause()
                         noteInteraction()
                         true
                     }
 
                     KeyEvent.KEYCODE_MEDIA_PLAY -> {
-                        viewModel.play()
+                        controller.play()
                         noteInteraction()
                         true
                     }
 
                     KeyEvent.KEYCODE_MEDIA_PAUSE -> {
-                        viewModel.pause()
+                        controller.pause()
                         noteInteraction()
                         true
                     }
@@ -384,13 +382,13 @@ fun TelevisionPlayerScreen(
                     KeyEvent.KEYCODE_MEDIA_REWIND -> seek(-seekIntervalMs)
                     KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> seek(seekIntervalMs)
                     KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
-                        if (audio) viewModel.playPreviousAudio() else viewModel.playPreviousEpisode()
+                        if (audio) controller.playPreviousAudio() else controller.playPreviousEpisode()
                         noteInteraction()
                         true
                     }
 
                     KeyEvent.KEYCODE_MEDIA_NEXT -> {
-                        if (audio) viewModel.playNextAudio() else viewModel.playNextEpisode()
+                        if (audio) controller.playNextAudio() else controller.playNextEpisode()
                         noteInteraction()
                         true
                     }
@@ -418,7 +416,7 @@ fun TelevisionPlayerScreen(
                     KeyEvent.KEYCODE_DPAD_CENTER,
                     KeyEvent.KEYCODE_ENTER,
                     -> if (!audio && !osdVisible) {
-                        viewModel.togglePlayPause()
+                        controller.togglePlayPause()
                         revealOsd()
                         true
                     } else {
@@ -444,9 +442,10 @@ fun TelevisionPlayerScreen(
             },
     ) {
         if (audio) {
-            LaunchedEffect(Unit) { viewModel.setSurface(null) }
+            LaunchedEffect(Unit) { controller.setSurface(null) }
             TelevisionAudioPlayer(
                 state = state,
+                timelineState = timelineState,
                 timelineFocus = timelineFocus,
                 playPauseFocus = playPauseFocus,
                 exitArmed = exitArmed,
@@ -457,18 +456,18 @@ fun TelevisionPlayerScreen(
                 shuffleEnabled = shuffleEnabled,
                 repeatEnabled = repeatEnabled,
                 onExitButton = ::handleExitButton,
-                onSeekBy = viewModel::seekBy,
-                onTogglePlayPause = viewModel::togglePlayPause,
-                onPrevious = viewModel::playPreviousAudio,
+                onSeekBy = controller::seekBy,
+                onTogglePlayPause = controller::togglePlayPause,
+                onPrevious = controller::playPreviousAudio,
                 onNext = {
                     if (shuffleEnabled) {
                         state.queue
                             .filterNot { it.playing }
                             .randomOrNull()
                             ?.itemId
-                            ?.let(viewModel::switchTo)
+                            ?.let(controller::switchTo)
                     } else {
-                        viewModel.playNextAudio()
+                        controller.playNextAudio()
                     }
                 },
                 onToggleShuffle = { shuffleEnabled = !shuffleEnabled },
@@ -491,13 +490,13 @@ fun TelevisionPlayerScreen(
                 },
                 onToggleUpNextCoverMode = { upNextCoverMode = !upNextCoverMode },
                 onToggleSuggestedCoverMode = { suggestedCoverMode = !suggestedCoverMode },
-                onPlayItem = viewModel::switchTo,
+                onPlayItem = controller::switchTo,
                 onInteraction = ::noteInteraction,
             )
         } else {
             VideoSurface(
-                onSurface = viewModel::setSurface,
-                onSurfaceSize = viewModel::setSurfaceSize,
+                onSurface = controller::setSurface,
+                onSurfaceSize = controller::setSurfaceSize,
             )
             state.logoUrl?.takeIf { osdVisible }?.let { logoUrl ->
                 AsyncImage(
@@ -517,16 +516,17 @@ fun TelevisionPlayerScreen(
             if (osdVisible) {
                 VideoPlayerChrome(
                     state = state,
+                    timelineState = timelineState,
                     dimmed = panel != null,
                     timelineFocus = timelineFocus,
                     playPauseFocus = playPauseFocus,
                     exitArmed = exitArmed,
                     onExitButton = ::handleExitButton,
-                    onSeekBy = viewModel::seekBy,
-                    onTogglePlayPause = viewModel::togglePlayPause,
+                    onSeekBy = controller::seekBy,
+                    onTogglePlayPause = controller::togglePlayPause,
                     onHideOsd = ::hideOsd,
-                    onPrevious = viewModel::playPreviousEpisode,
-                    onNext = viewModel::playNextEpisode,
+                    onPrevious = controller::playPreviousEpisode,
+                    onNext = controller::playNextEpisode,
                     onOpenPanel = ::openPanel,
                     onInteraction = ::noteInteraction,
                     modifier = Modifier.align(Alignment.BottomCenter),
@@ -544,9 +544,8 @@ fun TelevisionPlayerScreen(
                 ),
                 modifier = Modifier.align(Alignment.BottomCenter),
             ) {
-                MiniPlayerTimeline(
-                    positionMs = state.positionMs,
-                    durationMs = state.durationMs,
+                MiniPlayerTimelineHost(
+                    timelineState = timelineState,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -579,7 +578,7 @@ fun TelevisionPlayerScreen(
             TelevisionPlayerPanel.Audio -> PlayerSelectionPanel(
                 title = "Audio",
                 rows = audioRows(state.audioTracks) {
-                    viewModel.selectTrack(it)
+                    controller.selectTrack(it)
                     closePanel()
                 },
                 onDismiss = ::closePanel,
@@ -602,7 +601,7 @@ fun TelevisionPlayerScreen(
                 PlayerSelectionPanel(
                     title = "Subtitles",
                     rows = subtitleRows(listOf(off) + selectableTracks) {
-                        viewModel.selectTrack(it)
+                        controller.selectTrack(it)
                         closePanel()
                     },
                     onDismiss = ::closePanel,
@@ -613,7 +612,7 @@ fun TelevisionPlayerScreen(
             TelevisionPlayerPanel.Chapters -> PlayerSelectionPanel(
                 title = "Chapters",
                 rows = chapterRows(state.chapters) {
-                    viewModel.seekTo(it.positionMs)
+                    controller.seekTo(it.positionMs)
                     closePanel()
                 },
                 onDismiss = ::closePanel,
@@ -623,7 +622,7 @@ fun TelevisionPlayerScreen(
             TelevisionPlayerPanel.Quality -> PlayerSelectionPanel(
                 title = "Quality",
                 rows = qualityRows(state.quality) {
-                    viewModel.setQuality(it)
+                    controller.setQuality(it)
                     closePanel()
                 },
                 onDismiss = ::closePanel,
@@ -633,7 +632,7 @@ fun TelevisionPlayerScreen(
             TelevisionPlayerPanel.Speed -> PlayerSelectionPanel(
                 title = "Playback speed",
                 rows = speedRows(state.speed) {
-                    viewModel.setSpeed(it)
+                    controller.setSpeed(it)
                     closePanel()
                 },
                 onDismiss = ::closePanel,
@@ -648,7 +647,7 @@ fun TelevisionPlayerScreen(
                     values = listOf("Fit", "Fill", "Original", "16:9", "4:3"),
                 ) {
                     frameMode = it
-                    viewModel.setFrameMode(it)
+                    controller.setFrameMode(it)
                     closePanel()
                 },
                 onDismiss = ::closePanel,
@@ -663,7 +662,7 @@ fun TelevisionPlayerScreen(
                     values = listOf("Auto", "Passthrough", "Tone map", "Convert to SDR"),
                 ) {
                     hdrMode = it
-                    viewModel.setHdrMode(it)
+                    controller.setHdrMode(it)
                     closePanel()
                 },
                 onDismiss = ::closePanel,
@@ -680,7 +679,7 @@ fun TelevisionPlayerScreen(
                         selected = track.selected,
                         onClick = {
                             videoTrack = track.label
-                            viewModel.selectTrack(track)
+                            controller.selectTrack(track)
                             closePanel()
                         },
                     )
@@ -694,7 +693,7 @@ fun TelevisionPlayerScreen(
             TelevisionPlayerPanel.AudioDelay -> PlaybackDelayPanel(
                 title = "Audio delay",
                 valueMs = state.audioDelayMs,
-                onChange = viewModel::setAudioDelayMs,
+                onChange = controller::setAudioDelayMs,
                 onDismiss = ::closePanel,
                 modifier = Modifier.align(Alignment.CenterEnd),
             )
@@ -702,7 +701,7 @@ fun TelevisionPlayerScreen(
             TelevisionPlayerPanel.SubtitleDelay -> PlaybackDelayPanel(
                 title = "Subtitle delay",
                 valueMs = state.subtitleDelayMs,
-                onChange = viewModel::setSubtitleDelayMs,
+                onChange = controller::setSubtitleDelayMs,
                 onDismiss = ::closePanel,
                 modifier = Modifier.align(Alignment.CenterEnd),
             )
@@ -715,7 +714,7 @@ fun TelevisionPlayerScreen(
                     values = listOf("Auto", "On", "Off"),
                 ) {
                     deinterlaceMode = it
-                    viewModel.setDeinterlaceMode(it)
+                    controller.setDeinterlaceMode(it)
                     closePanel()
                 },
                 onDismiss = ::closePanel,
@@ -739,8 +738,9 @@ fun TelevisionPlayerScreen(
                     PlayerSelectionRow("info:source", "Source", state.playMethod ?: state.quality.label, onClick = {}),
                     PlayerSelectionRow("info:container", "Container", state.container ?: "Unknown", onClick = {}),
                     PlayerSelectionRow("info:video", "Video", state.videoDescription ?: videoTrack, onClick = {}),
-                    PlayerSelectionRow("info:color", "Color", hdrMode, onClick = {}),
+                    PlayerSelectionRow("info:color", "Color", state.effectiveHdrMode, onClick = {}),
                     PlayerSelectionRow("info:audio", "Audio", state.audioDescription ?: state.audioTracks.firstOrNull { it.selected }?.label ?: "Unknown", onClick = {}),
+                    PlayerSelectionRow("info:output", "Output", state.activeAudioRoute, onClick = {}),
                     PlayerSelectionRow("info:display", "Display", state.displayDescription ?: "TV", onClick = {}),
                     PlayerSelectionRow("info:decoder", "Decoder", "mpv / hardware", onClick = {}),
                     PlayerSelectionRow("info:dropped", "Dropped frames", "0", onClick = {}),
@@ -754,15 +754,15 @@ fun TelevisionPlayerScreen(
                 subtitleDelayMs = state.subtitleDelayMs,
                 onAudioDelayChange = {
                     noteInteraction()
-                    viewModel.setAudioDelayMs(it)
+                    controller.setAudioDelayMs(it)
                 },
                 onSubtitleDelayChange = {
                     noteInteraction()
-                    viewModel.setSubtitleDelayMs(it)
+                    controller.setSubtitleDelayMs(it)
                 },
                 onReset = {
                     noteInteraction()
-                    viewModel.resetPlaybackDelays()
+                    controller.resetPlaybackDelays()
                 },
                 onDismiss = ::closePanel,
                 modifier = Modifier.align(Alignment.CenterEnd),
@@ -832,7 +832,7 @@ fun TelevisionPlayerScreen(
                 onRetry = {
                     panel = null
                     panelBackStack = emptyList()
-                    viewModel.retryPlayback()
+                    controller.retryPlayback()
                 },
                 onBack = ::exitPlayer,
             )
@@ -844,9 +844,9 @@ fun TelevisionPlayerScreen(
                 upNext = state.upNext,
                 episodes = state.postPlayEpisodes,
                 countdownSeconds = postPlaySeconds,
-                onPlayNext = viewModel::playUpNext,
-                onPlayEpisode = viewModel::switchTo,
-                onReplay = viewModel::togglePlayPause,
+                onPlayNext = controller::playUpNext,
+                onPlayEpisode = controller::switchTo,
+                onReplay = controller::togglePlayPause,
                 onBack = ::exitPlayer,
             )
         }
@@ -856,7 +856,7 @@ fun TelevisionPlayerScreen(
                 onContinue = {
                     stillWatching = false
                     noteInteraction()
-                    viewModel.play()
+                    controller.play()
                 },
                 onStop = ::exitPlayer,
             )
@@ -864,257 +864,5 @@ fun TelevisionPlayerScreen(
     }
 }
 
-@Composable
-private fun VideoSurface(
-    onSurface: (android.view.Surface?) -> Unit,
-    onSurfaceSize: (Int, Int) -> Unit,
-) {
-    AndroidView(
-        factory = { context ->
-            SurfaceView(context).apply {
-                holder.addCallback(
-                    object : SurfaceHolder.Callback {
-                        override fun surfaceCreated(holder: SurfaceHolder) {
-                            onSurface(holder.surface)
-                        }
-
-                        override fun surfaceChanged(
-                            holder: SurfaceHolder,
-                            format: Int,
-                            width: Int,
-                            height: Int,
-                        ) {
-                            onSurfaceSize(width, height)
-                        }
-
-                        override fun surfaceDestroyed(holder: SurfaceHolder) {
-                            onSurface(null)
-                        }
-                    },
-                )
-            }
-        },
-        modifier = Modifier.fillMaxSize(),
-    )
-}
-
-@Composable
-private fun VideoPlayerChrome(
-    state: PlayerUiState,
-    dimmed: Boolean,
-    timelineFocus: FocusRequester,
-    playPauseFocus: FocusRequester,
-    exitArmed: Boolean,
-    onExitButton: () -> Unit,
-    onSeekBy: (Long) -> Unit,
-    onTogglePlayPause: () -> Unit,
-    onHideOsd: () -> Unit,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
-    onOpenPanel: (TelevisionPlayerPanel) -> Unit,
-    onInteraction: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val playing = state.state == PlayerState.Playing || state.state == PlayerState.Buffering
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .graphicsLayer { alpha = if (dimmed) 0.26f else 1f }
-            .background(
-                Brush.verticalGradient(
-                    0f to TelevisionColors.Black.copy(alpha = 0f),
-                    0.28f to TelevisionColors.Black.copy(alpha = 0f),
-                    0.62f to TelevisionColors.Black.copy(alpha = 0.56f),
-                    1f to TelevisionColors.Black.copy(alpha = 0.97f),
-                ),
-            )
-            .padding(
-                start = 67.dp,
-                end = 67.dp,
-                top = 150.dp,
-                bottom = 32.dp,
-            ),
-    ) {
-        Text(
-            text = state.title,
-            style = MaterialTheme.typography.displaySmall.copy(
-                fontSize = 24.sp,
-                lineHeight = 27.sp,
-                letterSpacing = (-0.8).sp,
-            ),
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        videoMetadata(state)?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.bodyMedium,
-                color = TelevisionColors.PaperMuted,
-                maxLines = 1,
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        PlayerTimeline(
-            positionMs = state.positionMs,
-            durationMs = state.durationMs,
-            bufferedMs = state.bufferedMs,
-            chapters = state.chapters,
-            seekIntervalMs = state.seekIntervalSeconds.toLong() * 1_000L,
-            focusRequester = timelineFocus,
-            onSeekBy = {
-                onInteraction()
-                onSeekBy(it)
-            },
-            onClick = {
-                onInteraction()
-                onTogglePlayPause()
-            },
-            onNavigateUp = onHideOsd,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth().focusGroup(),
-            horizontalArrangement = Arrangement.spacedBy(9.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            PlayerCompactActionButton(
-                label = if (exitArmed) "Exit?" else "Back",
-                icon = Icons.AutoMirrored.Filled.ArrowBack,
-                expandedWidth = 92.dp,
-                onFocused = onInteraction,
-                onClick = {
-                    onInteraction()
-                    onExitButton()
-                },
-            )
-            PlayerCompactActionButton(
-                label = "Rewind ${state.seekIntervalSeconds}s",
-                icon = Icons.Default.Replay10,
-                expandedWidth = 122.dp,
-                onFocused = onInteraction,
-                onClick = {
-                    onInteraction()
-                    onSeekBy(-state.seekIntervalSeconds.toLong() * 1_000L)
-                },
-            )
-            PlayerCompactActionButton(
-                label = if (playing) "Pause" else "Play",
-                icon = if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
-                selected = playing,
-                focusRequester = playPauseFocus,
-                expandedWidth = 104.dp,
-                onFocused = onInteraction,
-                onClick = {
-                    onInteraction()
-                    onTogglePlayPause()
-                },
-            )
-            PlayerCompactActionButton(
-                label = "Forward ${state.seekIntervalSeconds}s",
-                icon = Icons.Default.Forward10,
-                expandedWidth = 126.dp,
-                onFocused = onInteraction,
-                onClick = {
-                    onInteraction()
-                    onSeekBy(state.seekIntervalSeconds.toLong() * 1_000L)
-                },
-            )
-            if (state.previousEpisodeId != null) {
-                PlayerCompactActionButton(
-                    label = "Previous",
-                    icon = Icons.Default.SkipPrevious,
-                    expandedWidth = 112.dp,
-                    onFocused = onInteraction,
-                    onClick = {
-                        onInteraction()
-                        onPrevious()
-                    },
-                )
-            }
-            if (state.nextEpisodeId != null) {
-                PlayerCompactActionButton(
-                    label = "Next",
-                    icon = Icons.Default.SkipNext,
-                    expandedWidth = 92.dp,
-                    onFocused = onInteraction,
-                    onClick = {
-                        onInteraction()
-                        onNext()
-                    },
-                )
-            }
-            Spacer(Modifier.weight(1f))
-            if (state.chapters.isNotEmpty()) {
-                PlayerCompactActionButton(
-                    label = "Chapters",
-                    icon = Icons.Default.VideoLibrary,
-                    expandedWidth = 112.dp,
-                    onFocused = onInteraction,
-                    onClick = { onOpenPanel(TelevisionPlayerPanel.Chapters) },
-                )
-            }
-            PlayerCompactActionButton(
-                label = "Subtitles",
-                icon = Icons.Default.ClosedCaption,
-                selected = state.subtitleTracks.any(PlayerTrack::selected),
-                expandedWidth = 122.dp,
-                onFocused = onInteraction,
-                onClick = { onOpenPanel(TelevisionPlayerPanel.Subtitles) },
-            )
-            if (state.audioTracks.isNotEmpty()) {
-                PlayerCompactActionButton(
-                    label = "Audio",
-                    icon = Icons.Default.GraphicEq,
-                    expandedWidth = 96.dp,
-                    onFocused = onInteraction,
-                    onClick = { onOpenPanel(TelevisionPlayerPanel.Audio) },
-                )
-            }
-            PlayerCompactActionButton(
-                label = "Options",
-                icon = Icons.Default.Tune,
-                expandedWidth = 92.dp,
-                onFocused = onInteraction,
-                onClick = { onOpenPanel(TelevisionPlayerPanel.More) },
-            )
-        }
-    }
-}
-
-private fun videoMetadata(state: PlayerUiState): String? {
-    val episode = if (state.isEpisode) {
-        listOfNotNull(
-            state.seasonNumber?.let { "S$it" },
-            state.episodeNumber?.let { "E$it" },
-        ).joinToString(" ")
-    } else {
-        null
-    }
-    return listOfNotNull(
-        state.seriesName?.takeIf { it != state.title },
-        episode?.takeIf(String::isNotBlank),
-        state.year?.toString(),
-    ).takeIf(List<String>::isNotEmpty)?.joinToString("  ·  ")
-}
-
-private fun selectionRows(
-    prefix: String,
-    selected: String,
-    values: List<String>,
-    onSelect: (String) -> Unit,
-): List<PlayerSelectionRow> = values.map { value ->
-    PlayerSelectionRow(
-        key = "$prefix:$value",
-        label = value,
-        selected = value == selected,
-        onClick = { onSelect(value) },
-    )
-}
-
-private fun signedPlaybackDelay(valueMs: Long): String = when {
-    valueMs > 0L -> "+${valueMs} ms"
-    valueMs < 0L -> "${valueMs} ms"
-    else -> "0 ms"
-}
+internal fun shouldKeepScreenOn(audio: Boolean, state: PlayerState): Boolean =
+    !audio && (state == PlayerState.Playing || state == PlayerState.Buffering)
