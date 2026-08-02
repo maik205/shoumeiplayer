@@ -490,7 +490,7 @@
     <string name="tv_settings_forget_this_server">Forget this server</string>
     <string name="tv_settings_forward_cache_limit">Forward cache limit</string>
     <string name="tv_settings_frame_interpolation">Frame interpolation</string>
-    <string name="tv_settings_hardware_codecs">Hardware codecs</string>
+    <string name="tv_settings_hardware_codecs">Hardware-decode codecs</string>
     <string name="tv_settings_hardware_decoding">Hardware decoding</string>
     <string name="tv_settings_hdr_handling">HDR handling</string>
     <string name="tv_settings_image_duration">Image duration</string>

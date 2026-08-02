@@ -480,7 +480,7 @@
     <string name="tv_settings_forget_this_server">忘记此服务器</string>
     <string name="tv_settings_forward_cache_limit">向前缓存上限</string>
     <string name="tv_settings_frame_interpolation">帧插值</string>
-    <string name="tv_settings_hardware_codecs">硬件解码器</string>
+    <string name="tv_settings_hardware_codecs">硬件解码适用于</string>
     <string name="tv_settings_hardware_decoding">硬件解码</string>
     <string name="tv_settings_hdr_handling">HDR 处理</string>
     <string name="tv_settings_image_duration">图片显示时长</string>
