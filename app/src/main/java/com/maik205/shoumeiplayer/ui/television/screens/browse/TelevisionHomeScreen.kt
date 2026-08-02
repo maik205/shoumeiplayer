@@ -153,6 +153,7 @@ fun TelevisionHomeScreen(
     val playbackLaunch = rememberPlaybackLaunchState(hero?.item?.id)
     val playFocus = remember { FocusRequester() }
     val fallbackContentFocus = remember { FocusRequester() }
+    val partialErrorFocus = remember { FocusRequester() }
     val firstRailFocus = remember { FocusRequester() }
     val topNavigationFocus = remember { FocusRequester() }
     val listState = rememberLazyListState()
@@ -160,6 +161,27 @@ fun TelevisionHomeScreen(
     var focusedRail by rememberSaveable { mutableIntStateOf(-1) }
     var previousFocusedRail by rememberSaveable { mutableIntStateOf(-1) }
     val browsing = focusedRail > 0
+
+    // Where the viewer was standing when they opened a card. This survives the trip to Detail or
+    // Player in the back-stack entry's saved state, while `restorePending` does not -- it is plain
+    // `remember`, so it is true exactly on the composition that follows coming back, and false for
+    // every ordinary recomposition after that.
+    var focusedItemId by rememberSaveable { mutableStateOf<String?>(null) }
+    var focusedItemIndex by rememberSaveable { mutableIntStateOf(0) }
+    var restorePending by remember { mutableStateOf(true) }
+    val restoreItemId = focusedItemId.takeIf { restorePending && focusedRail >= 0 }
+    val partialError = state.error != null && state.shelves.isNotEmpty()
+
+    // Bring the remembered rail on screen before its cards ask for focus; the rail itself handles
+    // choosing the card once it is laid out.
+    LaunchedEffect(restoreItemId, state.shelves.size) {
+        if (restoreItemId == null) return@LaunchedEffect
+        if (focusedRail !in state.shelves.indices) {
+            restorePending = false
+            return@LaunchedEffect
+        }
+        listState.scrollToItem(focusedRail + 1, railScrollOffset)
+    }
 
     LaunchedEffect(focusedRail) {
         val railBeforeFocus = previousFocusedRail
@@ -243,7 +265,7 @@ fun TelevisionHomeScreen(
                             )
                         }
                     }
-                    if (state.error != null && state.shelves.isNotEmpty()) {
+                    if (partialError) {
                         item(key = "partial-error") {
                             TelevisionErrorState(
                                 title = stringResource(R.string.tv_home_partial_error_title),
@@ -251,10 +273,19 @@ fun TelevisionHomeScreen(
                                 onRetry = onRefresh,
                                 retryLabel = stringResource(R.string.retry),
                                 requestInitialFocus = false,
-                                modifier = Modifier.padding(
-                                    start = TelevisionDimensions.SafeHorizontal,
-                                    top = 8.dp,
-                                ),
+                                focusRequester = partialErrorFocus,
+                                modifier = Modifier
+                                    .padding(
+                                        start = TelevisionDimensions.SafeHorizontal,
+                                        top = 8.dp,
+                                    )
+                                    // Retry sits between the hero and the first rail, so it takes
+                                    // over both ends of that chain while it is showing rather than
+                                    // being something only spatial navigation can stumble into.
+                                    .focusProperties {
+                                        up = playFocus
+                                        down = firstRailFocus
+                                    },
                             )
                         }
                     }
@@ -298,14 +329,26 @@ fun TelevisionHomeScreen(
                                 shelf = shelf,
                                 title = homeShelfTitle(shelf),
                                 firstRail = railIndex == 0,
-                                heroFocusRequester = playFocus,
+                                // The first rail's Up target is the partial-error Retry when one is
+                                // showing, so a failed section cannot be stranded between the hero
+                                // and the content it failed to load.
+                                heroFocusRequester = if (railIndex == 0 && partialError) {
+                                    partialErrorFocus
+                                } else {
+                                    playFocus
+                                },
                                 firstItemFocusRequester = if (railIndex == 0) firstRailFocus else null,
-                                onFocused = {
+                                onFocused = { item, itemIndex ->
                                     focusedRail = railIndex
-                                    onItemFocused(it)
+                                    focusedItemId = item.id
+                                    focusedItemIndex = itemIndex
+                                    onItemFocused(item)
                                 },
                                 onClick = onOpenItem,
                                 watchedIndicatorsEnabled = settings.watchedIndicators,
+                                restoreItemId = restoreItemId.takeIf { railIndex == focusedRail },
+                                restoreItemIndex = focusedItemIndex,
+                                onRestored = { restorePending = false },
                             )
                         }
                         item(key = "end") {
@@ -332,7 +375,7 @@ fun TelevisionHomeScreen(
                     onToggleFavorite = { onToggleFavorite(current.item) },
                     onHeroFocused = { focusedRail = -1 },
                     focusRequester = playFocus,
-                    firstRailFocusRequester = firstRailFocus,
+                    firstRailFocusRequester = if (partialError) partialErrorFocus else firstRailFocus,
                     topNavigationFocusRequester = topNavigationFocus,
                     modifier = Modifier
                         .align(Alignment.TopStart)
@@ -369,12 +412,17 @@ fun TelevisionHomeScreen(
             onNavigateProfile = onNavigateProfile,
             contentFocusRequester = when {
                 hero != null && !browsing -> playFocus
-                state.error != null && state.shelves.isEmpty() -> fallbackContentFocus
+                state.shelves.isEmpty() && !state.loading -> fallbackContentFocus
                 else -> null
             },
             selectedFocusRequester = topNavigationFocus,
             navigationState = navigationState,
             onNavigationFocused = { focusedRail = -1 },
+            // Two claims on focus during route entry is one too many. The navbar only reclaims
+            // the selected tab when the content has nothing better to offer -- neither a card the
+            // viewer left from nor an empty state whose only action is the point of the screen.
+            restoreFocusOnResume = restoreItemId == null &&
+                !(state.shelves.isEmpty() && !state.loading && state.error == null),
         )
         }
     }

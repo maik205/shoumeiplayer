@@ -65,6 +65,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -324,9 +325,12 @@ internal fun HomeShelf(
     firstRail: Boolean,
     heroFocusRequester: FocusRequester,
     firstItemFocusRequester: FocusRequester?,
-    onFocused: (MediaItemUi) -> Unit,
+    onFocused: (MediaItemUi, Int) -> Unit,
     onClick: (MediaItemUi) -> Unit,
     watchedIndicatorsEnabled: Boolean = true,
+    restoreItemId: String? = null,
+    restoreItemIndex: Int = 0,
+    onRestored: () -> Unit = {},
 ) {
     // Keep the remember key allocation-free. The previous `items.map { id }` created a temporary
     // list on every recomposition before Compose could decide whether the rail changed.
@@ -346,6 +350,21 @@ internal fun HomeShelf(
     }
     val railState = rememberLazyListState()
     TelevisionArtworkPrefetch(shelf.items, railState)
+
+    // Put the viewer back on the card they left from. A refresh or a Continue Watching update can
+    // remove or reorder that card while they were away, so an exact match is preferred and the
+    // position it used to occupy is the fallback -- landing next to the missing card beats landing
+    // at the start of the rail, and both beat the remote going dead.
+    LaunchedEffect(restoreItemId, shelf.items) {
+        if (restoreItemId == null || shelf.items.isEmpty()) return@LaunchedEffect
+        val exact = shelf.items.indexOfFirst { it.id == restoreItemId }
+        val target = if (exact >= 0) exact else restoreItemIndex.coerceIn(0, shelf.items.lastIndex)
+        railState.scrollToItem(target)
+        withFrameNanos { }
+        runCatching { railFocusRequesters[target].requestFocus() }
+        onRestored()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -377,7 +396,7 @@ internal fun HomeShelf(
                     // title was actually watched (#89).
                     item = item.withWatchedIndicatorPreference(watchedIndicatorsEnabled),
                     onClick = { onClick(item) },
-                    onFocused = { onFocused(item) },
+                    onFocused = { onFocused(item, itemIndex) },
                     focusRequester = railFocusRequesters.getOrNull(itemIndex),
                     bringIntoViewOnFocus = !(firstRail && itemIndex == 0),
                     modifier = Modifier
