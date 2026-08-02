@@ -1,0 +1,121 @@
+<resources>
+    <string name="app_name">Shoumei Player</string>
+    <string name="app_description">Android TV 上的 Jellyfin 远程客户端</string>
+    <!-- §5.5 - the single rationed eyebrow above the server field. -->
+    <string name="server_address">服务器地址</string>
+    <string name="connect_to_your_server">连接到你的服务器</string>
+    <string name="connect">连接</string>
+    <string name="username">用户名</string>
+    <string name="password">密码</string>
+    <string name="sign_in">登录</string>
+    <string name="sign_out">退出登录</string>
+    <string name="continue_watching">继续观看</string>
+    <string name="next_up">接下来播放</string>
+    <string name="latest_in">%1$s 最新内容</string>
+    <string name="my_media">我的媒体</string>
+    <string name="play">播放</string>
+    <string name="resume">继续播放</string>
+    <string name="search">搜索</string>
+    <string name="settings">设置</string>
+    <!-- §6 - the one slab under an inline error. -->
+    <string name="retry">重试</string>
+    <string name="audio_track">音轨</string>
+    <string name="subtitle_track">字幕</string>
+    <string name="off">关</string>
+    <string name="quick_connect_coming_soon">Quick Connect 暂未开放</string>
+
+    <!-- ApiError.toUiText(): keep these in sync with core/model's ApiError variants. -->
+    <string name="error_session_expired">会话已过期，请重新登录。</string>
+    <string name="error_invalid_credentials">用户名或密码不正确。</string>
+    <string name="error_network">网络错误：%1$s</string>
+    <string name="error_http">服务器错误 (%1$d)：%2$s</string>
+    <string name="error_serialization">解析服务器响应失败：%1$s</string>
+    <string name="error_unknown">未知错误：%1$s</string>
+
+    <!-- Nav rail (M-B9). -->
+    <string name="nav_home">首页</string>
+    <string name="nav_search">搜索</string>
+    <string name="nav_libraries">媒体库</string>
+    <string name="nav_settings">设置</string>
+
+    <!-- Library chip row (M-B11). -->
+    <string name="filter_all">全部</string>
+    <string name="filter_unwatched">未观看</string>
+    <string name="filter_watched">已观看</string>
+    <string name="filter_genre">类型</string>
+    <string name="filter_sort">排序</string>
+    <string name="sort_name">名称</string>
+    <string name="sort_date_added">添加日期</string>
+    <string name="sort_release_date">发行日期</string>
+
+    <!-- Search keyboard grid (M-B12). -->
+    <string name="key_space">空格</string>
+    <string name="key_delete">删除</string>
+    <string name="key_clear">清空</string>
+    <string name="suggested">推荐</string>
+    <string name="type_to_search">输入以搜索</string>
+
+    <!-- Detail actions. -->
+    <string name="more_info">更多信息</string>
+
+    <!-- Common actions/labels shared across browse screens (F7). -->
+    <string name="cancel">取消</string>
+    <string name="on">开</string>
+    <string name="action_open_settings">打开设置</string>
+    <string name="action_clear_filter">清除筛选</string>
+    <string name="action_clear_search">清除搜索</string>
+    <string name="empty_check_library_detail">请确认此账号可以在服务器上看到某个媒体库。</string>
+
+    <!-- Home (M-B?). -->
+    <string name="home_empty_title">暂无可观看内容</string>
+
+    <!-- Libraries. -->
+    <string name="libraries_empty_title">暂无媒体库</string>
+
+    <!-- Search (M-B12). -->
+    <string name="search_keep_typing">继续输入</string>
+    <string name="search_no_results_format">未找到与"%1$s"匹配的内容</string>
+
+    <!-- Library (M-B11). -->
+    <string name="library_empty_filtered">没有符合此筛选条件的内容</string>
+    <string name="library_empty_unfiltered">此媒体库暂无内容</string>
+
+    <!-- Settings (M-B13). -->
+    <string name="settings_playback">播放</string>
+    <string name="settings_appearance">外观</string>
+    <string name="settings_server">服务器</string>
+    <string name="settings_about">关于</string>
+    <string name="settings_preferred_quality">首选画质</string>
+    <string name="settings_subtitle_mode">字幕模式</string>
+    <string name="settings_subtitle_language">字幕语言</string>
+    <string name="settings_audio_language">音频语言</string>
+    <string name="settings_play_default_audio">播放默认音轨</string>
+    <string name="settings_autoplay_next">自动播放下一集</string>
+    <string name="settings_remember_audio_selections">记住音轨选择</string>
+    <string name="settings_remember_subtitle_selections">记住字幕选择</string>
+    <string name="settings_focus_scale">焦点缩放</string>
+    <string name="settings_clock_in_osd">OSD 显示时钟</string>
+    <string name="settings_open_source_notices">开源声明</string>
+    <string name="settings_not_available">不可用</string>
+    <string name="settings_address_label">地址</string>
+    <string name="settings_signed_in_as">已登录为</string>
+    <string name="settings_version_format">版本 %1$s</string>
+    <string name="settings_application_label">应用</string>
+    <string name="settings_playback_engine_label">播放引擎</string>
+    <string name="settings_sign_out_confirm_generic">这将清除此设备上保存的会话，服务器地址会保留。</string>
+    <string name="settings_sign_out_confirm_named">这将清除此设备上 %1$s 保存的会话，服务器地址会保留。</string>
+
+    <!-- Settings — subtitle mode value labels. -->
+    <string name="settings_subtitle_mode_default">默认</string>
+    <string name="settings_subtitle_mode_always">始终</string>
+    <string name="settings_subtitle_mode_only_forced">仅强制</string>
+    <string name="settings_subtitle_mode_smart">智能</string>
+
+    <!-- Settings — language value labels (codes stay unlocalized; only the display name is). -->
+    <string name="settings_language_system_default">系统默认</string>
+    <string name="settings_language_english">英语</string>
+    <string name="settings_language_japanese">日语</string>
+    <string name="settings_language_spanish">西班牙语</string>
+    <string name="settings_language_french">法语</string>
+    <string name="settings_language_german">德语</string>
+</resources>

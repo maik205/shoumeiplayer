@@ -25,6 +25,7 @@
     <string name="tv_search_failed">Search failed. Try again.</string>
     <string name="tv_search_limit">Showing the first 40 results.</string>
     <string name="tv_search_unavailable">Search is unavailable</string>
+    <string name="tv_screensaver_showing">Screensaver, showing %1$s. Press any button to return.</string>
     <string name="tv_back">Back</string>
     <string name="tv_loading_home">Loading home</string>
     <string name="tv_loading_library">Loading library</string>
@@ -288,16 +289,15 @@
     <string name="tv_settings_never">Never</string>
     <string name="tv_settings_experimental">Experimental</string>
     <string name="tv_settings_enabled">Enabled</string>
-    <string name="tv_settings_english">English</string>
-    <string name="tv_settings_vietnamese">Vietnamese</string>
-    <string name="tv_settings_japanese">Japanese</string>
-    <string name="tv_settings_french">French</string>
-    <string name="tv_settings_german">German</string>
     <string name="tv_settings_compact">Compact</string>
     <string name="tv_settings_comfortable">Comfortable</string>
     <string name="tv_settings_large">Large</string>
     <string name="tv_settings_dark">Dark</string>
     <string name="tv_settings_system">System</string>
+    <string name="tv_settings_palette_midnight">Midnight</string>
+    <string name="tv_settings_palette_ember">Ember</string>
+    <string name="tv_settings_palette_daylight">Daylight</string>
+    <string name="tv_settings_palette_sunrise">Sunrise</string>
     <string name="tv_settings_all_libraries">All libraries</string>
     <string name="tv_settings_movies">Movies</string>
     <string name="tv_settings_shows">Shows</string>
@@ -540,6 +540,7 @@
     <string name="tv_settings_text_size">Text size</string>
     <string name="tv_settings_text_stroke">Text stroke</string>
     <string name="tv_settings_theme">Theme</string>
+    <string name="tv_settings_color_palette">Color palette</string>
     <string name="tv_settings_tone_mapping">Tone mapping</string>
     <string name="tv_settings_use_video_margins">Use video margins</string>
     <string name="tv_settings_verify_tls_certificates">Verify TLS certificates</string>

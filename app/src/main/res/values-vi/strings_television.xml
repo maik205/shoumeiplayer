@@ -93,14 +93,15 @@
     <string name="tv_settings_change_server">Đổi server</string>
     <string name="tv_settings_switch_profile">Đổi tài khoản</string>
     <string name="tv_settings_sign_out">Đăng xuất</string>
-    <string name="tv_settings_english">Tiếng Anh</string>
-    <string name="tv_settings_vietnamese">Tiếng Việt</string>
-    <string name="tv_settings_japanese">Tiếng Nhật</string>
-    <string name="tv_settings_french">Tiếng Pháp</string>
-    <string name="tv_settings_german">Tiếng Đức</string>
     <string name="tv_settings_compact">Gọn</string>
     <string name="tv_settings_comfortable">Thoải mái</string>
     <string name="tv_settings_large">Lớn</string>
     <string name="tv_settings_dark">Tối</string>
     <string name="tv_settings_system">Hệ thống</string>
+    <string name="tv_screensaver_showing">Bảo vệ màn hình, đang hiện %1$s. Nhấn nút gì để quay lại.</string>
+    <string name="tv_settings_color_palette">Bảng màu</string>
+    <string name="tv_settings_palette_midnight">Nửa đêm</string>
+    <string name="tv_settings_palette_ember">Lửa</string>
+    <string name="tv_settings_palette_daylight">Ban ngày</string>
+    <string name="tv_settings_palette_sunrise">Bình minh</string>
 </resources>

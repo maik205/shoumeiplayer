@@ -1,0 +1,121 @@
+<resources>
+    <string name="app_name">Shoumei Player</string>
+    <string name="app_description">Un cliente Jellyfin remoto para Android TV</string>
+    <!-- §5.5 - the single rationed eyebrow above the server field. -->
+    <string name="server_address">Dirección del servidor</string>
+    <string name="connect_to_your_server">Conéctate a tu servidor</string>
+    <string name="connect">Conectar</string>
+    <string name="username">Usuario</string>
+    <string name="password">Contraseña</string>
+    <string name="sign_in">Iniciar sesión</string>
+    <string name="sign_out">Cerrar sesión</string>
+    <string name="continue_watching">Continuar viendo</string>
+    <string name="next_up">A continuación</string>
+    <string name="latest_in">Novedades en %1$s</string>
+    <string name="my_media">Mi contenido</string>
+    <string name="play">Reproducir</string>
+    <string name="resume">Reanudar</string>
+    <string name="search">Buscar</string>
+    <string name="settings">Configuración</string>
+    <!-- §6 - the one slab under an inline error. -->
+    <string name="retry">Reintentar</string>
+    <string name="audio_track">Audio</string>
+    <string name="subtitle_track">Subtítulos</string>
+    <string name="off">Desactivado</string>
+    <string name="quick_connect_coming_soon">Quick Connect aún no está disponible</string>
+
+    <!-- ApiError.toUiText(): keep these in sync with core/model's ApiError variants. -->
+    <string name="error_session_expired">Sesión expirada. Vuelve a iniciar sesión.</string>
+    <string name="error_invalid_credentials">El usuario o la contraseña son incorrectos.</string>
+    <string name="error_network">Error de red: %1$s</string>
+    <string name="error_http">Error del servidor (%1$d): %2$s</string>
+    <string name="error_serialization">No se pudo procesar la respuesta del servidor: %1$s</string>
+    <string name="error_unknown">Error inesperado: %1$s</string>
+
+    <!-- Nav rail (M-B9). -->
+    <string name="nav_home">Inicio</string>
+    <string name="nav_search">Buscar</string>
+    <string name="nav_libraries">Bibliotecas</string>
+    <string name="nav_settings">Configuración</string>
+
+    <!-- Library chip row (M-B11). -->
+    <string name="filter_all">Todo</string>
+    <string name="filter_unwatched">Sin ver</string>
+    <string name="filter_watched">Vistos</string>
+    <string name="filter_genre">Género</string>
+    <string name="filter_sort">Ordenar</string>
+    <string name="sort_name">Nombre</string>
+    <string name="sort_date_added">Fecha agregada</string>
+    <string name="sort_release_date">Fecha de estreno</string>
+
+    <!-- Search keyboard grid (M-B12). -->
+    <string name="key_space">Espacio</string>
+    <string name="key_delete">Eliminar</string>
+    <string name="key_clear">Borrar</string>
+    <string name="suggested">Sugerido</string>
+    <string name="type_to_search">Escribe para buscar</string>
+
+    <!-- Detail actions. -->
+    <string name="more_info">Más información</string>
+
+    <!-- Common actions/labels shared across browse screens (F7). -->
+    <string name="cancel">Cancelar</string>
+    <string name="on">Activado</string>
+    <string name="action_open_settings">Abrir configuración</string>
+    <string name="action_clear_filter">Borrar filtro</string>
+    <string name="action_clear_search">Borrar búsqueda</string>
+    <string name="empty_check_library_detail">Verifica que esta cuenta tenga acceso a una biblioteca en el servidor.</string>
+
+    <!-- Home (M-B?). -->
+    <string name="home_empty_title">Nada para ver todavía</string>
+
+    <!-- Libraries. -->
+    <string name="libraries_empty_title">Aún no hay bibliotecas</string>
+
+    <!-- Search (M-B12). -->
+    <string name="search_keep_typing">Sigue escribiendo</string>
+    <string name="search_no_results_format">Nada coincide con \"%1$s\"</string>
+
+    <!-- Library (M-B11). -->
+    <string name="library_empty_filtered">Ningún elemento coincide con este filtro</string>
+    <string name="library_empty_unfiltered">Aún no hay nada en esta biblioteca</string>
+
+    <!-- Settings (M-B13). -->
+    <string name="settings_playback">Reproducción</string>
+    <string name="settings_appearance">Apariencia</string>
+    <string name="settings_server">Servidor</string>
+    <string name="settings_about">Acerca de</string>
+    <string name="settings_preferred_quality">Calidad preferida</string>
+    <string name="settings_subtitle_mode">Modo de subtítulos</string>
+    <string name="settings_subtitle_language">Idioma de subtítulos</string>
+    <string name="settings_audio_language">Idioma de audio</string>
+    <string name="settings_play_default_audio">Reproducir pista de audio predeterminada</string>
+    <string name="settings_autoplay_next">Reproducción automática del siguiente episodio</string>
+    <string name="settings_remember_audio_selections">Recordar selección de audio</string>
+    <string name="settings_remember_subtitle_selections">Recordar selección de subtítulos</string>
+    <string name="settings_focus_scale">Escala del foco</string>
+    <string name="settings_clock_in_osd">Reloj en pantalla</string>
+    <string name="settings_open_source_notices">Avisos de código abierto</string>
+    <string name="settings_not_available">No disponible</string>
+    <string name="settings_address_label">Dirección</string>
+    <string name="settings_signed_in_as">Sesión iniciada como</string>
+    <string name="settings_version_format">Versión %1$s</string>
+    <string name="settings_application_label">Aplicación</string>
+    <string name="settings_playback_engine_label">Motor de reproducción</string>
+    <string name="settings_sign_out_confirm_generic">Esto borra la sesión guardada en este dispositivo. La dirección del servidor se conserva.</string>
+    <string name="settings_sign_out_confirm_named">Esto borra la sesión guardada de %1$s en este dispositivo. La dirección del servidor se conserva.</string>
+
+    <!-- Settings — subtitle mode value labels. -->
+    <string name="settings_subtitle_mode_default">Predeterminado</string>
+    <string name="settings_subtitle_mode_always">Siempre</string>
+    <string name="settings_subtitle_mode_only_forced">Solo forzados</string>
+    <string name="settings_subtitle_mode_smart">Inteligente</string>
+
+    <!-- Settings — language value labels (codes stay unlocalized; only the display name is). -->
+    <string name="settings_language_system_default">Predeterminado del sistema</string>
+    <string name="settings_language_english">Inglés</string>
+    <string name="settings_language_japanese">Japonés</string>
+    <string name="settings_language_spanish">Español</string>
+    <string name="settings_language_french">Francés</string>
+    <string name="settings_language_german">Alemán</string>
+</resources>

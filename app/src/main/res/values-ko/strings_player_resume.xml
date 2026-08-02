@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      §91 — ResumeBehavior.Ask overlay. ClientSettings.resumeBehavior can only ever be Ask, Resume or
+      Restart (Always is a dead enum rung, see TelevisionSettingsCatalog); Ask needs a way to offer
+      "start over" after the saved position was applied, since PlayerViewModel has no UI of its own to
+      block on the choice. Kept in its own file — see PlayerPostPlayOverlays.kt for the overlay this
+      backs. Translated counterparts live in values-de/fr/ja/vi/strings_player_resume.xml.
+    -->
+    <string name="tv_player_resume_title">이어서 재생할까요?</string>
+    <string name="tv_player_resume_from">%1$s부터 이어보기</string>
+    <string name="tv_player_start_over">처음부터 재생</string>
+</resources>
