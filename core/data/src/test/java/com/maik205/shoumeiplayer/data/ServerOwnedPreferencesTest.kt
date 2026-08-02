@@ -170,6 +170,32 @@ class ServerOwnedPreferencesTest {
         assertTrue(fixture.lastConfigurationWrite().contains("\"SubtitleMode\":\"Always\""))
     }
 
+    /**
+     * #103. The flaky-network case, which is NOT the offline case: the account reads fine and only
+     * the write fails. `updateUserConfiguration` reads `/Users/Me` before posting, and while that
+     * read was also adopted as local truth it overwrote the optimistic value with the server's
+     * pre-edit document -- so the row snapped back to the old language while the banner claimed the
+     * change was merely waiting to be sent.
+     */
+    @Test
+    fun `an edit survives a write that fails after the read succeeded`() = runTest {
+        val fixture = signedInRepository()
+        fixture.repository.userConfiguration()
+        // GET /Users/Me keeps working; only the write is refused.
+        fixture.routes["/Users/Configuration"] = FakeRoute(HttpStatusCode.InternalServerError, "")
+
+        val rejected = fixture.repository.editUserConfiguration { it.copy(subtitleMode = "Always") }
+
+        assertTrue(rejected is ApiResult.Failure)
+        assertEquals("Always", fixture.repository.cachedUserConfiguration.first()?.subtitleMode)
+        assertEquals("Always", fixture.repository.userConfiguration()?.subtitleMode)
+
+        // ...and the queued write still reaches the account once the server accepts writes again.
+        fixture.routes["/Users/Configuration"] = fakeRoute("", status = HttpStatusCode.NoContent)
+        assertTrue(fixture.repository.retryPendingUserConfiguration())
+        assertTrue(fixture.lastConfigurationWrite().contains("\"SubtitleMode\":\"Always\""))
+    }
+
     @Test
     fun `a settled write-back is not replayed again`() = runTest {
         val fixture = signedInRepository()
