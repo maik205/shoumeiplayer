@@ -97,6 +97,7 @@ fun TelevisionAppTopNavigation(
     selectedFocusRequester: FocusRequester? = null,
     navigationState: LazyListState? = null,
     onNavigationFocused: () -> Unit = {},
+    restoreFocusOnResume: Boolean = true,
 ) {
     val primaryDestinations = listOf(
         TelevisionNavigationItem("search", stringResource(R.string.ds_nav_search), Icons.Default.Search),
@@ -135,6 +136,7 @@ fun TelevisionAppTopNavigation(
         selectedFocusRequester = selectedFocusRequester,
         navigationState = navigationState,
         onNavigationFocused = onNavigationFocused,
+        restoreFocusOnResume = restoreFocusOnResume,
         avatarUrl = avatarUrl,
         avatarLabel = profileLabel,
         avatarInitials = avatarInitials,
@@ -162,6 +164,7 @@ fun TelevisionTopNavigation(
     selectedFocusRequester: FocusRequester? = null,
     navigationState: LazyListState? = null,
     onNavigationFocused: () -> Unit = {},
+    restoreFocusOnResume: Boolean = true,
 ) {
     // Restored focus is not a new tab choice. Only user-library tabs invoke navigation on focus,
     // and only after the user has rested there briefly.
@@ -220,8 +223,14 @@ fun TelevisionTopNavigation(
     // Reclaim the selected destination whenever this back-stack entry resumes. Keying the effect
     // by availability also focuses a library that loads after first composition without letting
     // ordinary library refreshes steal focus from content.
-    LifecycleResumeEffect(selectedKey, selectedDestinationAvailable) {
+    //
+    // A resume is not always a fresh tab selection: it also fires when the viewer comes back from
+    // Detail or Player, where the card they left from is the right place to land. This effect
+    // cannot tell those apart, so the screen does -- it clears [restoreFocusOnResume] when it has
+    // a content target of its own to restore, and claims the navbar the rest of the time.
+    LifecycleResumeEffect(selectedKey, selectedDestinationAvailable, restoreFocusOnResume) {
         val restoreFocusJob = focusRestoreScope.launch {
+            if (!restoreFocusOnResume) return@launch
             withFrameNanos { }
             selectedKey?.takeIf { selectedDestinationAvailable }?.let { key ->
                 (selectedFocusRequester?.takeIf { key == selectedKey } ?: focusRequesters[key])
@@ -512,7 +521,7 @@ private fun Modifier.televisionNavigationRing(
     listState: LazyListState,
 ): Modifier {
     if (focusRequesters.size < 2 || index !in focusRequesters.indices) return this
-    val scope = rememberCoroutineScope()
+    val moves = rememberTelevisionFocusMoves()
     return onPreviewKeyEvent { event ->
         if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
         val target = when (event.key) {
@@ -521,7 +530,7 @@ private fun Modifier.televisionNavigationRing(
             else -> return@onPreviewKeyEvent false
         }
 
-        scope.launch {
+        moves.dispatch {
             val lazyTargetIsVisible = target < lazyItemCount &&
                 listState.layoutInfo.visibleItemsInfo.any { it.index == target }
             if (target < lazyItemCount && !lazyTargetIsVisible) {

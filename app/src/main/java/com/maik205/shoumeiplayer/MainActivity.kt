@@ -18,7 +18,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.tv.material3.Surface
 import com.maik205.shoumeiplayer.di.LocalAppContainer
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionBrandSplash
@@ -68,7 +72,23 @@ class MainActivity : ComponentActivity() {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .onPreviewKeyEvent { splashVisible },
+                                // Keep stray input away from a graph that is still deciding where
+                                // it starts, without pretending the remote is broken: Back is left
+                                // to the system so the splash can never trap anyone in the app,
+                                // and any other key is read as "get on with it" and skips ahead
+                                // rather than being dropped on the floor.
+                                .onPreviewKeyEvent { event ->
+                                    when {
+                                        !splashVisible -> false
+                                        event.key == Key.Back -> false
+                                        else -> {
+                                            if (event.type == KeyEventType.KeyUp) {
+                                                splashVisible = false
+                                            }
+                                            true
+                                        }
+                                    }
+                                },
                         ) {
                             TelevisionNavGraph(
                                 onReady = { appReady = true },
