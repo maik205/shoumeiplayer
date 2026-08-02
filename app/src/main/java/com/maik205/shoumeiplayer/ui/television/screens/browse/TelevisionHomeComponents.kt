@@ -122,6 +122,7 @@ import kotlin.math.abs
 internal fun HomeHero(
     hero: HeroUi,
     playable: Boolean,
+    playLoading: Boolean,
     onPlay: () -> Unit,
     onDetails: () -> Unit,
     onToggleFavorite: () -> Unit,
@@ -191,13 +192,16 @@ internal fun HomeHero(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TelevisionFocusRevealButton(
-                label = if (playable) {
+                label = if (playable && playLoading) {
+                    stringResource(R.string.tv_player_loading)
+                } else if (playable) {
                     stringResource(if (hero.item.resumeTicks > 0) R.string.resume else R.string.play)
                 } else {
                     stringResource(R.string.tv_details)
                 },
                 icon = if (playable) Icons.Default.PlayArrow else Icons.Default.Info,
                 onClick = if (playable) onPlay else onDetails,
+                loading = playable && playLoading,
                 focusRequester = focusRequester,
                 expandedWidth = if (playable) 66.dp else 72.dp,
                 onFocusChanged = { if (it) onHeroFocused() },

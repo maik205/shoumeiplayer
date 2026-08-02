@@ -57,6 +57,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusScale
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingShape
+import com.maik205.shoumeiplayer.ui.television.components.rememberPlaybackLaunchState
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.ui.television.components.televisionLibraryNavigationKey
@@ -95,6 +96,10 @@ fun TelevisionLiveScreen(
     navigationState: LazyListState,
 ) {
     var guideFocused by remember { mutableStateOf(false) }
+    val playChannel = state.focused?.let { program ->
+        state.channels.firstOrNull { it.item.id == program.channelId }?.item
+    }
+    val playbackLaunch = rememberPlaybackLaunchState(playChannel?.id)
     val topNavigationFocus = remember { FocusRequester() }
     val heroFocus = remember { FocusRequester() }
     val selectedNavigationKey = libraries
@@ -118,14 +123,8 @@ fun TelevisionLiveScreen(
                 height = heroHeight,
                 onBack = onBack,
                 onRefresh = onRefresh,
-                onPlay = {
-                    state.focused?.let { program ->
-                        state.channels
-                            .firstOrNull { it.item.id == program.channelId }
-                            ?.item
-                            ?.let(onPlay)
-                    }
-                },
+                playLoading = playbackLaunch.loading,
+                onPlay = { playChannel?.let { playbackLaunch.launch { onPlay(it) } } },
                 onHeroFocused = { guideFocused = false },
                 focusRequester = heroFocus,
             )
@@ -204,6 +203,7 @@ private fun LiveHero(
     height: Dp,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
+    playLoading: Boolean,
     onPlay: () -> Unit,
     onHeroFocused: () -> Unit,
     focusRequester: FocusRequester,
@@ -313,9 +313,12 @@ private fun LiveHero(
                 }
                 Spacer(Modifier.width(20.dp))
                 TelevisionFocusRevealButton(
-                    label = stringResource(R.string.tv_watch),
+                    label = stringResource(
+                        if (playLoading) R.string.tv_player_loading else R.string.tv_watch,
+                    ),
                     icon = Icons.Default.PlayArrow,
                     onClick = onPlay,
+                    loading = playLoading,
                     focusRequester = focusRequester,
                     selected = true,
                     expandedWidth = 98.dp,

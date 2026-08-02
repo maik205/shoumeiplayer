@@ -245,7 +245,6 @@ fun ConnectScreen(
                         if (state.connecting) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(18.dp),
-                                color = TelevisionColors.Paper,
                                 strokeWidth = 2.dp,
                             )
                         } else {
@@ -515,7 +514,6 @@ fun ProfilesScreen(
                         Spacer(Modifier.height(12.dp))
                         CircularProgressIndicator(
                             modifier = Modifier.size(18.dp),
-                            color = TelevisionColors.Paper,
                             strokeWidth = 2.dp,
                         )
                     }
@@ -733,7 +731,6 @@ fun LoginScreen(
                         if (state.quickConnectChecking) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(16.dp),
-                                color = TelevisionColors.Paper,
                                 strokeWidth = 2.dp,
                             )
                             Spacer(Modifier.width(16.dp))
@@ -759,7 +756,6 @@ fun LoginScreen(
                                     modifier = Modifier
                                         .padding(start = 10.dp)
                                         .size(16.dp),
-                                    color = TelevisionColors.Paper,
                                     strokeWidth = 2.dp,
                                 )
                             }
@@ -792,7 +788,6 @@ fun LoginScreen(
                                 modifier = Modifier
                                     .padding(start = 10.dp)
                                     .size(16.dp),
-                                color = TelevisionColors.Paper,
                                 strokeWidth = 2.dp,
                             )
                         }
@@ -896,7 +891,6 @@ fun RecoveryScreen(
                         Spacer(Modifier.height(16.dp))
                         CircularProgressIndicator(
                             modifier = Modifier.size(18.dp),
-                            color = TelevisionColors.Paper,
                             strokeWidth = 2.dp,
                         )
                     }

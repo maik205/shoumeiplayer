@@ -104,6 +104,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealB
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingShape
+import com.maik205.shoumeiplayer.ui.television.components.rememberPlaybackLaunchState
 import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionMediaTile
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionRowHeader
@@ -137,6 +138,7 @@ fun TelevisionHomeScreen(
     navigationState: LazyListState,
 ) {
     val hero = state.hero
+    val playbackLaunch = rememberPlaybackLaunchState(hero?.item?.id)
     val playFocus = remember { FocusRequester() }
     val fallbackContentFocus = remember { FocusRequester() }
     val firstRailFocus = remember { FocusRequester() }
@@ -305,7 +307,8 @@ fun TelevisionHomeScreen(
                 HomeHero(
                     hero = current,
                     playable = current.item.type in DirectlyPlayableTypes,
-                    onPlay = { onPlay(current.item) },
+                    playLoading = playbackLaunch.loading,
+                    onPlay = { playbackLaunch.launch { onPlay(current.item) } },
                     onDetails = { onOpenItem(current.item) },
                     onToggleFavorite = { onToggleFavorite(current.item) },
                     onHeroFocused = { focusedRail = -1 },

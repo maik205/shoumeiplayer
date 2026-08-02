@@ -394,7 +394,7 @@ fun TelevisionProgressMark(
             modifier = Modifier
                 .fillMaxWidth(value)
                 .height(3.dp)
-                .background(TelevisionColors.Ember),
+                .background(TelevisionColors.Paper),
         )
     }
 }

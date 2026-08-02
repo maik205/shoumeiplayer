@@ -58,6 +58,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
@@ -167,7 +168,6 @@ fun TelevisionTopNavigation(
     var previousFocusedKey by remember { mutableStateOf<String?>(null) }
     var focusedKey by remember { mutableStateOf<String?>(null) }
     var pendingLibraryKey by remember { mutableStateOf<String?>(null) }
-    var restoredSelectedKey by remember { mutableStateOf<String?>(null) }
     fun onNavigationFocusChanged(key: String, library: Boolean, focused: Boolean) {
         if (!focused) {
             if (focusedKey == key) {
@@ -215,17 +215,20 @@ fun TelevisionTopNavigation(
         focusRequesters.keys.retainAll(activeKeys)
     }
     val selectedDestinationAvailable = selectedKey != null && selectedKey in activeKeys
+    val focusRestoreScope = rememberCoroutineScope()
 
-    // Restore once when a destination first appears. Library refreshes must not steal focus from
-    // content, and a removed library must never leave us requesting an unattached focus target.
-    LaunchedEffect(selectedKey, selectedDestinationAvailable) {
-        selectedKey?.takeIf {
-            selectedDestinationAvailable && restoredSelectedKey != it
-        }?.let { key ->
-            (selectedFocusRequester?.takeIf { key == selectedKey } ?: focusRequesters[key])
-                ?.requestFocus()
-            restoredSelectedKey = key
+    // Reclaim the selected destination whenever this back-stack entry resumes. Keying the effect
+    // by availability also focuses a library that loads after first composition without letting
+    // ordinary library refreshes steal focus from content.
+    LifecycleResumeEffect(selectedKey, selectedDestinationAvailable) {
+        val restoreFocusJob = focusRestoreScope.launch {
+            withFrameNanos { }
+            selectedKey?.takeIf { selectedDestinationAvailable }?.let { key ->
+                (selectedFocusRequester?.takeIf { key == selectedKey } ?: focusRequesters[key])
+                    ?.requestFocus()
+            }
         }
+        onPauseOrDispose { restoreFocusJob.cancel() }
     }
     LaunchedEffect(pendingLibraryKey) {
         val key = pendingLibraryKey ?: return@LaunchedEffect

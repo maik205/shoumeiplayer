@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -53,6 +54,7 @@ fun TelevisionFocusRevealButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    loading: Boolean = false,
     selected: Boolean = false,
     expandWhenSelected: Boolean = true,
     focusRequester: FocusRequester? = null,
@@ -85,8 +87,8 @@ fun TelevisionFocusRevealButton(
     val maxWidth = if (expandedWidth < collapsedWidth) collapsedWidth else expandedWidth
 
     TelevisionFocusSurface(
-        onClick = onClick,
-        enabled = enabled,
+        onClick = { if (!loading) onClick() },
+        enabled = enabled && !loading,
         focusRequester = focusRequester,
         modifier = modifier
             .widthIn(min = collapsedWidth, max = maxWidth)
@@ -110,11 +112,18 @@ fun TelevisionFocusRevealButton(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.End,
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = contentDescription,
-                modifier = Modifier.size(iconSize),
-            )
+            if (loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(iconSize),
+                    strokeWidth = 1.5.dp,
+                )
+            } else {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = contentDescription,
+                    modifier = Modifier.size(iconSize),
+                )
+            }
             Spacer(Modifier.width(gap))
             AnimatedVisibility(
                 visible = expanded,

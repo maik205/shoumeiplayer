@@ -113,6 +113,7 @@ internal fun VideoSurface(
 internal fun VideoPlayerChrome(
     state: PlayerUiState,
     timelineState: StateFlow<PlayerTimelineState>,
+    playLoading: Boolean,
     dimmed: Boolean,
     timelineFocus: FocusRequester,
     playPauseFocus: FocusRequester,
@@ -241,9 +242,14 @@ internal fun VideoPlayerChrome(
             )
             PlayerCompactActionButton(
                 label = stringResource(
-                    if (playing) R.string.tv_player_pause else R.string.play,
+                    when {
+                        playLoading -> R.string.tv_player_loading
+                        playing -> R.string.tv_player_pause
+                        else -> R.string.play
+                    },
                 ),
                 icon = if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                loading = playLoading,
                 selected = playing,
                 focusRequester = playPauseFocus,
                 expandedWidth = 104.dp,

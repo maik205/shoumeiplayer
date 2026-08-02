@@ -218,12 +218,38 @@ internal fun TelevisionPlayerContent(
     var suggestedCoverMode by remember { mutableStateOf(true) }
     var shuffleEnabled by remember { mutableStateOf(false) }
     var repeatEnabled by remember { mutableStateOf(false) }
+    var playRequestPending by remember { mutableStateOf(false) }
     var postPlaySeconds by remember { mutableStateOf<Int?>(null) }
     var frameMode by remember { mutableStateOf(FrameMode.Fit) }
     var hdrMode by remember { mutableStateOf(HdrMode.Automatic) }
     var videoTrack by remember { mutableStateOf("") }
     var deinterlaceMode by remember { mutableStateOf(DeinterlaceMode.Automatic) }
     var sleepTimer by remember { mutableStateOf(SleepTimer.Off) }
+
+    val playControlLoading = playRequestPending ||
+        state.loading ||
+        state.state == PlayerState.Loading ||
+        state.state == PlayerState.Buffering
+
+    LaunchedEffect(state.state, state.error) {
+        if (state.state != PlayerState.Paused && state.state != PlayerState.Ended) {
+            playRequestPending = false
+        }
+    }
+
+    fun togglePlayPauseWithFeedback() {
+        if (playControlLoading) return
+        if (state.state == PlayerState.Paused || state.state == PlayerState.Ended) {
+            playRequestPending = true
+        }
+        controller.togglePlayPause()
+    }
+
+    fun playWithFeedback() {
+        if (playControlLoading || state.state == PlayerState.Playing) return
+        playRequestPending = true
+        controller.play()
+    }
 
     fun noteInteraction() {
         interactionTick++
@@ -455,13 +481,13 @@ internal fun TelevisionPlayerContent(
 
                 when (native.keyCode) {
                     KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
-                        controller.togglePlayPause()
+                        togglePlayPauseWithFeedback()
                         noteInteraction()
                         true
                     }
 
                     KeyEvent.KEYCODE_MEDIA_PLAY -> {
-                        controller.play()
+                        playWithFeedback()
                         noteInteraction()
                         true
                     }
@@ -509,7 +535,7 @@ internal fun TelevisionPlayerContent(
                     KeyEvent.KEYCODE_DPAD_CENTER,
                     KeyEvent.KEYCODE_ENTER,
                     -> if (!audio && !osdVisible) {
-                        controller.togglePlayPause()
+                        togglePlayPauseWithFeedback()
                         revealOsd()
                         true
                     } else {
@@ -539,6 +565,7 @@ internal fun TelevisionPlayerContent(
             TelevisionAudioPlayer(
                 state = state,
                 timelineState = timelineState,
+                playLoading = playControlLoading,
                 timelineFocus = timelineFocus,
                 playPauseFocus = playPauseFocus,
                 exitArmed = exitArmed,
@@ -550,7 +577,7 @@ internal fun TelevisionPlayerContent(
                 repeatEnabled = repeatEnabled,
                 onExitButton = ::handleExitButton,
                 onSeekBy = controller::seekBy,
-                onTogglePlayPause = controller::togglePlayPause,
+                onTogglePlayPause = ::togglePlayPauseWithFeedback,
                 onPrevious = controller::playPreviousAudio,
                 onNext = {
                     if (shuffleEnabled) {
@@ -611,6 +638,7 @@ internal fun TelevisionPlayerContent(
                 VideoPlayerChrome(
                     state = state,
                     timelineState = timelineState,
+                    playLoading = playControlLoading,
                     dimmed = panel != null,
                     timelineFocus = timelineFocus,
                     playPauseFocus = playPauseFocus,
@@ -625,7 +653,7 @@ internal fun TelevisionPlayerContent(
                     exitArmed = exitArmed,
                     onExitButton = ::handleExitButton,
                     onSeekBy = controller::seekBy,
-                    onTogglePlayPause = controller::togglePlayPause,
+                    onTogglePlayPause = ::togglePlayPauseWithFeedback,
                     onHideOsd = ::hideOsd,
                     onPrevious = controller::playPreviousEpisode,
                     onNext = controller::playNextEpisode,
@@ -1142,7 +1170,6 @@ private fun PlayerLoadingOverlay(
         ) {
             CircularProgressIndicator(
                 modifier = Modifier.size(TelevisionDimensions.ActionIcon),
-                color = TelevisionColors.Paper,
                 trackColor = TelevisionColors.ProgressTrack,
                 strokeWidth = 1.5.dp,
             )

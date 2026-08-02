@@ -108,6 +108,7 @@ internal val AudioCssEase = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)
 internal fun TelevisionAudioPlayer(
     state: PlayerUiState,
     timelineState: StateFlow<PlayerTimelineState>,
+    playLoading: Boolean,
     timelineFocus: FocusRequester,
     playPauseFocus: FocusRequester,
     exitArmed: Boolean,
@@ -223,6 +224,7 @@ internal fun TelevisionAudioPlayer(
                 state = state,
                 timelineState = timelineState,
                 lyricsVisible = lyricsVisible,
+                playLoading = playLoading,
                 timelineFocus = timelineFocus,
                 playPauseFocus = playPauseFocus,
                 shuffleEnabled = shuffleEnabled,
@@ -242,6 +244,7 @@ internal fun TelevisionAudioPlayer(
                 state = state,
                 timelineState = timelineState,
                 visible = lyricsVisible,
+                playLoading = playLoading,
                 timelineFocus = lyricsTimelineFocus,
                 playPauseFocus = lyricsPlayPauseFocus,
                 shuffleEnabled = shuffleEnabled,

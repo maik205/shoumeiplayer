@@ -94,6 +94,7 @@ internal fun AudioNormalPlayback(
     state: PlayerUiState,
     timelineState: StateFlow<PlayerTimelineState>,
     lyricsVisible: Boolean,
+    playLoading: Boolean,
     timelineFocus: FocusRequester,
     playPauseFocus: FocusRequester,
     shuffleEnabled: Boolean,
@@ -165,6 +166,7 @@ internal fun AudioNormalPlayback(
         AudioMainTransport(
             state = state,
             playPauseFocus = playPauseFocus,
+            playLoading = playLoading,
             enabled = !lyricsVisible,
             onTogglePlayPause = onTogglePlayPause,
             onPrevious = onPrevious,
@@ -193,6 +195,7 @@ internal fun AudioLyricsPlayback(
     state: PlayerUiState,
     timelineState: StateFlow<PlayerTimelineState>,
     visible: Boolean,
+    playLoading: Boolean,
     timelineFocus: FocusRequester,
     playPauseFocus: FocusRequester,
     shuffleEnabled: Boolean,
@@ -267,10 +270,15 @@ internal fun AudioLyricsPlayback(
                 )
                 AudioLyricsActionButton(
                     label = stringResource(
-                        if (isAudioPlaying(state)) R.string.tv_player_pause else R.string.play,
+                        when {
+                            playLoading -> R.string.tv_player_loading
+                            isAudioPlaying(state) -> R.string.tv_player_pause
+                            else -> R.string.play
+                        },
                     ),
                     icon = if (isAudioPlaying(state)) Icons.Default.Pause else Icons.Default.PlayArrow,
                     selected = true,
+                    loading = playLoading,
                     focusRequester = playPauseFocus,
                     onClick = onTogglePlayPause,
                     onInteraction = onInteraction,

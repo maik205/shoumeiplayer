@@ -78,6 +78,7 @@ internal fun DetailHero(
     onTogglePlayed: () -> Unit,
     onHeroControlFocused: () -> Unit,
     onPlay: () -> Unit,
+    playLoading: Boolean,
     playFocus: FocusRequester,
 ) {
     val item = requireNotNull(state.item)
@@ -156,9 +157,14 @@ internal fun DetailHero(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (state.isPlayable) {
                     TelevisionFocusRevealButton(
-                        label = detailPlayLabel(state),
+                        label = if (playLoading) {
+                            stringResource(R.string.tv_player_loading)
+                        } else {
+                            detailPlayLabel(state)
+                        },
                         icon = Icons.Default.PlayArrow,
                         onClick = onPlay,
+                        loading = playLoading,
                         selected = true,
                         focusRequester = playFocus,
                         expandedWidth = if (state.kind == DetailKind.Series) 148.dp else 96.dp,

@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -266,6 +267,7 @@ internal fun AudioTimeline(
 internal fun AudioMainTransport(
     state: PlayerUiState,
     playPauseFocus: FocusRequester,
+    playLoading: Boolean,
     enabled: Boolean,
     onTogglePlayPause: () -> Unit,
     onPrevious: () -> Unit,
@@ -286,11 +288,16 @@ internal fun AudioMainTransport(
         )
         AudioCircleButton(
             label = stringResource(
-                if (isAudioPlaying(state)) R.string.tv_player_pause else R.string.play,
+                when {
+                    playLoading -> R.string.tv_player_loading
+                    isAudioPlaying(state) -> R.string.tv_player_pause
+                    else -> R.string.play
+                },
             ),
             icon = if (isAudioPlaying(state)) Icons.Default.Pause else Icons.Default.PlayArrow,
             primary = true,
             enabled = enabled,
+            loading = playLoading,
             focusRequester = playPauseFocus,
             onClick = onTogglePlayPause,
             onInteraction = onInteraction,
@@ -314,6 +321,7 @@ internal fun AudioCircleButton(
     primary: Boolean = false,
     selected: Boolean = false,
     enabled: Boolean = true,
+    loading: Boolean = false,
     focusRequester: FocusRequester? = null,
 ) {
     val buttonSize = if (primary) 37.dp else 30.dp
@@ -322,7 +330,7 @@ internal fun AudioCircleButton(
             onInteraction()
             onClick()
         },
-        enabled = enabled,
+        enabled = enabled && !loading,
         focusRequester = focusRequester,
         scaleTo = 1f,
         restingAlpha = if (primary || selected) 1f else 0.52f,
@@ -334,12 +342,19 @@ internal fun AudioCircleButton(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = TelevisionColors.Paper,
-                modifier = Modifier.size(if (primary) 27.dp else 20.dp),
-            )
+            if (loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(if (primary) 25.dp else 18.dp),
+                    strokeWidth = 1.5.dp,
+                )
+            } else {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    tint = TelevisionColors.Paper,
+                    modifier = Modifier.size(if (primary) 27.dp else 20.dp),
+                )
+            }
         }
     }
 }
@@ -351,11 +366,13 @@ internal fun AudioLyricsActionButton(
     onClick: () -> Unit,
     onInteraction: () -> Unit,
     selected: Boolean = false,
+    loading: Boolean = false,
     focusRequester: FocusRequester? = null,
 ) {
     TelevisionFocusRevealButton(
         label = label,
         icon = icon,
+        loading = loading,
         selected = selected,
         expandWhenSelected = false,
         focusRequester = focusRequester,

@@ -32,8 +32,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -43,6 +45,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
@@ -54,11 +57,13 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionErrorState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingShape
+import com.maik205.shoumeiplayer.ui.television.components.rememberPlaybackLaunchState
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import com.maik205.shoumeiplayer.ui.i18n.UiText
 import com.maik205.shoumeiplayer.ui.i18n.resolve
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
+import kotlinx.coroutines.launch
 
 @Composable
 fun TelevisionDetailScreen(
@@ -90,7 +95,9 @@ fun TelevisionDetailScreen(
     val playbackItem = state.playbackItem ?: item
     val playFocus = remember { FocusRequester() }
     val backFocus = remember { FocusRequester() }
+    val focusScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+    val playbackLaunch = rememberPlaybackLaunchState(item?.id)
     var heroFocusTick by remember { mutableIntStateOf(0) }
     var initialFocusAssigned by rememberSaveable(item?.id) { mutableStateOf(false) }
     val audioStreams = remember(playbackItem?.id, playbackItem?.mediaStreams) {
@@ -107,6 +114,20 @@ fun TelevisionDetailScreen(
         mutableIntStateOf(subtitleStreams.indexOfFirst(DetailMediaStream::isDefault) + 1)
     }
     var qualityChoice by rememberSaveable(item?.id) { mutableIntStateOf(0) }
+
+    LifecycleResumeEffect(item?.id) {
+        val restoreFocusJob = focusScope.launch {
+            withFrameNanos { }
+            if (!state.loading && item != null && hero != null) {
+                if (state.playableItemId != null) {
+                    playFocus.requestFocus()
+                } else {
+                    backFocus.requestFocus()
+                }
+            }
+        }
+        onPauseOrDispose { restoreFocusJob.cancel() }
+    }
 
     LaunchedEffect(state.loading, state.playableItemId, item?.id, hero?.id) {
         if (!state.loading && item != null && hero != null && !initialFocusAssigned) {
@@ -252,15 +273,18 @@ fun TelevisionDetailScreen(
                             onTogglePlayed = onTogglePlayed,
                             onHeroControlFocused = { heroFocusTick += 1 },
                             onPlay = {
-                                onPlay(
-                                    state.playableItemId ?: hero.id,
-                                    state.playableResumeTicks,
-                                    isAudio,
-                                    audioStreams.getOrNull(audioChoice)?.index,
-                                    subtitleStreams.getOrNull(subtitleChoice - 1)?.index,
-                                    qualityOptions.getOrNull(qualityChoice),
-                                )
+                                playbackLaunch.launch {
+                                    onPlay(
+                                        state.playableItemId ?: hero.id,
+                                        state.playableResumeTicks,
+                                        isAudio,
+                                        audioStreams.getOrNull(audioChoice)?.index,
+                                        subtitleStreams.getOrNull(subtitleChoice - 1)?.index,
+                                        qualityOptions.getOrNull(qualityChoice),
+                                    )
+                                }
                             },
+                            playLoading = playbackLaunch.loading,
                             playFocus = playFocus,
                         )
                     }
