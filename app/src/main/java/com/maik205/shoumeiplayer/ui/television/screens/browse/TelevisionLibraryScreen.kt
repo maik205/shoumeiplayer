@@ -115,6 +115,7 @@ import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWr
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionMediaTile
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionRowHeader
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
+import com.maik205.shoumeiplayer.ui.television.components.televisionRestoreTarget
 import com.maik205.shoumeiplayer.domain.model.ArtworkShape
 import com.maik205.shoumeiplayer.ui.television.model.HeroUi
 import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
@@ -281,9 +282,11 @@ private fun StandardLibraryContent(
     // whatever now sits where it was, so a card that no longer matches the filter leaves the
     // viewer next to its old neighbours rather than with a dead remote.
     LaunchedEffect(restoreTargetId, state.items) {
-        if (restoreTargetId == null || state.items.isEmpty()) return@LaunchedEffect
-        val exact = state.items.indexOfFirst { it.id == restoreTargetId }
-        val target = if (exact >= 0) exact else restoreMediaIndex.coerceIn(0, state.items.lastIndex)
+        val target = televisionRestoreTarget(
+            ids = state.items.map(MediaItemUi::id),
+            restoreId = restoreTargetId,
+            previousIndex = restoreMediaIndex,
+        ) ?: return@LaunchedEffect
         gridState.scrollToItem(target)
         withFrameNanos { }
         runCatching { itemFocusRequesters[target].requestFocus() }
