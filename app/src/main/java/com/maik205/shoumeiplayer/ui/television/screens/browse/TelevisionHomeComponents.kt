@@ -326,6 +326,10 @@ internal fun HomeShelf(
     firstRail: Boolean,
     heroFocusRequester: FocusRequester,
     firstItemFocusRequester: FocusRequester?,
+    /** The rail above -- the hero for the first rail, the previous rail's first card after that. */
+    upFocusRequester: FocusRequester? = null,
+    /** The first card of the rail below, so deeper rails are not left to spatial guessing. */
+    downFocusRequester: FocusRequester? = null,
     onFocused: (MediaItemUi, Int) -> Unit,
     onClick: (MediaItemUi) -> Unit,
     watchedIndicatorsEnabled: Boolean = true,
@@ -402,15 +406,16 @@ internal fun HomeShelf(
                     onFocused = { onFocused(item, itemIndex) },
                     focusRequester = railFocusRequesters.getOrNull(itemIndex),
                     bringIntoViewOnFocus = !(firstRail && itemIndex == 0),
+                    // Every card in the rail carries the rail's vertical relationships, not just
+                    // the first: leaving a scrolled rail upward used to depend on what happened to
+                    // be above the card the viewer had reached (HOME-004).
                     modifier = Modifier
                         .televisionHorizontalWrap(itemIndex, railFocusRequesters, railState)
-                        .then(
-                            if (firstRail) {
-                                Modifier.focusProperties { up = heroFocusRequester }
-                            } else {
-                                Modifier
-                            },
-                        ),
+                        .focusProperties {
+                            val above = if (firstRail) heroFocusRequester else upFocusRequester
+                            above?.let { up = it }
+                            downFocusRequester?.let { down = it }
+                        },
                 )
             }
         }

@@ -111,10 +111,14 @@ internal fun TrackRail(
     onPlay: (MediaItemUi) -> Unit,
     restoreItemId: String? = null,
     onRestored: () -> Unit = {},
+    entryFocusRequester: FocusRequester? = null,
+    upFocusRequester: FocusRequester? = null,
 ) {
     val visible = tracks.take(24)
-    val trackFocusRequesters = remember(visible.size) {
-        List(visible.size) { FocusRequester() }
+    val trackFocusRequesters = remember(visible.size, entryFocusRequester) {
+        List(visible.size) { index ->
+            if (index == 0 && entryFocusRequester != null) entryFocusRequester else FocusRequester()
+        }
     }
     LaunchedEffect(restoreItemId, visible) {
         if (restoreItemId == null) return@LaunchedEffect
@@ -144,6 +148,9 @@ internal fun TrackRail(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp)
+                    .focusProperties {
+                        if (index == 0) upFocusRequester?.let { up = it }
+                    }
                     .televisionBringIntoViewOnFocus(),
             ) { focused ->
                 Row(
@@ -201,10 +208,16 @@ internal fun DetailMediaRail(
     onOpen: (MediaItemUi) -> Unit,
     restoreItemId: String? = null,
     onRestored: () -> Unit = {},
+    /** Claimed by the first card when this rail is the section directly under the hero. */
+    entryFocusRequester: FocusRequester? = null,
+    /** The hero, so leaving this rail upward is defined rather than spatial (DETAIL-005). */
+    upFocusRequester: FocusRequester? = null,
 ) {
     val itemIdentity = items.fold(1) { hash, item -> 31 * hash + item.id.hashCode() }
-    val railFocusRequesters = remember(items.size, itemIdentity) {
-        List(items.size) { FocusRequester() }
+    val railFocusRequesters = remember(items.size, itemIdentity, entryFocusRequester) {
+        List(items.size) { index ->
+            if (index == 0 && entryFocusRequester != null) entryFocusRequester else FocusRequester()
+        }
     }
     val railState = rememberLazyListState()
     TelevisionRailFocusRestore(
@@ -247,11 +260,9 @@ internal fun DetailMediaRail(
                     item = item,
                     onClick = { onOpen(item) },
                     focusRequester = railFocusRequesters.getOrNull(index),
-                    modifier = Modifier.televisionHorizontalWrap(
-                        index,
-                        railFocusRequesters,
-                        railState,
-                    ),
+                    modifier = Modifier
+                        .televisionHorizontalWrap(index, railFocusRequesters, railState)
+                        .focusProperties { upFocusRequester?.let { up = it } },
                     shape = when (item.type) {
                         "Episode", "Video", "Recording" -> ArtworkShape.Landscape
                         else -> item.shape
@@ -268,10 +279,14 @@ internal fun PeopleRail(
     onOpen: (PersonUi) -> Unit,
     restoreItemId: String? = null,
     onRestored: () -> Unit = {},
+    entryFocusRequester: FocusRequester? = null,
+    upFocusRequester: FocusRequester? = null,
 ) {
     val peopleIdentity = people.fold(1) { hash, person -> 31 * hash + person.id.hashCode() }
-    val railFocusRequesters = remember(people.size, peopleIdentity) {
-        List(people.size) { FocusRequester() }
+    val railFocusRequesters = remember(people.size, peopleIdentity, entryFocusRequester) {
+        List(people.size) { index ->
+            if (index == 0 && entryFocusRequester != null) entryFocusRequester else FocusRequester()
+        }
     }
     val railState = rememberLazyListState()
     TelevisionRailFocusRestore(
@@ -308,6 +323,7 @@ internal fun PeopleRail(
                     modifier = Modifier
                         .width(132.dp)
                         .televisionHorizontalWrap(index, railFocusRequesters, railState)
+                        .focusProperties { upFocusRequester?.let { up = it } }
                         .televisionBringIntoViewOnFocus(),
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {

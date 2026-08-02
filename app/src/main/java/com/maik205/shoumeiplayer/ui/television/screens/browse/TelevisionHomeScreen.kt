@@ -169,6 +169,10 @@ fun TelevisionHomeScreen(
     var focusedItemId by rememberSaveable { mutableStateOf<String?>(null) }
     var focusedItemIndex by rememberSaveable { mutableIntStateOf(0) }
     var restorePending by remember { mutableStateOf(true) }
+    // One requester per rail's first card, so every rail has a named neighbour above and below.
+    val railFirstItemFocus = remember(state.shelves.size) {
+        List(state.shelves.size) { index -> if (index == 0) firstRailFocus else FocusRequester() }
+    }
     val restoreItemId = focusedItemId.takeIf { restorePending && focusedRail >= 0 }
     val partialError = state.error != null && state.shelves.isNotEmpty()
 
@@ -337,7 +341,9 @@ fun TelevisionHomeScreen(
                                 } else {
                                     playFocus
                                 },
-                                firstItemFocusRequester = if (railIndex == 0) firstRailFocus else null,
+                                firstItemFocusRequester = railFirstItemFocus.getOrNull(railIndex),
+                                upFocusRequester = railFirstItemFocus.getOrNull(railIndex - 1),
+                                downFocusRequester = railFirstItemFocus.getOrNull(railIndex + 1),
                                 onFocused = { item, itemIndex ->
                                     focusedRail = railIndex
                                     focusedItemId = item.id
@@ -413,6 +419,10 @@ fun TelevisionHomeScreen(
             contentFocusRequester = when {
                 hero != null && !browsing -> playFocus
                 state.shelves.isEmpty() && !state.loading -> fallbackContentFocus
+                // Nothing below the navigation bar can hold focus while Home is still loading.
+                // Saying so explicitly beats leaving Down pointed at a requester attached to no
+                // node, which is a silent no-op that looks like a broken remote (HOME-003).
+                state.loading -> FocusRequester.Cancel
                 else -> null
             },
             selectedFocusRequester = topNavigationFocus,

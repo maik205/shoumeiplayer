@@ -86,12 +86,31 @@ internal fun SeriesDetailSection(
     episodeTitle: String,
     currentEpisodeId: String? = null,
     onPlay: (MediaItemUi) -> Unit,
+    /** Given to whichever row is topmost here, so the hero above has one thing to point Down at. */
+    entryFocusRequester: FocusRequester? = null,
+    /** The hero, so the topmost row has somewhere defined to go Up to. */
+    upFocusRequester: FocusRequester? = null,
 ) {
-    val nextUpFocus = remember { FocusRequester() }
-    val seasonFocus = remember { FocusRequester() }
-    val episodeFocus = remember { FocusRequester() }
+    val ownNextUpFocus = remember { FocusRequester() }
+    val ownSeasonFocus = remember { FocusRequester() }
+    val ownEpisodeFocus = remember { FocusRequester() }
     val hasSeasonSelector = seasons.isNotEmpty()
     val hasEpisodeRow = episodes.isNotEmpty()
+
+    // Which row is topmost depends on what this item actually has. Whichever it is takes the
+    // section's entry requester, so the hero's Down target does not have to know (DETAIL-005),
+    // and the routing below stays correct when a neighbouring row is absent (DETAIL-006).
+    val nextUpFocus = if (nextUp != null) entryFocusRequester ?: ownNextUpFocus else ownNextUpFocus
+    val seasonFocus = if (nextUp == null && hasSeasonSelector) {
+        entryFocusRequester ?: ownSeasonFocus
+    } else {
+        ownSeasonFocus
+    }
+    val episodeFocus = if (nextUp == null && !hasSeasonSelector && hasEpisodeRow) {
+        entryFocusRequester ?: ownEpisodeFocus
+    } else {
+        ownEpisodeFocus
+    }
 
     Column(
         modifier = Modifier
@@ -110,6 +129,7 @@ internal fun SeriesDetailSection(
                 episode = nextUp,
                 item = nextUpItem,
                 focusRequester = nextUpFocus,
+                upFocusRequester = upFocusRequester,
                 downFocusRequester = when {
                     hasSeasonSelector -> seasonFocus
                     hasEpisodeRow -> episodeFocus
@@ -126,12 +146,12 @@ internal fun SeriesDetailSection(
             selectedSeasonId = selectedSeasonId,
             currentEpisodeId = currentEpisodeId,
             seasonFocusRequester = seasonFocus.takeIf { hasSeasonSelector },
-            seasonUpFocusRequester = nextUpFocus.takeIf { nextUp != null },
+            seasonUpFocusRequester = if (nextUp != null) nextUpFocus else upFocusRequester,
             episodeFocusRequester = episodeFocus.takeIf { hasEpisodeRow },
             episodeUpFocusRequester = when {
                 hasSeasonSelector -> seasonFocus
                 nextUp != null -> nextUpFocus
-                else -> null
+                else -> upFocusRequester
             },
             onSelectSeason = onSelect,
             onPlay = onPlay,
@@ -146,6 +166,7 @@ private fun SeriesNextUp(
     focusRequester: FocusRequester,
     downFocusRequester: FocusRequester?,
     onPlay: () -> Unit,
+    upFocusRequester: FocusRequester? = null,
 ) {
     Row(
         modifier = Modifier
@@ -162,6 +183,7 @@ private fun SeriesNextUp(
             modifier = Modifier
                 .weight(1.35f)
                 .focusProperties {
+                    upFocusRequester?.let { up = it }
                     downFocusRequester?.let { down = it }
                 }
                 .televisionBringIntoViewOnFocus(),

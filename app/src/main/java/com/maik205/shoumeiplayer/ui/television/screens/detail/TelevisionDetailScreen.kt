@@ -100,6 +100,18 @@ fun TelevisionDetailScreen(
     val playbackLaunch = rememberPlaybackLaunchState(item?.id)
     var heroFocusTick by remember { mutableIntStateOf(0) }
     var initialFocusAssigned by rememberSaveable(item?.id) { mutableStateOf(false) }
+    val firstSectionFocus = remember { FocusRequester() }
+    // Render order below decides which section the hero's Down lands on. Naming it here keeps the
+    // hero from having to know the shape of the item it is describing (DETAIL-005).
+    val firstSectionOwner = when {
+        state.kind == DetailKind.Series || state.kind == DetailKind.Episode -> "series"
+        state.tracks.isNotEmpty() -> "tracks"
+        state.releases.isNotEmpty() -> "releases"
+        state.related.isNotEmpty() -> "related"
+        state.people.isNotEmpty() -> "people"
+        state.credits.isNotEmpty() -> "credits"
+        else -> null
+    }
     var loadRetryFocused by remember { mutableStateOf(false) }
     var actionRetryFocused by remember { mutableStateOf(false) }
     var sectionRetryFocused by remember { mutableStateOf(false) }
@@ -337,6 +349,9 @@ fun TelevisionDetailScreen(
                             },
                             playLoading = playbackLaunch.loading,
                             playFocus = playFocus,
+                            downFocusRequester = firstSectionFocus.takeIf {
+                                firstSectionOwner != null
+                            },
                         )
                     }
 
@@ -425,6 +440,8 @@ fun TelevisionDetailScreen(
                                 onSelect = onSelectSeason,
                                 episodes = state.episodes,
                                 episodeTitle = stringResource(R.string.tv_episodes),
+                                entryFocusRequester = firstSectionFocus,
+                                upFocusRequester = playFocus,
                                 onPlay = { episode ->
                                     playbackLaunch.launch {
                                         openChild(episode.id)
@@ -450,6 +467,8 @@ fun TelevisionDetailScreen(
                                 onSelect = onSelectSeason,
                                 episodes = state.episodes,
                                 episodeTitle = stringResource(R.string.tv_detail_more_episodes),
+                                entryFocusRequester = firstSectionFocus,
+                                upFocusRequester = playFocus,
                                 currentEpisodeId = item.id,
                                 onPlay = { episode ->
                                     playbackLaunch.launch {
@@ -491,6 +510,10 @@ fun TelevisionDetailScreen(
                                     else -> stringResource(R.string.tv_detail_tracks)
                                 },
                                 tracks = state.tracks,
+                                entryFocusRequester = firstSectionFocus.takeIf {
+                                    firstSectionOwner == "tracks"
+                                },
+                                upFocusRequester = playFocus,
                                 onPlay = { track ->
                                     playbackLaunch.launch {
                                         openChild(track.id)
@@ -507,6 +530,10 @@ fun TelevisionDetailScreen(
                         item(key = "releases") {
                             DetailMediaRail(
                                 title = stringResource(R.string.tv_detail_albums),
+                                entryFocusRequester = firstSectionFocus.takeIf {
+                                    firstSectionOwner == "releases"
+                                },
+                                upFocusRequester = playFocus,
                                 items = state.releases,
                                 onOpen = openRelatedItem,
                                 restoreItemId = restoreChildId,
@@ -533,6 +560,10 @@ fun TelevisionDetailScreen(
                         item(key = "related") {
                             DetailMediaRail(
                                 title = stringResource(R.string.tv_detail_more_like),
+                                entryFocusRequester = firstSectionFocus.takeIf {
+                                    firstSectionOwner == "related"
+                                },
+                                upFocusRequester = playFocus,
                                 items = relatedItems,
                                 onOpen = openRelatedItem,
                                 restoreItemId = restoreChildId,
@@ -559,6 +590,10 @@ fun TelevisionDetailScreen(
                         item(key = "people") {
                             PeopleRail(
                                 people = state.people,
+                                entryFocusRequester = firstSectionFocus.takeIf {
+                                    firstSectionOwner == "people"
+                                },
+                                upFocusRequester = playFocus,
                                 onOpen = openPerson,
                                 restoreItemId = restoreChildId,
                                 onRestored = { childRestorePending = false },
@@ -570,6 +605,10 @@ fun TelevisionDetailScreen(
                         item(key = "credits") {
                             DetailMediaRail(
                                 title = stringResource(R.string.tv_detail_known_for),
+                                entryFocusRequester = firstSectionFocus.takeIf {
+                                    firstSectionOwner == "credits"
+                                },
+                                upFocusRequester = playFocus,
                                 items = state.credits,
                                 onOpen = openRelatedItem,
                                 restoreItemId = restoreChildId,
