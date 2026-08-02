@@ -18,3 +18,14 @@ replay_pid*.log
 .kotlin/
 __pycache__/
 .playwright-mcp/
+
+# Agent/tooling scratch. These have repeatedly landed at the repo root or, worse,
+# inside app/src/main/res/ -- where the Android resource merger rejects any
+# non-.xml file and fails the build before a single test runs. See issue #105.
+/*.py
+/*.sh
+/*.json
+!/jellyfin-openapi.json
+*.bak
+*.backup
+*.orig
