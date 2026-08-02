@@ -82,20 +82,26 @@ internal fun PlayerSelectionPanel(
     rows: List<PlayerSelectionRow>,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    entryRowKey: String? = null,
 ) {
     val entry = remember { FocusRequester() }
     val colors = TelevisionTheme.colors
     // Open on the option that is currently in effect, not on the top of the list. Every drawer
     // here answers "what is this set to?" -- audio track, subtitles, quality, speed, HDR, frame --
     // and starting at the first row both hid the answer and made changing it a scroll away.
-    val entryIndex = rows.indexOfFirst { it.selected && it.interactive }
+    //
+    // [entryRowKey] overrides that when this panel is being returned to from a child it opened:
+    // the row that opened the child is where the viewer was, and it is where they expect to be
+    // when they come back (PLAYER-008).
+    val entryIndex = rows.indexOfFirst { it.key == entryRowKey && it.interactive }
         .takeIf { it >= 0 }
+        ?: rows.indexOfFirst { it.selected && it.interactive }.takeIf { it >= 0 }
         ?: rows.indexOfFirst(PlayerSelectionRow::interactive).takeIf { it >= 0 }
         ?: 0
     val hasInteractiveRow = rows.any(PlayerSelectionRow::interactive)
     val backFocus = remember { FocusRequester() }
     val listState = rememberLazyListState()
-    LaunchedEffect(title, rows.size, entryIndex, hasInteractiveRow) {
+    LaunchedEffect(title, rows.size, entryIndex, hasInteractiveRow, entryRowKey) {
         if (rows.isNotEmpty()) listState.scrollToItem(entryIndex)
         withFrameNanos { }
         // A read-only panel has nothing in its list to stand on, so Back owns the entry focus.

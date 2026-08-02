@@ -108,6 +108,8 @@ internal fun AudioNormalPlayback(
     onToggleQueue: () -> Unit,
     onToggleLyrics: () -> Unit,
     onInteraction: () -> Unit,
+    /** First focusable target in the queue columns below, so Down out of the tools row lands. */
+    contextEntryFocus: FocusRequester? = null,
 ) {
     val density = LocalDensity.current
     val coverScale by animateFloatAsState(
@@ -185,6 +187,8 @@ internal fun AudioNormalPlayback(
             onToggleQueue = onToggleQueue,
             onToggleLyrics = onToggleLyrics,
             onInteraction = onInteraction,
+            upFocusRequester = playPauseFocus,
+            downFocusRequester = contextEntryFocus,
         )
     }
 }

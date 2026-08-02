@@ -59,6 +59,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
@@ -250,16 +251,28 @@ internal fun AudioContextColumns(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     errorMessage: String? = null,
+    upFocusRequester: FocusRequester? = null,
 ) {
     Row(
-        modifier = modifier,
+        modifier = modifier.focusProperties {
+            upFocusRequester?.let { up = it }
+        },
         horizontalArrangement = Arrangement.spacedBy(57.dp),
     ) {
+        // One failure, one Retry. Both columns share `errorMessage`, so each empty column used to
+        // render its own button for the same problem (PLAYER-023). The first column owns it.
+        //
+        // With no items and no error there is still nothing focusable in a column, so the up-next
+        // column's cover-mode toggle takes the entry focus rather than leaving the remote on the
+        // dimmed player underneath (PLAYER-018).
+        val retryBelongsToUpNext = errorMessage != null
         AudioQueueColumn(
             title = stringResource(R.string.tv_player_up_next),
             items = upNext,
             coverMode = upNextCoverMode,
             firstItemFocus = if (upNext.isNotEmpty()) firstItemFocus else null,
+            showRetry = retryBelongsToUpNext,
+            recoveryFocus = firstItemFocus.takeIf { upNext.isEmpty() && suggested.isEmpty() },
             emptyMessage = when {
                 errorMessage != null -> errorMessage
                 loading -> stringResource(R.string.tv_player_loading_queue)
@@ -277,6 +290,7 @@ internal fun AudioContextColumns(
             items = suggested,
             coverMode = suggestedCoverMode,
             firstItemFocus = if (upNext.isEmpty() && suggested.isNotEmpty()) firstItemFocus else null,
+            showRetry = false,
             emptyMessage = when {
                 errorMessage != null -> errorMessage
                 loading -> stringResource(R.string.tv_player_finding_tracks)
@@ -305,6 +319,8 @@ private fun AudioQueueColumn(
     modifier: Modifier = Modifier,
     errorMessage: String? = null,
     onRetry: () -> Unit = {},
+    showRetry: Boolean = true,
+    recoveryFocus: FocusRequester? = null,
 ) {
     val coverFocusRequesters = remember(items.map(AudioQueueItemUi::itemId), firstItemFocus) {
         List(items.size) { index ->
@@ -341,12 +357,13 @@ private fun AudioQueueColumn(
                 buttonHeight = 19.dp,
                 iconSize = 12.dp,
                 focusedScale = 1f,
+                focusRequester = recoveryFocus.takeIf { errorMessage == null },
                 onFocusChanged = { if (it) onInteraction() },
             )
         }
         Spacer(Modifier.height(5.dp))
         when {
-            items.isEmpty() -> if (errorMessage != null) {
+            items.isEmpty() -> if (errorMessage != null && showRetry) {
                 Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     Text(emptyMessage, fontSize = 8.sp, color = colors.PaperSoft)
                     TelevisionFocusRevealButton(
@@ -357,6 +374,7 @@ private fun AudioQueueColumn(
                         buttonHeight = 19.dp,
                         iconSize = 12.dp,
                         focusedScale = 1f,
+                        focusRequester = recoveryFocus ?: firstItemFocus,
                     )
                 }
             } else {

@@ -44,8 +44,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -85,6 +89,49 @@ private const val MINI_SEEK_TIMEOUT_MS = 1_500L
 private const val EXIT_ARM_TIMEOUT_MS = 2_000L
 private const val STILL_WATCHING_TIMEOUT_MS = 2L * 60L * 60L * 1_000L
 private const val POST_PLAY_SECONDS = 10
+private const val ITEM_SWITCH_GUARD_MS = 2_000L
+
+/**
+ * Saves the player's visible-layer and playback-option state across activity recreation.
+ *
+ * Rotating, backgrounding, or a configuration change used to restore playback with none of the
+ * surrounding state it had: an open drawer vanished, the queue closed, the frame and HDR choices
+ * reverted, and focus landed wherever the fresh composition happened to put it (PLAYER-024).
+ * Enums and the panel stack are not Bundle-friendly on their own, so both are stored by name.
+ */
+private inline fun <reified T : Enum<T>> enumStateSaver(): Saver<MutableState<T>, String> = Saver(
+    save = { it.value.name },
+    restore = { name ->
+        runCatching { enumValueOf<T>(name) }.getOrNull()?.let { mutableStateOf(it) }
+    },
+)
+
+private val PlayerPanelStateSaver: Saver<MutableState<TelevisionPlayerPanel?>, String> = Saver(
+    save = { it.value?.name.orEmpty() },
+    restore = { name ->
+        mutableStateOf(
+            name.takeIf(String::isNotEmpty)
+                ?.let { runCatching { TelevisionPlayerPanel.valueOf(it) }.getOrNull() },
+        )
+    },
+)
+
+private val PlayerPanelStackSaver: Saver<MutableState<List<TelevisionPlayerPanel>>, String> = Saver(
+    save = { it.value.joinToString(",") { panel -> panel.name } },
+    restore = { encoded ->
+        mutableStateOf(
+            encoded.split(",")
+                .filter(String::isNotEmpty)
+                .mapNotNull { runCatching { TelevisionPlayerPanel.valueOf(it) }.getOrNull() },
+        )
+    },
+)
+
+private val StringListStateSaver: Saver<MutableState<List<String>>, String> = Saver(
+    // Row keys are fixed identifiers with no commas in them, so this round-trips as-is.
+    save = { it.value.joinToString(",") },
+    restore = { encoded -> mutableStateOf(encoded.split(",").filter(String::isNotEmpty)) },
+)
 
 private enum class FrameMode(val engineValue: String) {
     Fit("Fit"),
@@ -203,31 +250,49 @@ internal fun TelevisionPlayerContent(
     val rootFocus = remember { FocusRequester() }
     val timelineFocus = remember { FocusRequester() }
     val playPauseFocus = remember { FocusRequester() }
-    var panel by remember { mutableStateOf<TelevisionPlayerPanel?>(null) }
-    var panelBackStack by remember { mutableStateOf<List<TelevisionPlayerPanel>>(emptyList()) }
-    var osdVisible by remember { mutableStateOf(audioOnly) }
+    var panel by rememberSaveable(saver = PlayerPanelStateSaver) {
+        mutableStateOf<TelevisionPlayerPanel?>(null)
+    }
+    var panelBackStack by rememberSaveable(saver = PlayerPanelStackSaver) {
+        mutableStateOf<List<TelevisionPlayerPanel>>(emptyList())
+    }
+    var panelRowStack by rememberSaveable(saver = StringListStateSaver) {
+        mutableStateOf<List<String>>(emptyList())
+    }
+    var panelReturnRowKey by remember { mutableStateOf<String?>(null) }
+    var panelOpener by remember { mutableStateOf<FocusRequester?>(null) }
+    var panelCloseTick by remember { mutableIntStateOf(0) }
+    var osdVisible by rememberSaveable { mutableStateOf(audioOnly) }
     var miniSeekVisible by remember { mutableStateOf(false) }
-    var whileWatchingVisible by remember { mutableStateOf(false) }
+    var whileWatchingVisible by rememberSaveable { mutableStateOf(false) }
     var miniSeekTick by remember { mutableIntStateOf(0) }
     var interactionTick by remember { mutableIntStateOf(0) }
     var timelineFocusTick by remember { mutableIntStateOf(0) }
     var playPauseFocusTick by remember { mutableIntStateOf(0) }
     var exitArmed by remember { mutableStateOf(false) }
     var stillWatching by remember { mutableStateOf(false) }
-    var lyricsVisible by remember { mutableStateOf(false) }
-    var audioQueueVisible by remember { mutableStateOf(false) }
-    var upNextCoverMode by remember { mutableStateOf(false) }
-    var suggestedCoverMode by remember { mutableStateOf(true) }
-    var shuffleEnabled by remember { mutableStateOf(false) }
-    var repeatEnabled by remember { mutableStateOf(false) }
+    var lyricsVisible by rememberSaveable { mutableStateOf(false) }
+    var audioQueueVisible by rememberSaveable { mutableStateOf(false) }
+    var upNextCoverMode by rememberSaveable { mutableStateOf(false) }
+    var suggestedCoverMode by rememberSaveable { mutableStateOf(true) }
+    var shuffleEnabled by rememberSaveable { mutableStateOf(false) }
+    var repeatEnabled by rememberSaveable { mutableStateOf(false) }
     var playRequestPending by remember { mutableStateOf(false) }
     var postPlaySeconds by remember { mutableStateOf<Int?>(null) }
-    var postPlayBrowsing by remember { mutableStateOf(false) }
-    var frameMode by remember { mutableStateOf(FrameMode.Fit) }
-    var hdrMode by remember { mutableStateOf(HdrMode.Automatic) }
+    var postPlayBrowsing by rememberSaveable { mutableStateOf(false) }
+    var frameMode by rememberSaveable(saver = enumStateSaver<FrameMode>()) {
+        mutableStateOf(FrameMode.Fit)
+    }
+    var hdrMode by rememberSaveable(saver = enumStateSaver<HdrMode>()) {
+        mutableStateOf(HdrMode.Automatic)
+    }
     var videoTrack by remember { mutableStateOf("") }
-    var deinterlaceMode by remember { mutableStateOf(DeinterlaceMode.Automatic) }
-    var sleepTimer by remember { mutableStateOf(SleepTimer.Off) }
+    var deinterlaceMode by rememberSaveable(saver = enumStateSaver<DeinterlaceMode>()) {
+        mutableStateOf(DeinterlaceMode.Automatic)
+    }
+    var sleepTimer by rememberSaveable(saver = enumStateSaver<SleepTimer>()) {
+        mutableStateOf(SleepTimer.Off)
+    }
 
     val playControlLoading = playRequestPending ||
         state.loading ||
@@ -254,6 +319,25 @@ internal fun TelevisionPlayerContent(
         controller.play()
     }
 
+    var itemSwitchPending by remember { mutableStateOf(false) }
+
+    // Previous/Next arrive from the on-screen transport, the rail, and the remote's media keys,
+    // and none of them were guarded -- a held key or an impatient second press started overlapping
+    // item switches (PLAYER-025). A real switch clears the guard as soon as the title changes; the
+    // timeout is only there so a switch that never lands cannot wedge the controls.
+    LaunchedEffect(state.title) { itemSwitchPending = false }
+    LaunchedEffect(itemSwitchPending) {
+        if (!itemSwitchPending) return@LaunchedEffect
+        delay(ITEM_SWITCH_GUARD_MS)
+        itemSwitchPending = false
+    }
+
+    fun switchItem(action: () -> Unit) {
+        if (itemSwitchPending) return
+        itemSwitchPending = true
+        action()
+    }
+
     fun noteInteraction() {
         interactionTick++
     }
@@ -266,10 +350,19 @@ internal fun TelevisionPlayerContent(
         playPauseFocusTick++
     }
 
+    // True while some layer above the OSD owns the remote. Revealing the OSD underneath one of
+    // those must not drag focus down to the transport controls (PLAYER-005).
+    fun layerOwnsFocus(): Boolean =
+        panel != null || audioQueueVisible || lyricsVisible || whileWatchingVisible ||
+            stillWatching || state.resumePrompt != null
+
     fun revealOsd(focusTimeline: Boolean = false) {
+        val wasHidden = !osdVisible
         osdVisible = true
         whileWatchingVisible = false
         noteInteraction()
+        if (!wasHidden && !focusTimeline) return
+        if (layerOwnsFocus()) return
         if (focusTimeline) requestTimeline() else requestPlayPause()
     }
 
@@ -282,10 +375,16 @@ internal fun TelevisionPlayerContent(
     }
 
     fun closePanel() {
-        panel = panelBackStack.lastOrNull()
+        val parent = panelBackStack.lastOrNull()
+        panel = parent
         panelBackStack = panelBackStack.dropLast(1)
+        // Returning to a parent drawer lands on the row that opened the child, not on its first
+        // row (PLAYER-008). Leaving the drawers entirely returns to the toolbar control that
+        // opened them rather than the timeline (PLAYER-007).
+        panelReturnRowKey = panelRowStack.lastOrNull()?.takeIf(String::isNotEmpty)
+        panelRowStack = panelRowStack.dropLast(1)
         noteInteraction()
-        if (panel == null) requestTimeline()
+        if (parent == null) panelCloseTick++
     }
 
     fun leavePlayer(destination: () -> Unit) {
@@ -304,7 +403,11 @@ internal fun TelevisionPlayerContent(
         }
     }
 
-    fun openPanel(target: TelevisionPlayerPanel) {
+    fun openPanel(
+        target: TelevisionPlayerPanel,
+        opener: FocusRequester? = null,
+        fromRowKey: String? = null,
+    ) {
         // One layer owns the player at a time. A drawer opened over an already-open queue or
         // lyrics pane left two things claiming the same keys and the same focus.
         whileWatchingVisible = false
@@ -313,9 +416,13 @@ internal fun TelevisionPlayerContent(
         val current = panel
         if (current == null) {
             panelBackStack = emptyList()
+            panelRowStack = emptyList()
+            panelOpener = opener
         } else if (current != target) {
             panelBackStack = panelBackStack + current
+            panelRowStack = panelRowStack + fromRowKey.orEmpty()
         }
+        panelReturnRowKey = null
         panel = target
         noteInteraction()
         if (target == TelevisionPlayerPanel.Extras) controller.loadShelves()
@@ -337,11 +444,25 @@ internal fun TelevisionPlayerContent(
         }
     }
 
+    // The toolbar is recomposed by the panel's removal, so its requester cannot be asked for
+    // focus in the same pass that closes the panel.
+    LaunchedEffect(panelCloseTick) {
+        if (panelCloseTick == 0) return@LaunchedEffect
+        withFrameNanos { }
+        val opener = panelOpener
+        panelOpener = null
+        if (opener == null || runCatching { opener.requestFocus() }.isFailure) requestTimeline()
+    }
+
+    // A new title, a finished load, or a cleared error should show the OSD -- but these fire on
+    // ordinary playback progress too, and each one used to yank focus onto Play/Pause from
+    // wherever the viewer actually was.
     LaunchedEffect(audio, state.loading, state.error, state.title) {
         if (!audio && !state.loading && state.error == null) revealOsd()
         if (audio) {
+            val wasHidden = !osdVisible
             osdVisible = true
-            requestPlayPause()
+            if (wasHidden && !layerOwnsFocus()) requestPlayPause()
         }
     }
 
@@ -555,13 +676,25 @@ internal fun TelevisionPlayerContent(
                     KeyEvent.KEYCODE_MEDIA_REWIND -> seek(-seekIntervalMs)
                     KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> seek(seekIntervalMs)
                     KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
-                        if (audio) controller.playPreviousAudio() else controller.playPreviousEpisode()
+                        switchItem {
+                            if (audio) {
+                                controller.playPreviousAudio()
+                            } else {
+                                controller.playPreviousEpisode()
+                            }
+                        }
                         noteInteraction()
                         true
                     }
 
                     KeyEvent.KEYCODE_MEDIA_NEXT -> {
-                        if (audio) controller.playNextAudio() else controller.playNextEpisode()
+                        switchItem {
+                            if (audio) {
+                                controller.playNextAudio()
+                            } else {
+                                controller.playNextEpisode()
+                            }
+                        }
                         noteInteraction()
                         true
                     }
@@ -636,16 +769,18 @@ internal fun TelevisionPlayerContent(
                 onExitButton = ::handleExitButton,
                 onSeekBy = controller::seekBy,
                 onTogglePlayPause = ::togglePlayPauseWithFeedback,
-                onPrevious = controller::playPreviousAudio,
+                onPrevious = { switchItem(controller::playPreviousAudio) },
                 onNext = {
-                    if (shuffleEnabled) {
-                        state.queue
-                            .filterNot { it.playing }
-                            .randomOrNull()
-                            ?.itemId
-                            ?.let(controller::switchTo)
-                    } else {
-                        controller.playNextAudio()
+                    switchItem {
+                        if (shuffleEnabled) {
+                            state.queue
+                                .filterNot { it.playing }
+                                .randomOrNull()
+                                ?.itemId
+                                ?.let(controller::switchTo)
+                        } else {
+                            controller.playNextAudio()
+                        }
                     }
                 },
                 onToggleShuffle = { shuffleEnabled = !shuffleEnabled },
@@ -674,7 +809,7 @@ internal fun TelevisionPlayerContent(
                 },
                 onToggleUpNextCoverMode = { upNextCoverMode = !upNextCoverMode },
                 onToggleSuggestedCoverMode = { suggestedCoverMode = !suggestedCoverMode },
-                onPlayItem = controller::switchTo,
+                onPlayItem = { itemId -> switchItem { controller.switchTo(itemId) } },
                 onInteraction = ::noteInteraction,
                 onRetryContext = controller::retryMusicContext,
             )
@@ -721,9 +856,9 @@ internal fun TelevisionPlayerContent(
                     onSeekBy = controller::seekBy,
                     onTogglePlayPause = ::togglePlayPauseWithFeedback,
                     onHideOsd = ::hideOsd,
-                    onPrevious = controller::playPreviousEpisode,
-                    onNext = controller::playNextEpisode,
-                    onOpenPanel = ::openPanel,
+                    onPrevious = { switchItem(controller::playPreviousEpisode) },
+                    onNext = { switchItem(controller::playNextEpisode) },
+                    onOpenPanel = { target, opener -> openPanel(target, opener = opener) },
                     onInteraction = ::noteInteraction,
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
@@ -1040,6 +1175,7 @@ internal fun TelevisionPlayerContent(
                         onClick = {}),
                 ),
                 onDismiss = ::closePanel,
+                entryRowKey = panelReturnRowKey,
                 modifier = Modifier.align(Alignment.CenterEnd),
             )
 
@@ -1069,42 +1205,42 @@ internal fun TelevisionPlayerContent(
                         key = "more:speed",
                         label = stringResource(R.string.tv_player_playback_speed),
                         detail = stringResource(R.string.tv_player_playback_speed_value, state.speed),
-                        onClick = { openPanel(TelevisionPlayerPanel.Speed) },
+                        onClick = { openPanel(TelevisionPlayerPanel.Speed, fromRowKey = "more:speed") },
                     ),
                     PlayerSelectionRow(
                         key = "more:quality",
                         label = stringResource(R.string.tv_player_frame),
                         detail = frameMode.label(),
-                        onClick = { openPanel(TelevisionPlayerPanel.Frame) },
+                        onClick = { openPanel(TelevisionPlayerPanel.Frame, fromRowKey = "more:quality") },
                     ),
                     PlayerSelectionRow(
                         key = "more:hdr",
                         label = stringResource(R.string.tv_player_hdr_handling),
                         detail = hdrMode.label(),
-                        onClick = { openPanel(TelevisionPlayerPanel.Hdr) },
+                        onClick = { openPanel(TelevisionPlayerPanel.Hdr, fromRowKey = "more:hdr") },
                     ),
                   PlayerSelectionRow(
                       "more:video",
                       stringResource(R.string.tv_player_video),
                       if (videoTrack.isBlank()) stringResource(R.string.tv_unknown) else videoTrack,
-                      onClick = { openPanel(TelevisionPlayerPanel.VideoTrack) },
+                      onClick = { openPanel(TelevisionPlayerPanel.VideoTrack, fromRowKey = "more:video") },
                   ),
-                    PlayerSelectionRow("more:audio-delay", stringResource(R.string.tv_player_audio_delay), signedPlaybackDelay(state.audioDelayMs), onClick = { openPanel(TelevisionPlayerPanel.AudioDelay) }),
-                    PlayerSelectionRow("more:subtitle-delay", stringResource(R.string.tv_player_subtitle_delay), signedPlaybackDelay(state.subtitleDelayMs), onClick = { openPanel(TelevisionPlayerPanel.SubtitleDelay) }),
-                    PlayerSelectionRow("more:deinterlace", stringResource(R.string.tv_player_deinterlace), deinterlaceMode.label(), onClick = { openPanel(TelevisionPlayerPanel.Deinterlace) }),
-                    PlayerSelectionRow("more:sleep", stringResource(R.string.tv_player_sleep_timer), sleepTimer.label(), onClick = { openPanel(TelevisionPlayerPanel.Sleep) }),
-                    PlayerSelectionRow("more:information", stringResource(R.string.tv_player_playback_information), stringResource(R.string.tv_player_stream_details), onClick = { openPanel(TelevisionPlayerPanel.Information) }),
+                    PlayerSelectionRow("more:audio-delay", stringResource(R.string.tv_player_audio_delay), signedPlaybackDelay(state.audioDelayMs), onClick = { openPanel(TelevisionPlayerPanel.AudioDelay, fromRowKey = "more:audio-delay") }),
+                    PlayerSelectionRow("more:subtitle-delay", stringResource(R.string.tv_player_subtitle_delay), signedPlaybackDelay(state.subtitleDelayMs), onClick = { openPanel(TelevisionPlayerPanel.SubtitleDelay, fromRowKey = "more:subtitle-delay") }),
+                    PlayerSelectionRow("more:deinterlace", stringResource(R.string.tv_player_deinterlace), deinterlaceMode.label(), onClick = { openPanel(TelevisionPlayerPanel.Deinterlace, fromRowKey = "more:deinterlace") }),
+                    PlayerSelectionRow("more:sleep", stringResource(R.string.tv_player_sleep_timer), sleepTimer.label(), onClick = { openPanel(TelevisionPlayerPanel.Sleep, fromRowKey = "more:sleep") }),
+                    PlayerSelectionRow("more:information", stringResource(R.string.tv_player_playback_information), stringResource(R.string.tv_player_stream_details), onClick = { openPanel(TelevisionPlayerPanel.Information, fromRowKey = "more:information") }),
                     PlayerSelectionRow(
                         key = "more:options",
                         label = stringResource(R.string.tv_player_legacy_timing),
                         detail = stringResource(R.string.tv_player_timing_detail),
-                        onClick = { openPanel(TelevisionPlayerPanel.Options) },
+                        onClick = { openPanel(TelevisionPlayerPanel.Options, fromRowKey = "more:options") },
                     ),
                     PlayerSelectionRow(
                         key = "more:extras",
                         label = stringResource(R.string.tv_player_while_watching),
                         detail = stringResource(R.string.tv_player_similar_cast),
-                        onClick = { openPanel(TelevisionPlayerPanel.Extras) },
+                        onClick = { openPanel(TelevisionPlayerPanel.Extras, fromRowKey = "more:extras") },
                     ),
                 ),
                 onDismiss = ::closePanel,

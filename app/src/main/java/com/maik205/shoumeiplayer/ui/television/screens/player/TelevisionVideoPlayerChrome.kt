@@ -128,12 +128,17 @@ internal fun VideoPlayerChrome(
     onHideOsd: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
-    onOpenPanel: (TelevisionPlayerPanel) -> Unit,
+    onOpenPanel: (TelevisionPlayerPanel, FocusRequester) -> Unit,
     onInteraction: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val playing = state.state == PlayerState.Playing || state.state == PlayerState.Buffering
     val whileWatchingFocus = remember { FocusRequester() }
+    // One requester per panel-opening toolbar control. Closing a panel used to dump focus on
+    // the timeline no matter which button had been pressed to get there (PLAYER-007).
+    val toolbarPanelFocus = remember { mutableMapOf<TelevisionPlayerPanel, FocusRequester>() }
+    fun panelFocus(target: TelevisionPlayerPanel): FocusRequester =
+        toolbarPanelFocus.getOrPut(target) { FocusRequester() }
     val colors = TelevisionTheme.colors
     Column(
         modifier = modifier
@@ -305,7 +310,8 @@ internal fun VideoPlayerChrome(
                     icon = Icons.Default.VideoLibrary,
                     expandedWidth = 112.dp,
                     onFocused = onInteraction,
-                    onClick = { onOpenPanel(TelevisionPlayerPanel.Chapters) },
+                    focusRequester = panelFocus(TelevisionPlayerPanel.Chapters),
+                    onClick = { onOpenPanel(TelevisionPlayerPanel.Chapters, panelFocus(TelevisionPlayerPanel.Chapters)) },
                 )
             }
             PlayerCompactActionButton(
@@ -314,7 +320,8 @@ internal fun VideoPlayerChrome(
                 selected = state.subtitleTracks.any(PlayerTrack::selected),
                 expandedWidth = 122.dp,
                 onFocused = onInteraction,
-                onClick = { onOpenPanel(TelevisionPlayerPanel.Subtitles) },
+                focusRequester = panelFocus(TelevisionPlayerPanel.Subtitles),
+                onClick = { onOpenPanel(TelevisionPlayerPanel.Subtitles, panelFocus(TelevisionPlayerPanel.Subtitles)) },
             )
             if (state.audioTracks.isNotEmpty()) {
                 PlayerCompactActionButton(
@@ -322,7 +329,8 @@ internal fun VideoPlayerChrome(
                     icon = Icons.Default.GraphicEq,
                     expandedWidth = 96.dp,
                     onFocused = onInteraction,
-                    onClick = { onOpenPanel(TelevisionPlayerPanel.Audio) },
+                    focusRequester = panelFocus(TelevisionPlayerPanel.Audio),
+                    onClick = { onOpenPanel(TelevisionPlayerPanel.Audio, panelFocus(TelevisionPlayerPanel.Audio)) },
                 )
             }
             PlayerCompactActionButton(
@@ -330,7 +338,8 @@ internal fun VideoPlayerChrome(
                 icon = Icons.Default.Tune,
                 expandedWidth = 92.dp,
                 onFocused = onInteraction,
-                onClick = { onOpenPanel(TelevisionPlayerPanel.More) },
+                focusRequester = panelFocus(TelevisionPlayerPanel.More),
+                onClick = { onOpenPanel(TelevisionPlayerPanel.More, panelFocus(TelevisionPlayerPanel.More)) },
             )
         }
         if (whileWatchingVisible) {

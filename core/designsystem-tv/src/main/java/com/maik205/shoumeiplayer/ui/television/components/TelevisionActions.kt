@@ -88,7 +88,11 @@ fun TelevisionFocusRevealButton(
 
     TelevisionFocusSurface(
         onClick = { if (!loading) onClick() },
-        enabled = enabled && !loading,
+        // A loading control keeps its focus. Play/Pause spends every buffer stall in this state,
+        // and dropping it out of the focus order took the remote away from the viewer for the
+        // duration and gave it back somewhere else. The click guard above is what makes it inert;
+        // [enabled] stays reserved for controls that genuinely cannot be used.
+        enabled = enabled,
         focusRequester = focusRequester,
         modifier = modifier
             .widthIn(min = collapsedWidth, max = maxWidth)

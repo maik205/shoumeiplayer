@@ -67,6 +67,7 @@ import com.maik205.shoumeiplayer.feature.player.CastMemberUi
 import com.maik205.shoumeiplayer.feature.player.ChapterMark
 import com.maik205.shoumeiplayer.feature.player.PlayerUiState
 import com.maik205.shoumeiplayer.feature.player.UpNextUi
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusHandoff
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
@@ -84,8 +85,20 @@ internal fun PlayerExtrasOverlay(
     onRetry: () -> Unit,
 ) {
     val backFocus = remember { FocusRequester() }
+    val retryFocus = remember { FocusRequester() }
+    var retryFocused by remember { mutableStateOf(false) }
     val colors = TelevisionTheme.colors
     LaunchedEffect(Unit) { runCatching { backFocus.requestFocus() } }
+
+    // Pressing Retry removes it: the shelves go into loading and the error branch stops rendering.
+    // Nothing was asking for focus back, so the remote went dead until the load finished
+    // (PLAYER-013). Back is always present here, so it is the successor.
+    TelevisionFocusHandoff(
+        present = state.shelvesError != null,
+        focused = retryFocused,
+        backFocus,
+    )
+
     Column(
         modifier = Modifier
             .playerModalFocusTrap()
@@ -140,6 +153,8 @@ internal fun PlayerExtrasOverlay(
                             label = stringResource(R.string.retry),
                             icon = Icons.Default.Refresh,
                             onClick = onRetry,
+                            focusRequester = retryFocus,
+                            onFocused = { retryFocused = true },
                         )
                     }
                 }

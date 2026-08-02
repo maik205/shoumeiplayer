@@ -162,10 +162,22 @@ internal fun TelevisionAudioPlayer(
         label = "audioLyricsStageBlur",
     )
 
-    LaunchedEffect(queueVisible, upNextCoverMode, state.queue, state.suggestedAudio) {
-        if (queueVisible && queueHasItems) {
-            withFrameNanos { }
-            runCatching { firstQueueItemFocus.requestFocus() }
+    // Opening the queue claims focus once. Keying this on the queue contents and the cover-mode
+    // toggle meant playing a track, a suggestion refresh, or switching between covers and a list
+    // all dragged focus back to the first item from wherever the viewer actually was (PLAYER-017).
+    //
+    // The claim is only recorded once a requester accepts it, so an empty queue that later fills
+    // -- or one showing a Retry -- still gets an entry target rather than leaving focus on the
+    // dimmed player underneath (PLAYER-018).
+    var queueEntryClaimed by remember { mutableStateOf(false) }
+    LaunchedEffect(queueVisible) {
+        if (!queueVisible) queueEntryClaimed = false
+    }
+    LaunchedEffect(queueVisible, queueHasItems, state.musicContextError) {
+        if (!queueVisible || queueEntryClaimed) return@LaunchedEffect
+        withFrameNanos { }
+        if (runCatching { firstQueueItemFocus.requestFocus() }.isSuccess) {
+            queueEntryClaimed = true
         }
     }
     LaunchedEffect(lyricsVisible, state.lyrics.size) {
@@ -240,6 +252,7 @@ internal fun TelevisionAudioPlayer(
                 onToggleQueue = onToggleQueue,
                 onToggleLyrics = onToggleLyrics,
                 onInteraction = onInteraction,
+                contextEntryFocus = firstQueueItemFocus,
             )
             AudioLyricsPlayback(
                 state = state,
@@ -295,6 +308,7 @@ internal fun TelevisionAudioPlayer(
             onPlayItem = onPlayItem,
             onInteraction = onInteraction,
             onRetry = onRetryContext,
+            upFocusRequester = normalLyricsFocus,
             modifier = Modifier
                 .offset(x = AudioLeft, y = AudioRailTop)
                 .width(AudioMainWidth)

@@ -59,6 +59,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
@@ -404,9 +405,20 @@ internal fun AudioTools(
     onToggleQueue: () -> Unit,
     onToggleLyrics: () -> Unit,
     onInteraction: () -> Unit,
+    upFocusRequester: FocusRequester? = null,
+    downFocusRequester: FocusRequester? = null,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().height(24.dp).focusGroup(),
+        // The tools row sits between the transport above and the queue columns beside it, and had
+        // no vertical relationship to either -- traversal was left to geometry (PLAYER-022).
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(24.dp)
+            .focusGroup()
+            .focusProperties {
+                upFocusRequester?.let { up = it }
+                downFocusRequester?.let { down = it }
+            },
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
