@@ -27,6 +27,23 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6
 
+      # The Android resource merger rejects any non-resource file under res/ and fails the build
+      # partway through a merge, with a message that does not obviously name the culprit. Stray
+      # .backup and scratch files have landed there more than once (#105), so catch them in seconds
+      # rather than minutes.
+      - name: Check for stray files in resource directories
+        run: |
+          stray=$(find app/src/main/res -type f \
+            ! -name '*.xml' ! -name '*.png' ! -name '*.webp' \
+            ! -name '*.9.png' ! -name '*.jpg' ! -name '*.svg' \
+            ! -name '*.ttf' ! -name '*.otf' -print)
+          if [ -n "$stray" ]; then
+            echo "::error::Non-resource files found under app/src/main/res/. The Android resource merger rejects these:"
+            echo "$stray"
+            exit 1
+          fi
+          echo "No stray files under app/src/main/res/."
+
       - name: Unit tests
         run: ./gradlew --no-daemon testDebugUnitTest
 
