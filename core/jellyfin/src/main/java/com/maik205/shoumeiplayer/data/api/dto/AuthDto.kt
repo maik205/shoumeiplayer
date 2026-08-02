@@ -57,7 +57,7 @@ data class UserConfigurationDto(
     @SerialName("SubtitleMode") val subtitleMode: String? = null,
     @SerialName("RememberAudioSelections") val rememberAudioSelections: Boolean = true,
     @SerialName("RememberSubtitleSelections") val rememberSubtitleSelections: Boolean = true,
-    /** Drives the Up Next countdown (docs/osd-v3.md §5): without it the card offers, never counts. */
+    /** Drives the Up Next countdown (docs/player-controls.md §5): without it the card offers, never counts. */
     @SerialName("EnableNextEpisodeAutoPlay") val enableNextEpisodeAutoPlay: Boolean = true,
     @SerialName("DisplayMissingEpisodes") val displayMissingEpisodes: Boolean = false,
     @SerialName("GroupedFolders") val groupedFolders: List<String> = emptyList(),

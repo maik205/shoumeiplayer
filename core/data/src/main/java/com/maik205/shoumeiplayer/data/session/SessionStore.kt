@@ -33,9 +33,8 @@ private data class PersistedServers(
  * Persistent auth/session state.
  *
  * The primary constructor takes the backing [DataStore] so JVM unit tests can
- * substitute an in-memory implementation; production code uses the
- * [Context] secondary constructor, which is the signature pinned by
- * docs/plan.md appendix A.1.
+ * substitute an in-memory implementation. Production code uses the [Context]
+ * secondary constructor.
  */
 class SessionStore(private val store: DataStore<Preferences>) : SessionProvider {
     private val json = Json {

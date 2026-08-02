@@ -18,9 +18,8 @@ private const val BufferLookaheadMs = 30_000L
 private const val TickMs = 1000L
 
 /**
- * A fake [PlayerEngine] used for debug builds until the mplayer JNI bridge
- * exists. Simulates load latency, a playback ticker, and track selection
- * without touching any real media.
+ * A fake [PlayerEngine] for tests and UI development. Simulates load latency,
+ * a playback ticker, and track selection without opening media.
  */
 class SimulatedPlayerEngine(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),

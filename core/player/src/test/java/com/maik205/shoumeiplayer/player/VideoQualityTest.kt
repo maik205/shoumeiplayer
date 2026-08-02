@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** docs/osd-v3.md §5 — the quality ladder and its `MaxStreamingBitrate` mapping. */
+/** docs/player-controls.md §5 — the quality ladder and its `MaxStreamingBitrate` mapping. */
 class VideoQualityTest {
 
     @Test
@@ -69,7 +69,7 @@ class VideoQualityTest {
     }
 }
 
-/** docs/osd-v3.md §5 — the speed ladder. */
+/** docs/player-controls.md §5 — the speed ladder. */
 class PlaybackSpeedTest {
 
     @Test

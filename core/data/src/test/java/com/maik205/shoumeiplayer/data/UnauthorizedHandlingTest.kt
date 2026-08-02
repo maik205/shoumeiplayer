@@ -19,7 +19,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** docs/plan.md M6.2 — a 401 on an authenticated call clears auth and signals re-login. */
+/** A 401 on an authenticated call clears the session and signals reauthentication. */
 class UnauthorizedHandlingTest {
 
     private suspend fun signedInStore() = FakeJellyfin.newSessionStore().apply {

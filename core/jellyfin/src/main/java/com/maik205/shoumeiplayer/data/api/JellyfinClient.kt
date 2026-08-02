@@ -309,8 +309,8 @@ class JellyfinClient(
     }
 
     /**
-     * Any 401 means the stored token was revoked/expired server-side: drop the
-     * credentials and tell the UI to bounce to Login (docs/plan.md M6.2).
+     * Any authenticated 401 means the stored token was revoked or expired. Clear the
+     * credentials and notify the UI that the session ended.
      *
      * Only fires when we actually sent a token. A 401 from
      * `AuthenticateByName` is "wrong password", not "session died", and must not

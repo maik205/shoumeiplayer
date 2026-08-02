@@ -5,7 +5,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
- * docs/osd-v3.md §3 — trickplay tile geometry and URL shape.
+ * docs/player-controls.md §3 — trickplay tile geometry and URL shape.
  *
  * The band below is the one `item_detail.json` ships: 320×180 thumbnails, 10×10 per sheet, one every
  * 10s, 414 of them (≈69 minutes), so a sheet covers 100 thumbnails = 1000s.

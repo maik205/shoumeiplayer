@@ -1,7 +1,7 @@
 package com.maik205.shoumeiplayer.player
 
 /**
- * The quality ladder from docs/osd-v3.md §5, mapped to the `MaxStreamingBitrate` a `/PlaybackInfo`
+ * The quality ladder from docs/player-controls.md §5, mapped to the `MaxStreamingBitrate` a `/PlaybackInfo`
  * re-resolve is given.
  *
  * The numbers are deliberately *generous* headroom figures rather than encoder targets: the cap

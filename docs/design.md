@@ -1,163 +1,90 @@
-# Shoumei Player — Design
+# Architecture
 
-Native Android TV media player for Jellyfin, Jetpack Compose (androidx.tv) first.
-Playback engine is intentionally a **shim**: the real engine lives in `../mplayer`
-(Rust) and will be bound later via JNI. Everything else — auth, browsing,
-details, player UI, progress reporting — is real and works against a Jellyfin
-server.
+Shoumei Player is split into eight Gradle modules. The application module owns Android integration and screen composition. Core modules contain reusable data, playback, and UI contracts.
 
-Companion doc: `docs/jellyfin-api-surface.md` (trimmed API reference extracted
-from `jellyfin-openapi.json`). Implementers use that doc, not the raw spec.
+## Module boundaries
 
-## Constraints & fixes to the existing scaffold
+| Module | Responsibility |
+| --- | --- |
+| `:app` | Application setup, dependency composition, navigation, screens, and Android services |
+| `:feature:player` | Player state, session coordination, queues, and playback metadata |
+| `:core:data` | Repositories, session and settings persistence, image URLs, and caches |
+| `:core:jellyfin` | Ktor client and Jellyfin request and response models |
+| `:core:player` | Playback contracts, mpv integration, Media3 fallback, and playback utilities |
+| `:core:model` | Shared domain models and result types |
+| `:core:designsystem-tv` | Shared Compose components, dimensions, colors, and focus behavior |
+| `:mpvroid` | Java Native Interface (JNI) bridge and native mpv libraries |
 
-- `minSdk = 36` is wrong for TV — no Android TV device runs API 36. Lower to
-  **minSdk 28**, keep `compileSdk 36`, `targetSdk 36`.
-- `AndroidManifest.xml` is missing `android.permission.INTERNET` — add it, plus
-  `ACCESS_NETWORK_STATE`.
-- `android.software.leanback` stays `required=false`; keep touchscreen not
-  required. Add `android:usesCleartextTraffic="true"` (home-lab Jellyfin servers
-  are frequently plain HTTP) — scoped via a network security config that allows
-  cleartext to user-entered hosts.
-- Version catalog is stale (Compose BOM 2024.09, tv-material alpha07). Bump to
-  current stable: Compose BOM 2025.x, `androidx.tv:tv-material:1.0.x` (stable),
-  lifecycle 2.9.x, activity-compose 1.11.x. Add: kotlinx-serialization plugin +
-  json, Ktor client (core/okhttp/content-negotiation/serialization), Coil 3
-  (compose + network-okhttp), DataStore preferences, navigation-compose,
-  lifecycle-viewmodel-compose, kotlinx-coroutines-test/junit for tests.
-- `appcompat` dependency is unnecessary for a Compose TV app — remove.
+The module dependencies follow this direction:
 
-## Architecture
+```text
+:app
+├── :feature:player
+├── :core:data
+├── :core:player
+├── :core:jellyfin
+├── :core:model
+└── :core:designsystem-tv
 
-Single `:app` module. Layered by package, unidirectional data flow,
-`StateFlow`-based ViewModels. **Manual DI** via an `AppContainer` held by the
-`Application` class — no Hilt/KSP; the object graph is small and this avoids
-build fragility on AGP 9.2/Kotlin 2.2.
-
-```
-com.maik205.shoumeiplayer
-├── ShoumeiApp.kt            // Application; owns AppContainer
-├── di/AppContainer.kt       // constructs client, repos, engine; vm factories
-├── data/
-│   ├── api/                 // JellyfinClient (Ktor), request/response DTOs
-│   ├── session/             // SessionStore: DataStore-backed server url + token + userId
-│   └── repo/                // AuthRepository, LibraryRepository, PlaybackRepository
-├── player/
-│   ├── PlayerEngine.kt      // the shim contract (below)
-│   ├── MplayerEngine.kt     // stub impl, JNI TODOs → ../mplayer
-│   └── SimulatedPlayerEngine.kt // debug-only fake that "plays" so UI is testable
-└── ui/
-    ├── theme/               // existing
-    ├── navigation/          // NavHost, routes (kotlinx-serialization typed routes)
-    ├── components/          // MediaCard, MediaRow, PosterImage, focus helpers
-    └── screens/             // serverentry, login, home, library, detail, player, search, settings
+:feature:player -> :core:player -> :mpvroid
+:core:data -> :core:jellyfin -> :core:model
+:core:data -> :core:player
 ```
 
-### Data layer
+## Dependency composition
 
-- **Ktor** client with OkHttp engine, kotlinx-serialization JSON
-  (`ignoreUnknownKeys = true` — Jellyfin DTOs are huge; we model only needed
-  fields). Base URL + `Authorization: MediaBrowser ...` header injected from
-  `SessionStore`.
-- DTOs are hand-written, trimmed `BaseItemDto` etc. per
-  `docs/jellyfin-api-surface.md`. No codegen from the OpenAPI spec — it's 2.2 MB
-  and 95% unused.
-- `SessionStore` (DataStore preferences): `serverUrl`, `accessToken`, `userId`,
-  `deviceId` (random UUID generated once). Exposed as `Flow<Session?>`; login
-  writes it, 401 responses clear it (single retry-less redirect to login).
-- Repositories return `Result<T>`-style sealed outcomes; no exceptions crossing
-  into UI.
-- Image URLs are constructed client-side
-  (`{server}/Items/{id}/Images/Primary?tag=...&maxWidth=...&quality=90`) by a
-  small `ImageUrlBuilder` — unit-tested.
+`AppContainer` constructs process-level services without a dependency-injection framework. It owns the session stores, repositories, network monitor, playback engine chain, and application coroutine scope.
 
-### Player shim contract
+Most services use lazy initialization. `SessionStore` updates cached connection values for synchronous image URL generation and clears audio-resumption data when the active session ends.
 
-The UI and Jellyfin plumbing must be **engine-agnostic** so `../mplayer` drops
-in later without touching screens:
+## Data and sessions
 
-```kotlin
-interface PlayerEngine {
-    val state: StateFlow<PlayerState>          // Idle, Loading, Buffering, Playing, Paused, Ended, Error(msg)
-    val positionMs: StateFlow<Long>
-    val durationMs: StateFlow<Long?>
-    val tracks: StateFlow<List<PlayerTrack>>   // type AUDIO/SUBTITLE, id, label, selected
-    fun setSurface(surface: Surface?)          // player screen owns a SurfaceView via AndroidView
-    fun load(item: PlayRequest)                // url, headers, startPositionMs, preferred track ids
-    fun play(); fun pause(); fun seekTo(ms: Long)
-    fun selectTrack(track: PlayerTrack)
-    fun stop(); fun release()
-}
+`JellyfinClient` uses Ktor with the OkHttp engine and kotlinx serialization. Each request resolves the active server and authentication token from `SessionStore`.
+
+The data layer follows these boundaries:
+
+- `AuthRepository` handles password authentication, Quick Connect, logout, and user configuration
+- `LibraryRepository` handles browsing, search, details, related items, and user-state mutations
+- `PlaybackRepository` resolves media sources, opens live streams, reports progress, and closes transcodes
+- `SessionStore` and `SettingsStore` persist credentials and preferences with DataStore
+- `LibraryCacheStore` and the shared Coil loader cache library data and artwork
+
+An authenticated `401` response expires the active session through `SessionManager`. Authentication failures before a token exists remain on the login flow.
+
+## Playback
+
+`PlayerEngine` defines playback state, timeline, track selection, seeking, speed, surface attachment, and lifecycle operations. `PlayerEngineFactory` creates a `SwitchingPlayerEngine` with mpv as the default backend and Media3 as the system fallback.
+
+The app decorates the selected backend with Android-specific behavior:
+
+```text
+Audio focus
+└── Caption preferences
+    └── Audio route
+        └── HDR policy
+            └── Frame-rate matching
+                └── Selected playback backend
 ```
 
-- `MplayerEngine`: compiles, wires nothing. Every method body is a logged no-op
-  with `// TODO(mplayer): bind via JNI to ../mplayer` markers; `load()` moves
-  state to `Error("mplayer engine not yet implemented")`. One
-  `MplayerNative.kt` object sketches the intended `external fun` JNI surface as
-  commented signatures so the Rust side knows what to export.
-- `SimulatedPlayerEngine` (debug builds via `AppContainer`): fakes a clock —
-  `load` → Playing, position ticks 1s/s toward a fake duration, seek/pause work.
-  This lets the whole player screen, OSD, and progress reporting be built and
-  demoed before mplayer exists.
-- Progress reporting (`/Sessions/Playing[/Progress|/Stopped]`) is driven by
-  observing `PlayerEngine.state` + a 10s ticker in the player ViewModel —
-  engine-agnostic by construction. Position ↔ ticks conversion (×10 000 000)
-  lives in one utility, unit-tested.
-- Playback source selection: POST `PlaybackInfo` with a minimal `DeviceProfile`
-  claiming broad direct-play support (mkv/mp4, h264/hevc/av1, aac/ac3/opus/flac,
-  subrip/ass/pgs) — mplayer will handle nearly anything, so prefer the direct
-  stream URL from `MediaSourceInfo`; fall back to transcode URL only if the
-  server forces it.
+`MpvEngine` communicates with official mpv through the app-owned JNI bridge in `:mpvroid`. `PlaybackProgressReporter` sends start, progress, and stop events to Jellyfin independently of the selected backend.
 
-### UI / screens (androidx.tv material3)
+## User interface
 
-Navigation: `navigation-compose` with typed (serializable) routes. Start
-destination decided by `SessionStore`: no server → ServerEntry, no token →
-Login, else Home.
+The television interface uses Jetpack Compose, AndroidX TV Material, typed serializable routes, and `StateFlow`-based ViewModels. Navigation is centralized in `TelevisionNavGraph.kt`.
 
-1. **ServerEntry** — URL text field, validates via `/System/Info/Public`, shows
-   server name on success.
-2. **Login** — username/password against `/Users/AuthenticateByName`.
-   (Quick Connect: out of scope v1, noted as follow-up.)
-3. **Home** — vertical list of horizontal rows: *Continue Watching* (Resume
-   items), *Next Up*, *Latest* per movie/TV library, *My Media* (user views).
-   `MediaCard` = poster + focus scale + progress bar overlay when partially
-   watched.
-4. **Library** — paged grid (`LazyVerticalGrid`, page size 100, startIndex
-   paging), sort menu (name / date added / premiere), filter watched/unwatched.
-5. **Detail** — backdrop hero, metadata (year, runtime from `RunTimeTicks`,
-   rating, overview), actions: Play / Resume (from
-   `UserData.PlaybackPositionTicks`). Series detail shows season selector +
-   episode row; episodes show thumb + watched state.
-6. **Player** — fullscreen `SurfaceView` in `AndroidView`, OSD overlay
-   (title, transport controls, seek bar with position/duration, audio/subtitle
-   track dialog) auto-hides after 5s, any D-pad key reveals it. Back hides OSD
-   first, then exits. Works fully against `SimulatedPlayerEngine`.
-7. **Search** — text field + result grid via `searchTerm` on `/Items`.
-8. **Settings** — server/user info, sign out (clears SessionStore).
+The active routes cover connection, profile selection, authentication, home, library, search, details, people, Live TV, settings, and playback. Shared loading, empty, error, media, navigation, and focus components live in `:core:designsystem-tv`.
 
-TV UX rules: everything D-pad reachable; `focusRestorer` on rows/grids so focus
-returns to the last card; overscan-safe padding (48dp horizontal / 27dp
-vertical) on screen roots; no touch-only affordances.
+## Verification
 
-### Testing & verification
+Run unit tests and lint from the repository root:
 
-- JVM unit tests: `ImageUrlBuilder`, ticks conversion, DTO deserialization from
-  captured JSON fixtures, repository logic with a fake Ktor `MockEngine`,
-  playback progress reporter timing (virtual time).
-- Definition of done per milestone: `gradlew :app:assembleDebug` and
-  `gradlew :app:testDebugUnitTest` green.
+```powershell
+.\gradlew.bat testDebugUnitTest
+.\gradlew.bat lintDebug
+```
 
-## Milestones
+Build the debug application with:
 
-- **M0 Foundation**: catalog bumps, new deps, manifest fixes, minSdk, App/DI
-  skeleton, theme untouched.
-- **M1 Data**: Ktor client, DTOs, SessionStore, Auth/Library/Playback repos + tests.
-- **M2 Player shim**: contract, MplayerEngine stub, SimulatedPlayerEngine, JNI sketch.
-- **M3 Core UI**: navigation, ServerEntry, Login, Home, components.
-- **M4 Browse UI**: Library, Detail (movie + series), Search.
-- **M5 Player UI**: player screen + OSD + progress reporting wired to the shim.
-- **M6 Polish**: Settings, 401 handling, focus/overscan pass, build + tests green.
-
-M1 and M2 are independent (parallel). M3–M5 depend on M1/M2 signatures but can
-be parallelized against agreed interfaces once M0 lands.
+```powershell
+.\gradlew.bat :app:assembleDebug
+```

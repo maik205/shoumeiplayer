@@ -68,7 +68,7 @@ class SimulatedPlayerEngineTest {
         assertTrue(subtitleTracks.single { it.id == 3 }.selected)
     }
 
-    /** docs/osd-v3.md §5 — the simulated clock has to honour the rate, or speed is untestable. */
+    /** docs/player-controls.md §5 — the simulated clock has to honour the rate, or speed is untestable. */
     @Test
     fun `the ticker advances the playhead at the configured speed`() = runTest {
         val engine = SimulatedPlayerEngine(scope = this)

@@ -10,9 +10,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * `/Users/Configuration` write-back — regression coverage for the overwrite hazard called out in
- * docs/browse-v2-plan.md §1.3: `POST /Users/Configuration` replaces the whole 16-property object,
- * so `updateUserConfiguration` must read-modify-write rather than ever constructing a fresh DTO.
+ * `POST /Users/Configuration` replaces the complete 16-property object. This test ensures
+ * `updateUserConfiguration` reads the current value before applying and writing a change.
  */
 class UserConfigurationTest {
 

@@ -47,7 +47,7 @@ private const val TRICKPLAY_TARGET_WIDTH = 320
  * running for the lifetime of the ViewModel to report start/progress/stop.
  *
  * The stream on screen can be replaced without ending playback — [setQuality] re-resolves the same
- * item at a different bitrate cap, [switchTo] moves to an adjacent episode (docs/osd-v3.md §5). Both
+ * item at a different bitrate cap, [switchTo] moves to an adjacent episode (docs/player-controls.md §5). Both
  * go through [swapStream], which retires the outgoing server session (stop report + transcode
  * teardown) while leaving the ViewModel's own final teardown latch untouched.
  */
@@ -692,7 +692,7 @@ class PlayerViewModel(
     }
 
     /**
-     * Swaps the player over to [targetItemId] without leaving the screen (docs/osd-v3.md §5): the
+     * Swaps the player over to [targetItemId] without leaving the screen (docs/player-controls.md §5): the
      * outgoing session gets its stop report and transcode teardown, the new item is resolved at its
      * own resume position, and the identity/chapter/adjacency block is rebuilt around it.
      */

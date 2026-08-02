@@ -3,7 +3,7 @@ package com.maik205.shoumeiplayer.player
 import java.util.Locale
 
 /**
- * The speed ladder from docs/osd-v3.md §5: `0.5 / 0.75 / 1 / 1.25 / 1.5 / 2`.
+ * The speed ladder from docs/player-controls.md §5: `0.5 / 0.75 / 1 / 1.25 / 1.5 / 2`.
  *
  * Pure, so both the OSD chip and any engine can share one definition of "what speeds exist" and one
  * definition of how a rate is written (`1.5×`, never `1.50×`).

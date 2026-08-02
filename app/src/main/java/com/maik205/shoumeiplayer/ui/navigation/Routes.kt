@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 @Serializable data object LoginRoute
 @Serializable data object HomeRoute
 /**
- * [personId] carries the OSD Cast shelf's person filter (docs/osd-v3.md §5) into the existing
+ * [personId] carries the OSD Cast shelf's person filter (docs/player-controls.md §5) into the existing
  * library grid rather than a new screen: navigate with a blank [libraryId] and a person id and the
  * grid queries `/Items?personIds=` across the whole library, titled with the person's name.
  */

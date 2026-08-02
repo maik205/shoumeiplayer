@@ -106,7 +106,7 @@ class LibraryRepository(private val client: JellyfinClient) {
         genreIds: List<String> = emptyList(),
         /**
          * `GET /Items` `personIds` — filters to items the given people appear in. This is what backs
-         * the OSD Cast shelf (docs/osd-v3.md §5): tapping a person reuses the existing library grid
+         * the OSD Cast shelf (docs/player-controls.md §5): tapping a person reuses the existing library grid
          * with the filter applied instead of a new screen.
          */
         personIds: List<String> = emptyList(),
@@ -240,7 +240,7 @@ class LibraryRepository(private val client: JellyfinClient) {
     }
 
     /**
-     * `GET /Items/{itemId}/Similar` — the "More like this" shelf (docs/osd-v3.md §5).
+     * `GET /Items/{itemId}/Similar` — the "More like this" shelf (docs/player-controls.md §5).
      *
      * The endpoint accepts only `userId`, `limit`, `fields` and `excludeArtistIds`
      * (jellyfin-openapi.json, `GetSimilarItems`); it has no `enableImageTypes`/`imageTypeLimit`/

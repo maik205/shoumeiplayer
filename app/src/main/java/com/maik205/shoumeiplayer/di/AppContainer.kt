@@ -93,10 +93,8 @@ class AppContainer(
     val playbackOwnershipCoordinator: PlaybackOwnershipCoordinator by lazy {
         PlaybackOwnershipCoordinator()
     }
-    // Official libmpv via the app-owned JNI bridge is the real engine in both build types.
-    // MplayerEngine remains the
-    // planned native successor behind this same PlayerEngine interface (see
-    // docs/mplayer-integration.md); SimulatedPlayerEngine stays for JVM unit tests.
+    // Official libmpv uses the app-owned JNI bridge in both build types.
+    // SimulatedPlayerEngine remains available for JVM unit tests.
     //
     // The engine chain is built with the default (mpv) backend rather than blocking here on the
     // persisted setting: PlayerViewModel.startInitialPlayback() reads settingsStore and calls

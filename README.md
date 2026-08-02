@@ -1,146 +1,79 @@
-# Shoumei Player (証明プレイヤー)
+# Shoumei Player
 
-Shoumei ("証明" — proof, or attestation) Player is a native Android TV client for
-[Jellyfin](https://jellyfin.org), built with Jetpack Compose and
-`androidx.tv:tv-material`. It targets living-room, D-pad-driven navigation
-rather than a phone UI ported to a big screen.
-
-The name is a nod to what this project is: proof that the stack works
-end-to-end against a real Jellyfin server, from browsing through to decoding
-video with libmpv.
+Shoumei Player is a Jellyfin client for Android TV. The app is written in Kotlin with Jetpack Compose and uses mpv for audio and video playback.
 
 ## Features
 
-Scope, per `docs/design.md`. All milestones (M0–M6) are implemented; the visual
-design is specified in `docs/ui-design.md` and applied throughout. Playback is
-handled by libmpv (see the playback-engine section below).
+- Jellyfin server discovery and username/password authentication
+- Home sections for libraries, latest items, continue watching, and next up
+- Library browsing with pagination, sorting, and watched-state filters
+- Catalog search
+- Movie, series, season, and episode details
+- Audio and subtitle track selection
+- Playback progress reporting to Jellyfin
+- Configurable playback, interface, network, subtitle, and screensaver settings
 
-- Jellyfin server discovery + username/password authentication
-- Home screen with horizontal rows: Continue Watching, Next Up, and Latest
-  per library, plus a row of the user's library views
-- Library browsing: paged grid, sort (name / date added / premiere), filter
-  by watched state
-- Item detail: metadata, backdrop hero, resume/play actions; series detail
-  with season selector and episode list
-- Search across the server's catalog
-- Full player UI: transport controls, seek bar, audio/subtitle track
-  selection, auto-hiding OSD, and progress reporting back to the server
-  (`/Sessions/Playing`, `/Progress`, `/Stopped`)
+## Playback
 
-## Playback engine
+`MpvEngine` connects to official mpv v0.41.0 through the app-owned `MpvNative` Java Native Interface (JNI) bridge. Both debug and release builds use this engine.
 
-`MpvEngine` drives official mpv v0.41.0 directly through the app-owned
-`MpvNative` JNI bridge and is used in both debug and release builds. The mpv
-source is pinned as `native/mpv/upstream`; no player AAR or repackaged mpv
-binding is used. It renders through `vo=gpu` /
-`gpu-context=android` with `hwdec=mediacodec-copy` and `ao=audiotrack`, maps
-mpv properties onto the `PlayerEngine` state/position/duration/track flows,
-and passes Jellyfin auth headers through `http-header-fields`.
+The mpv source is pinned in `native/mpv/upstream`. Prebuilt libraries for `arm64-v8a` and `x86_64` are stored in `mpvroid/src/main/jniLibs`. The project does not depend on a player Android Archive (AAR) or a repackaged mpv binding.
 
-- `MplayerEngine` remains the *planned* native successor behind the exact same
-  `PlayerEngine` interface: it still compiles as a logged no-op stub with
-  `// TODO(mplayer): bind via JNI to ../mplayer` markers. The real engine lives
-  in a sibling Rust project at `../mplayer` that is not part of this
-  repository; see `docs/mplayer-integration.md` for the integration plan.
-- `SimulatedPlayerEngine` is retained as a fake clock for JVM unit tests and
-  UI work that should not touch a real decoder.
+The current mpv configuration uses Android GPU output, MediaCodec hardware decoding, AudioTrack output, and Jellyfin authentication headers. Application code accesses playback through the `PlayerEngine` interface.
 
-## Architecture
+## Project structure
 
-Eight Gradle modules, manual dependency injection (no Hilt/KSP — the object
-graph is small and this avoids build fragility on AGP 9.2 / Kotlin 2.4),
-unidirectional data flow with `StateFlow`-based ViewModels.
+The project uses eight Gradle modules with manual dependency injection and `StateFlow`-based ViewModels:
 
-```
-:app                  // ShoumeiApp/AppContainer (DI root), UI screens, platform glue
-  ├── di/AppContainer.kt     // constructs client, repos, engine; vm factories
-  ├── platform/media/        // Android-side PlayerEngine decorators (audio focus,
-  │                          // caption prefs, audio route, HDR policy, frame rate),
-  │                          // ShoumeiAudioPlaybackService (Media3 MediaSessionService)
-  └── ui/                    // theme, navigation (typed routes), components, screens
-:feature:player        // PlayerViewModel and its session/queue/track/metadata collaborators
-:core:jellyfin          // JellyfinClient (Ktor), request/response DTOs
-:core:data              // SessionStore/SettingsStore (DataStore), repositories
-                        // (Auth/Library/PlaybackRepository), caches
-:core:player            // PlayerEngine contract, MpvEngine (real engine),
-                        // SwitchingPlayerEngine, MplayerEngine (stub), SystemPlayerEngine
-:core:model             // Shared domain types (ApiResult, ClientSettings, ...)
-:core:designsystem-tv   // Compose TV design-system components
-:mpvroid                // MpvNative JNI facade + the mpv_jni.cpp bridge (native/mpv submodule)
+| Module | Purpose |
+| --- | --- |
+| `:app` | Application setup, navigation, screens, and Android platform integration |
+| `:feature:player` | Player ViewModel and playback-session coordination |
+| `:core:jellyfin` | Ktor client and Jellyfin data transfer objects |
+| `:core:data` | Authentication, library, playback, settings, and cache repositories |
+| `:core:player` | Playback contracts and mpv integration |
+| `:core:model` | Shared domain models |
+| `:core:designsystem-tv` | Shared Compose components and theme definitions |
+| `:mpvroid` | JNI bridge and native mpv libraries |
+
+## Requirements
+
+- JDK 17 or newer
+- Android Studio or the Android command-line tools
+- Android SDK 36.1
+- Android NDK r29
+- Android TV device or emulator running API 28 or newer
+
+## Build
+
+Initialize the pinned mpv source after cloning the repository:
+
+```powershell
+git submodule update --init --recursive
 ```
 
-Key data-layer choices:
+Build a debug Android Package (APK):
 
-- **Ktor** (OkHttp engine) with kotlinx-serialization JSON,
-  `ignoreUnknownKeys = true` — Jellyfin's `BaseItemDto` has roughly 150
-  fields; only what the UI needs is modeled.
-- DTOs are hand-written and trimmed rather than generated from the Jellyfin
-  OpenAPI spec (`jellyfin-openapi.json` is ~2.2 MB, most of it unused by a TV
-  playback client). See `docs/jellyfin-api-surface.md` for the reference this
-  client was implemented against.
-- `SessionStore` (DataStore Preferences) holds `serverUrl`, `accessToken`,
-  `userId`, and a generated `deviceId`, exposed as `Flow<Session?>`.
-
-The `PlayerEngine` contract (`player/PlayerEngine.kt`) exposes state,
-position, duration, and track flows plus `load` / `play` / `pause` /
-`seekTo` / `selectTrack` / `stop` / `release`. Everything above the engine —
-screens, ViewModels, progress reporting — talks only to this interface, so
-swapping libmpv for the `../mplayer` JNI engine later should not require UI
-changes.
-
-## Build & run
-
-Requirements: JDK 17+, Android Studio (or the command line), Android NDK r28+,
-and an Android TV emulator or device running API 28 or newer. Before assembling
-an APK, build the native libraries from the pinned official source as described
-in `native/mpv/README.md`.
-
-```
+```powershell
 .\gradlew.bat :app:assembleDebug
 ```
 
-Install the resulting debug APK on an Android TV emulator/device and launch
-it. On first run it asks for a Jellyfin server URL, then username/password.
+The APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
 
-- Both debug and release builds use `MpvEngine`. Gradle deliberately refuses
-  to assemble an APK when the official `libmpv.so` build is absent.
-- Home-lab Jellyfin servers are frequently plain HTTP rather than HTTPS, so
-  cleartext traffic remains available at the manifest/network-security-config
-  layer for arbitrary private IP literals (Android's config cannot express
-  "private networks only" by IP range). It is gated in code:
-  `JellyfinClient` refuses any `http://` request whose host is not a
-  private/loopback IPv4 literal or a `.local`/`.lan`/`.home`/`.internal`/
-  `localhost` name. Onboarding probes `https://` first, falls back to an
-  eligible local HTTP endpoint only after a localized warning and explicit
-  confirmation, and never silently enables public cleartext.
+Run the Java Virtual Machine (JVM) unit tests and Android lint checks with:
 
-Run JVM unit tests with:
-
-```
-.\gradlew.bat :app:testDebugUnitTest
+```powershell
+.\gradlew.bat testDebugUnitTest
+.\gradlew.bat lintDebug
 ```
 
-## Docs
+## Network policy
 
-- `docs/design.md` — architecture and design rationale, including the
-  player shim decision
-- `docs/plan.md` — task breakdown and wave/parallelism plan used to build
-  this app
-- `docs/jellyfin-api-surface.md` — trimmed Jellyfin API reference this
-  client implements against
-- `docs/ui-design.md` — the visual design specification (color tokens,
-  typography, focus treatment, per-screen art direction) applied across the UI
-- `docs/mplayer-integration.md` — JNI contract and milestones for binding the
-  real `../mplayer` Rust engine as the successor to libmpv
+The client accepts HTTPS Jellyfin servers. It also supports HTTP for loopback addresses, private IPv4 addresses, and local hostnames ending in `.local`, `.lan`, `.home`, or `.internal`.
 
-## Status
+For eligible local servers, onboarding tries HTTPS first. Falling back to HTTP requires a warning and explicit confirmation. Public HTTP endpoints are rejected.
 
-| Milestone | Scope | Status |
-|---|---|---|
-| M0 | Foundation: catalog bumps, manifest fixes, minSdk, App/DI skeleton | Done |
-| M1 | Data: Ktor client, DTOs, SessionStore, repos + tests | Done |
-| M2 | Player shim: contract, `MplayerEngine` stub, `SimulatedPlayerEngine`, JNI sketch | Done |
-| M3 | Core UI: navigation, ServerEntry, Login, Home, components | Done |
-| M4 | Browse UI: Library, Detail, Search | Done |
-| M5 | Player UI: player screen, OSD, progress reporting | Done |
-| M6 | Polish: Settings, 401 handling, focus/overscan pass, build+tests green | Done (240 unit tests; debug + release builds green) |
+## Documentation
+
+- [`docs/README.md`](docs/README.md): maintained project documentation
+- [`native/mpv/README.md`](native/mpv/README.md): pinned mpv source and native library manifest

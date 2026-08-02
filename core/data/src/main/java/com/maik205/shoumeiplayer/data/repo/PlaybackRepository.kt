@@ -60,7 +60,7 @@ class PlaybackRepository(
      *
      * [maxStreamingBitrate] caps what the server may hand back. [forceTranscode] is what makes that
      * cap bite: with direct play and stream copy on the table the server answers with the original
-     * file and ignores the ceiling entirely, so an explicit quality choice (docs/osd-v3.md §5) has
+     * file and ignores the ceiling entirely, so an explicit quality choice (docs/player-controls.md §5) has
      * to take both off the table. Audio stream copy stays allowed — the cap is about the video.
      */
     suspend fun resolve(

@@ -1,74 +1,48 @@
-# How much of the Jellyfin API does the client implement?
+# Jellyfin API coverage
 
-This page records the client’s Jellyfin API coverage as of 2026-07-31. The app implements most workflows required by an Android TV playback client, but it does not aim to expose the complete Jellyfin REST API.
+Shoumei Player implements the Jellyfin workflows needed for browsing and playback. It does not aim to expose the complete server administration API.
 
-## Coverage estimates
+## Implemented workflows
 
-The bundled `jellyfin-openapi.json` contains about 426 HTTP operations across 349 paths. Source inspection identifies about 47 operations across 45 paths in the client.
+The client currently covers:
 
-| Scope | Estimated completion | Meaning |
-|---|---:|---|
-| Complete Jellyfin REST API | 11–12% | Includes server administration, metadata management, plugins, SyncPlay, scheduled tasks, and other non-player domains |
-| Current Android TV baseline | 90–95% | Login, browsing, details, search, playback, reporting, artwork, and basic Live TV workflows |
-| Mature Jellyfin TV client | 70–80% | Adds skip segments, remote control, preference synchronization, richer search, and other advanced client features |
-
-These figures measure different goals. Endpoint count understates client readiness because a TV client needs only a focused subset of Jellyfin’s server API.
-
-## Strongly covered workflows
-
-The client has working coverage for:
-
-- Password authentication, Quick Connect, logout, and persisted sessions
-- User views, libraries, Continue Watching, Next Up, and latest media
-- Movies, series, seasons, episodes, music, playlists, and collections
-- Item search through `/Items`
-- Favorite and played-state mutations
-- PlaybackInfo negotiation, direct play, direct stream, and transcoding
-- External subtitle delivery
+- Public server information and connection checks
+- Password authentication, Quick Connect, profile selection, logout, and session replacement
+- User views, libraries, latest items, continue watching, and next up
+- Movies, series, seasons, episodes, music, playlists, collections, people, and genres
+- Item search and search hints
+- Favorite and watched-state updates
+- User configuration reads and updates
+- Playback information, direct play, direct stream, transcoding, and external subtitles
+- Audio and subtitle track selection
 - Playback start, progress, stop, and ping reporting
-- Live stream open and close operations
-- Transcode cleanup through `/Videos/ActiveEncodings`
-- Artwork, chapter images, and trickplay transport
-- User configuration reads and repository-level writes
+- Trickplay metadata and image tiles
+- Related items and cast data
+- Live TV guide data and live-stream open and close operations
+- Active transcode cleanup
+- Artwork and chapter images
 
-The primary implementations live in:
+## Implementation locations
 
-- `core/data/src/main/java/com/maik205/shoumeiplayer/data/repo/AuthRepository.kt`
-- `core/data/src/main/java/com/maik205/shoumeiplayer/data/repo/LibraryRepository.kt`
-- `core/data/src/main/java/com/maik205/shoumeiplayer/data/repo/PlaybackRepository.kt`
-- `core/jellyfin/src/main/java/com/maik205/shoumeiplayer/data/api/JellyfinClient.kt`
+The primary API code lives in:
 
-## Remaining TV-client gaps
+- [`JellyfinClient.kt`](../core/jellyfin/src/main/java/com/maik205/shoumeiplayer/data/api/JellyfinClient.kt): request execution, authentication headers, timeouts, and error mapping
+- [`AuthRepository.kt`](../core/data/src/main/java/com/maik205/shoumeiplayer/data/repo/AuthRepository.kt): authentication and user configuration
+- [`LibraryRepository.kt`](../core/data/src/main/java/com/maik205/shoumeiplayer/data/repo/LibraryRepository.kt): browse, search, metadata, and user-state operations
+- [`PlaybackRepository.kt`](../core/data/src/main/java/com/maik205/shoumeiplayer/data/repo/PlaybackRepository.kt): playback negotiation, live streams, reporting, and cleanup
 
-The highest-value client gaps are:
+## Known gaps
 
-1. Skip intro, credits, and recap through `/MediaSegments/{itemId}`
-2. Remote-control and casting session capabilities
-3. Server-backed persistence for selected audio and subtitle tracks
-4. Trickplay image rendering in the scrub interface
-5. Cinema intros and prerolls through `/Items/{itemId}/Intros`
-6. Full `/Search/Hints` integration with categorized results
-7. Rich queue state, playlist editing, and downloads
-8. More precise codec, profile, level, and container constraints in the device profile
+The client does not currently implement:
 
-## API domains outside the client’s scope
-
-Large Jellyfin domains remain absent because they do not serve the current TV playback scope:
-
-- Server, user, device, and API-key administration
-- Library creation, scanning, and metadata-provider configuration
-- Metadata editing and remote metadata or image searches
+- Intro, recap, and credit segments from `/MediaSegments/{itemId}`
+- Jellyfin remote-control and casting sessions
 - SyncPlay
-- Scheduled tasks
-- Plugin and package administration
-- Backup and restore
-- Activity and client logs
-- Subtitle search, upload, and deletion
-- Playlist and collection creation or mutation
-- Most image mutation endpoints
+- Cinema intros and prerolls from `/Items/{itemId}/Intros`
+- Offline downloads
+- Playlist and collection editing
+- Server administration, scheduled tasks, plugins, backup, or metadata editing
 
-## How to interpret this status
+## Reference data
 
-Treat the project as a focused Jellyfin Android TV client, not a general Jellyfin software development kit (SDK). Completing the TV client requires a small set of user-facing API integrations. Completing Jellyfin’s full REST API would require implementing most server administration and content-management domains.
-
-Use [`jellyfin-api-surface.md`](jellyfin-api-surface.md) for the TV-oriented endpoint reference. The historical gap list in [`issues/001-jellyfin-api-gaps.md`](issues/001-jellyfin-api-gaps.md) is retained for context.
+Use [`jellyfin-api-surface.md`](jellyfin-api-surface.md) for endpoint and data-model notes. The checked-in `jellyfin-openapi.json` remains the authoritative API snapshot for this repository.

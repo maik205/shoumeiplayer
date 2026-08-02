@@ -1,5 +1,5 @@
-// M0 build-gate deviations from docs/plan.md M0.1/M0.2 (Risk 1 serialization-plugin
-// fallback was NOT needed — AGP 9 built-in Kotlin + kotlin.plugin.serialization
+// Dependency-resolution notes. The serialization-plugin fallback was not needed because
+// AGP 9 built-in Kotlin + kotlin.plugin.serialization
 // registered fine). Two unrelated dependency-resolution issues required version
 // bumps in gradle/libs.versions.toml instead:
 //  1. kotlin 2.2.10 -> 2.4.0: transitive deps (coil3 3.5.0's kotlin-stdlib
@@ -12,7 +12,7 @@
 //     ship AAR metadata requiring compileSdk >= 37, which does not exist yet in
 //     the SDK Manager remote repo (only android-36.1 is installable). Downgraded
 //     to the last release lines whose AAR metadata declares minCompileSdk <= 36
-//     (core-ktx 1.18.0 -> 36, lifecycle 2.10.0 -> 35), keeping the plan's
+//     (core-ktx 1.18.0 -> 36, lifecycle 2.10.0 -> 35), keeping the
 //     compileSdk { release(36) { minorApiLevel = 1 } } block untouched.
 
 plugins {
