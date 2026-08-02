@@ -130,3 +130,35 @@ class PlayerBackOrderTest {
         )
     }
 }
+
+/**
+ * Modal exclusivity (TEST-005, PLAYER-002). Opening any layer must leave exactly one open --
+ * the rule the openers in TelevisionPlayerScreen apply.
+ */
+class PlayerLayersTest {
+
+    @Test
+    fun `opening a layer leaves exactly that one open`() {
+        for (layer in PlayerLayer.entries) {
+            val layers = PlayerLayers.opening(layer)
+            val open = listOf(layers.panel, layers.queue, layers.lyrics, layers.whileWatching)
+            assertEquals("$layer must be the only open layer", 1, open.count { it })
+        }
+    }
+
+    @Test
+    fun `opening a layer reports the one that was asked for`() {
+        assertEquals(true, PlayerLayers.opening(PlayerLayer.Panel).panel)
+        assertEquals(true, PlayerLayers.opening(PlayerLayer.Queue).queue)
+        assertEquals(true, PlayerLayers.opening(PlayerLayer.Lyrics).lyrics)
+        assertEquals(true, PlayerLayers.opening(PlayerLayer.WhileWatching).whileWatching)
+    }
+
+    @Test
+    fun `none is only true when nothing is over playback`() {
+        assertEquals(true, PlayerLayers.None.none)
+        for (layer in PlayerLayer.entries) {
+            assertEquals("$layer is a layer, so none must be false", false, PlayerLayers.opening(layer).none)
+        }
+    }
+}

@@ -608,7 +608,7 @@ private fun DetailDestination(
  * both behaviours, and `popBackStack()`'s return value does not distinguish them reliably enough
  * to branch on.
  */
-private fun NavHostController.backOrReplaceWith(replacement: Any) {
+internal fun NavHostController.backOrReplaceWith(replacement: Any) {
     if (previousBackStackEntry != null) {
         popBackStack()
     } else {
@@ -624,7 +624,7 @@ private fun NavHostController.backOrReplaceWith(replacement: Any) {
  * card while the transition runs, would otherwise stack duplicate copies of the same destination
  * and make the viewer press Back once per stray press to escape.
  */
-private fun NavHostController.pushSingleTop(route: Any) {
+internal fun NavHostController.pushSingleTop(route: Any) {
     navigate(route) { launchSingleTop = true }
 }
 
@@ -655,7 +655,7 @@ private fun NavHostController.navigateLibrary(library: LibraryDestinationUi) {
  * switch -- the back-stack entry, and with it the destination's ViewModel, is stashed rather than
  * destroyed. Libraries opt out of the restore half for the reason given at the call site.
  */
-private fun NavHostController.navigateTop(route: Any, restoreDestinationState: Boolean = true) {
+internal fun NavHostController.navigateTop(route: Any, restoreDestinationState: Boolean = true) {
     navigate(route) {
         launchSingleTop = true
         restoreState = restoreDestinationState

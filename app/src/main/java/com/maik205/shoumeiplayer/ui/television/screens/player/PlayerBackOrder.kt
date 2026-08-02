@@ -1,5 +1,38 @@
 package com.maik205.shoumeiplayer.ui.television.screens.player
 
+/** The dismissable layers the player can put over playback. At most one may be open. */
+internal enum class PlayerLayer { Panel, Queue, Lyrics, WhileWatching }
+
+/**
+ * Which dismissable layers are open.
+ *
+ * These four used to be independent booleans that each opener set on its own, and the rules for
+ * closing the others were spelled out differently at every call site -- so a drawer opened over an
+ * already-open queue left both claiming the same keys and the same focus (PLAYER-002). Making the
+ * combination a single value means "exactly one" is expressed once and can be checked.
+ */
+internal data class PlayerLayers(
+    val panel: Boolean = false,
+    val queue: Boolean = false,
+    val lyrics: Boolean = false,
+    val whileWatching: Boolean = false,
+) {
+    /** True when nothing is over playback, so the OSD owns the remote. */
+    val none: Boolean get() = !panel && !queue && !lyrics && !whileWatching
+
+    companion object {
+        val None = PlayerLayers()
+
+        /** The only valid state after opening [layer]: it is up, and nothing else is. */
+        fun opening(layer: PlayerLayer): PlayerLayers = PlayerLayers(
+            panel = layer == PlayerLayer.Panel,
+            queue = layer == PlayerLayer.Queue,
+            lyrics = layer == PlayerLayer.Lyrics,
+            whileWatching = layer == PlayerLayer.WhileWatching,
+        )
+    }
+}
+
 /** What Back should do, given everything the player currently has on screen. */
 internal enum class PlayerBackAction {
     AnswerResumePrompt,

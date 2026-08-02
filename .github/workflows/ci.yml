@@ -47,6 +47,12 @@ jobs:
       - name: Unit tests
         run: ./gradlew --no-daemon testDebugUnitTest
 
+      # The navigation and focus contracts in app/src/androidTest need an emulator, which this job
+      # does not have. Compiling them still catches the thing that actually rots an unrun suite:
+      # a signature change in the production code they drive. See #115.
+      - name: Compile instrumented tests
+        run: ./gradlew --no-daemon assembleDebugAndroidTest
+
       - name: Lint
         run: ./gradlew --no-daemon lintDebug
 

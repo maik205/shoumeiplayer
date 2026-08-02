@@ -408,11 +408,11 @@ internal fun TelevisionPlayerContent(
         opener: FocusRequester? = null,
         fromRowKey: String? = null,
     ) {
-        // One layer owns the player at a time. A drawer opened over an already-open queue or
-        // lyrics pane left two things claiming the same keys and the same focus.
-        whileWatchingVisible = false
-        audioQueueVisible = false
-        lyricsVisible = false
+        // One layer owns the player at a time.
+        val layers = PlayerLayers.opening(PlayerLayer.Panel)
+        whileWatchingVisible = layers.whileWatching
+        audioQueueVisible = layers.queue
+        lyricsVisible = layers.lyrics
         val current = panel
         if (current == null) {
             panelBackStack = emptyList()
@@ -786,26 +786,32 @@ internal fun TelevisionPlayerContent(
                 onToggleShuffle = { shuffleEnabled = !shuffleEnabled },
                 onToggleRepeat = { repeatEnabled = !repeatEnabled },
                 onToggleLyrics = {
-                    val showingLyrics = !lyricsVisible
-                    lyricsVisible = showingLyrics
-                    if (showingLyrics) {
-                        audioQueueVisible = false
+                    val layers = if (lyricsVisible) {
+                        PlayerLayers.None
+                    } else {
+                        PlayerLayers.opening(PlayerLayer.Lyrics)
+                    }
+                    lyricsVisible = layers.lyrics
+                    audioQueueVisible = layers.queue
+                    if (!layers.panel) {
                         panel = null
                         panelBackStack = emptyList()
-                    } else {
-                        requestPlayPause()
                     }
+                    if (layers.none) requestPlayPause()
                 },
                 onToggleQueue = {
-                    val openingQueue = !audioQueueVisible
-                    audioQueueVisible = openingQueue
-                    if (openingQueue) {
-                        lyricsVisible = false
+                    val layers = if (audioQueueVisible) {
+                        PlayerLayers.None
+                    } else {
+                        PlayerLayers.opening(PlayerLayer.Queue)
+                    }
+                    audioQueueVisible = layers.queue
+                    lyricsVisible = layers.lyrics
+                    if (!layers.panel) {
                         panel = null
                         panelBackStack = emptyList()
-                    } else {
-                        requestPlayPause()
                     }
+                    if (layers.none) requestPlayPause()
                 },
                 onToggleUpNextCoverMode = { upNextCoverMode = !upNextCoverMode },
                 onToggleSuggestedCoverMode = { suggestedCoverMode = !suggestedCoverMode },
@@ -843,7 +849,10 @@ internal fun TelevisionPlayerContent(
                     playPauseFocus = playPauseFocus,
                     whileWatchingVisible = whileWatchingVisible,
                     onOpenWhileWatching = {
-                        whileWatchingVisible = true
+                        val layers = PlayerLayers.opening(PlayerLayer.WhileWatching)
+                        whileWatchingVisible = layers.whileWatching
+                        audioQueueVisible = layers.queue
+                        lyricsVisible = layers.lyrics
                         panel = null
                         panelBackStack = emptyList()
                         noteInteraction()
