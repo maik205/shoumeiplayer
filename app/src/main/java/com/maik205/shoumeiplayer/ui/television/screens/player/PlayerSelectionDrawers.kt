@@ -38,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -82,10 +83,23 @@ internal fun PlayerSelectionPanel(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val first = remember { FocusRequester() }
+    val entry = remember { FocusRequester() }
     val colors = TelevisionTheme.colors
-    LaunchedEffect(title, rows.size) {
-        runCatching { first.requestFocus() }
+    // Open on the option that is currently in effect, not on the top of the list. Every drawer
+    // here answers "what is this set to?" -- audio track, subtitles, quality, speed, HDR, frame --
+    // and starting at the first row both hid the answer and made changing it a scroll away.
+    val entryIndex = rows.indexOfFirst { it.selected && it.interactive }
+        .takeIf { it >= 0 }
+        ?: rows.indexOfFirst(PlayerSelectionRow::interactive).takeIf { it >= 0 }
+        ?: 0
+    val hasInteractiveRow = rows.any(PlayerSelectionRow::interactive)
+    val backFocus = remember { FocusRequester() }
+    val listState = rememberLazyListState()
+    LaunchedEffect(title, rows.size, entryIndex, hasInteractiveRow) {
+        if (rows.isNotEmpty()) listState.scrollToItem(entryIndex)
+        withFrameNanos { }
+        // A read-only panel has nothing in its list to stand on, so Back owns the entry focus.
+        runCatching { (if (hasInteractiveRow) entry else backFocus).requestFocus() }
     }
     Column(
         modifier = modifier
@@ -105,15 +119,19 @@ internal fun PlayerSelectionPanel(
             icon = Icons.AutoMirrored.Filled.ArrowBack,
             onClick = onDismiss,
             expandedWidth = 54.dp,
+            focusRequester = backFocus,
         )
         Spacer(Modifier.height(22.dp))
         Text(title, style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(16.dp))
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(4.5.dp)) {
-            items(rows, key = PlayerSelectionRow::key) { row ->
+        LazyColumn(
+            state = listState,
+            verticalArrangement = Arrangement.spacedBy(4.5.dp),
+        ) {
+            itemsIndexed(rows, key = { _, row -> row.key }) { index, row ->
                 PlayerSelectionPanelRow(
                     row = row,
-                    focusRequester = if (row == rows.firstOrNull()) first else null,
+                    focusRequester = if (index == entryIndex) entry else null,
                 )
             }
         }
@@ -125,6 +143,12 @@ internal data class PlayerSelectionRow(
     val label: String,
     val detail: String? = null,
     val selected: Boolean = false,
+    /**
+     * Whether the row does anything when it is selected. Playback Information is a read-only
+     * report, and rendering it as buttons meant six focus stops where Center produced nothing at
+     * all -- the remote looked broken rather than the panel looking informational.
+     */
+    val interactive: Boolean = true,
     val onClick: () -> Unit,
 )
 
@@ -133,6 +157,10 @@ private fun PlayerSelectionPanelRow(
     row: PlayerSelectionRow,
     focusRequester: FocusRequester?,
 ) {
+    if (!row.interactive) {
+        PlayerSelectionRowContent(row = row, focused = false, modifier = Modifier.height(26.dp))
+        return
+    }
     TelevisionFocusSurface(
         onClick = row.onClick,
         focusRequester = focusRequester,
@@ -140,37 +168,46 @@ private fun PlayerSelectionPanelRow(
         restingAlpha = if (row.selected) 0.96f else 0.66f,
         modifier = Modifier.fillMaxWidth().height(26.dp),
     ) { focused ->
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(start = if (focused) 4.dp else 0.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
+        PlayerSelectionRowContent(row = row, focused = focused, modifier = Modifier.fillMaxSize())
+    }
+}
+
+@Composable
+private fun PlayerSelectionRowContent(
+    row: PlayerSelectionRow,
+    focused: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = if (focused) 4.dp else 0.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                row.label,
+                style = MaterialTheme.typography.labelLarge,
+                color = TelevisionTheme.colors.Paper,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            row.detail?.let {
                 Text(
-                    row.label,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = TelevisionTheme.colors.Paper,
+                    it,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TelevisionTheme.colors.PaperMuted,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                row.detail?.let {
-                    Text(
-                        it,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TelevisionTheme.colors.PaperMuted,
-                        maxLines = 1,
-                    )
-                }
-            }
-            if (row.selected) {
-                Icon(
-                    Icons.Default.Check,
-                        contentDescription = stringResource(R.string.tv_selected),
-                    tint = TelevisionTheme.colors.Paper,
-                    modifier = Modifier.size(10.dp),
                 )
             }
+        }
+        if (row.selected) {
+            Icon(
+                Icons.Default.Check,
+                contentDescription = stringResource(R.string.tv_selected),
+                tint = TelevisionTheme.colors.Paper,
+                modifier = Modifier.size(10.dp),
+            )
         }
     }
 }

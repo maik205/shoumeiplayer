@@ -256,9 +256,12 @@ internal fun PostPlayOverlay(
     onPlayEpisode: (String) -> Unit,
     onReplay: () -> Unit,
     onBack: () -> Unit,
+    // Hoisted so the host screen can suspend the autoplay countdown while the browser is open and
+    // give hardware Back the same meaning as the visible Back button.
+    browsingEpisodes: Boolean,
+    onBrowsingEpisodesChange: (Boolean) -> Unit,
 ) {
     val primary = remember { FocusRequester() }
-    var browsingEpisodes by remember { mutableStateOf(false) }
     var preview by remember(upNext?.itemId, episodes) { mutableStateOf(upNext ?: episodes.firstOrNull()) }
     val colors = TelevisionTheme.colors
     LaunchedEffect(upNext?.itemId, browsingEpisodes) { runCatching { primary.requestFocus() } }
@@ -305,7 +308,7 @@ internal fun PostPlayOverlay(
                     TelevisionFocusRevealButton(
                         label = stringResource(R.string.tv_back),
                         icon = Icons.AutoMirrored.Filled.ArrowBack,
-                        onClick = { browsingEpisodes = false },
+                        onClick = { onBrowsingEpisodesChange(false) },
                         focusRequester = primary,
                         expandedWidth = 54.dp,
                     )
@@ -422,7 +425,7 @@ internal fun PostPlayOverlay(
                             PlayerCompactActionButton(
                                 label = stringResource(R.string.tv_episodes),
                                 icon = Icons.Default.VideoLibrary,
-                                onClick = { browsingEpisodes = true },
+                                onClick = { onBrowsingEpisodesChange(true) },
                                 expandedWidth = 118.dp,
                             )
                         }
