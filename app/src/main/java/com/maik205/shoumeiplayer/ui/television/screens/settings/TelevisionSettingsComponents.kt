@@ -57,21 +57,26 @@ internal fun SettingsSectionContent(
     rows: List<SettingRowModel>,
     selectedSectionFocus: FocusRequester,
     onOpenChoice: (SettingRowModel, FocusRequester) -> Unit,
-    onMoveSection: (Int) -> Unit,
+    onMoveSection: (Int) -> Boolean,
     modifier: Modifier = Modifier,
+    firstRowFocus: FocusRequester? = null,
+    upFocus: FocusRequester = selectedSectionFocus,
 ) {
     var focusedKey by remember(section) { mutableStateOf<String?>(null) }
-    val rowFocus = remember(section) {
-        rows
-            .filter { row -> row.onClick != null || row.choices.isNotEmpty() }
-            .associate { row -> row.key to FocusRequester() }
+    val interactiveKeys = rows
+        .filter { row -> row.onClick != null || row.choices.isNotEmpty() }
+        .map(SettingRowModel::key)
+    val rowFocus = remember(section, firstRowFocus, interactiveKeys) {
+        interactiveKeys.mapIndexed { index, key ->
+            key to if (index == 0 && firstRowFocus != null) firstRowFocus else FocusRequester()
+        }.toMap()
     }
 
     LazyColumn(
         modifier = modifier
             .focusGroup()
             .focusRestorer()
-            .focusProperties { up = selectedSectionFocus },
+            .focusProperties { up = upFocus },
         contentPadding = PaddingValues(bottom = 48.dp),
     ) {
         items(rows, key = SettingRowModel::key) { row ->
@@ -83,15 +88,19 @@ internal fun SettingsSectionContent(
                     rowAlpha = restingAlpha,
                 )
             } else {
+                val openChoice = row.choices.isNotEmpty()
                 SettingsInteractiveRow(
                     row = row,
                     restingAlpha = restingAlpha,
                     focusRequester = focusRequester,
-                    onClick = if (row.choices.isNotEmpty()) {
+                    onClick = if (openChoice) {
                         { onOpenChoice(row, focusRequester) }
                     } else {
                         row.onClick ?: {}
                     },
+                    // A choice row draws a right-pointing chevron. Right has to be what opens it,
+                    // not a section change that leaves the drawer unreachable except by Center.
+                    openWithRight = openChoice,
                     onMoveSection = onMoveSection,
                     onFocusChanged = { focused ->
                         if (focused) {
@@ -141,7 +150,8 @@ private fun SettingsInteractiveRow(
     restingAlpha: Float,
     focusRequester: FocusRequester,
     onClick: () -> Unit,
-    onMoveSection: (Int) -> Unit,
+    openWithRight: Boolean,
+    onMoveSection: (Int) -> Boolean,
     onFocusChanged: (Boolean) -> Unit,
 ) {
     TelevisionFocusSurface(
@@ -161,14 +171,16 @@ private fun SettingsInteractiveRow(
                     false
                 } else {
                     when (nativeEvent.keyCode) {
-                        KeyEvent.KEYCODE_DPAD_LEFT -> {
-                            onMoveSection(-1)
-                            true
-                        }
+                        // Only claim the key when it actually goes somewhere. At the first and
+                        // last section these used to be swallowed while doing nothing, which
+                        // reads as a broken remote rather than as an edge.
+                        KeyEvent.KEYCODE_DPAD_LEFT -> onMoveSection(-1)
 
-                        KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                            onMoveSection(1)
+                        KeyEvent.KEYCODE_DPAD_RIGHT -> if (openWithRight) {
+                            onClick()
                             true
+                        } else {
+                            onMoveSection(1)
                         }
 
                         else -> false
