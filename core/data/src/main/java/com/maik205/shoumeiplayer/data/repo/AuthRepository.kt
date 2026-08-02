@@ -285,21 +285,35 @@ class AuthRepository(
         return revokePendingToken(token)
     }
 
-    /** GET /Users/Me, bypassing the cache; refreshes it on success. */
-    suspend fun refreshUserConfiguration(): ApiResult<UserConfigurationDto> {
-        val result = client.get<UserDto>("/Users/Me")
-        return when (result) {
+    /**
+     * GET /Users/Me without touching any local state.
+     *
+     * Reading and *adopting* are deliberately separate. A read-modify-write needs the server's
+     * current document to merge onto, but it must not publish that document as local truth on the
+     * way past: an optimistic caller has already moved the mirror to the value the viewer chose,
+     * and adopting the pre-edit copy here is what used to make a settings row snap back whenever
+     * the GET succeeded and the POST that followed did not.
+     */
+    private suspend fun fetchUserConfiguration(): ApiResult<Pair<UserDto, UserConfigurationDto>> =
+        when (val result = client.get<UserDto>("/Users/Me")) {
             is ApiResult.Failure -> result
+            is ApiResult.Success -> result.data.configuration
+                ?.let { ApiResult.Success(result.data to it) }
+                ?: ApiResult.Failure(ApiError.Unknown("User response missing configuration"))
+        }
+
+    /** GET /Users/Me, bypassing the cache; adopts the result as local state on success. */
+    suspend fun refreshUserConfiguration(): ApiResult<UserConfigurationDto> =
+        when (val fetched = fetchUserConfiguration()) {
+            is ApiResult.Failure -> fetched
             is ApiResult.Success -> {
-                val configuration = result.data.configuration
-                    ?: return ApiResult.Failure(ApiError.Unknown("User response missing configuration"))
-                cachedUser = result.data
+                val (user, configuration) = fetched.data
+                cachedUser = user
                 userConfigurationStore.cache(sessionStore.current()?.userId, configuration)
                 ServerTrackPreferences.publish(configuration.toTrackPreferences())
                 ApiResult.Success(configuration)
             }
         }
-    }
 
     /**
      * Read-modify-write. NEVER constructs a fresh UserConfigurationDto: refresh the whole
@@ -310,10 +324,12 @@ class AuthRepository(
     suspend fun updateUserConfiguration(
         transform: (UserConfigurationDto) -> UserConfigurationDto,
     ): ApiResult<UserConfigurationDto> {
-        val refreshed = refreshUserConfiguration()
-        val current = when (refreshed) {
-            is ApiResult.Failure -> return refreshed
-            is ApiResult.Success -> refreshed.data
+        // Read WITHOUT adopting. The merge still happens against the server's live document, so a
+        // property another client changed round-trips untouched -- but a caller that already moved
+        // its local state optimistically keeps that state if the POST below fails.
+        val current = when (val fetched = fetchUserConfiguration()) {
+            is ApiResult.Failure -> return fetched
+            is ApiResult.Success -> fetched.data.second
         }
         val userId = client.currentSession()?.userId
             ?: return ApiResult.Failure(ApiError.Unauthorized)
@@ -365,20 +381,12 @@ class AuthRepository(
         cachedUser = cachedUser?.copy(configuration = desired)
         ServerTrackPreferences.publish(desired.toTrackPreferences())
 
+        // updateUserConfiguration reads the account without adopting it, so this merge stays
+        // correct for the eleven properties this screen does not own while the optimistic state
+        // above survives a failed write.
         val result = updateUserConfiguration { current -> desired.applyOwnedFieldsTo(current) }
         if (result is ApiResult.Failure) {
-            // updateUserConfiguration re-reads the account before writing, and on a GET that
-            // succeeds ahead of a POST that fails that read has already replaced the optimistic
-            // state above with the server's pre-edit document. Restore the viewer's choice on top
-            // of the freshest document we now hold, or the row silently snaps back while the
-            // banner claims the change is merely waiting to be sent.
-            val restored = desired.applyOwnedFieldsTo(
-                userConfigurationStore.cachedOrNull(userId) ?: base,
-            )
-            userConfigurationStore.cache(userId, restored)
-            cachedUser = cachedUser?.copy(configuration = restored)
-            ServerTrackPreferences.publish(restored.toTrackPreferences())
-            userConfigurationStore.queuePending(userId, restored)
+            userConfigurationStore.queuePending(userId, desired)
         } else {
             userConfigurationStore.clearPending(userId)
         }
