@@ -229,12 +229,12 @@ fun TelevisionNavGraph(
                     onProfileClick = viewModel::choose,
                     onRetry = viewModel::retry,
                     onAnotherAccount = viewModel::useAnotherAccount,
-                    onBack = {
-                        navController.navigate(ConnectRoute) {
-                            popUpTo(0) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    },
+                    // Profiles is reached two ways: as the onboarding start destination, where
+                    // Back belongs to the server picker, and as a push from the navbar avatar of
+                    // an authenticated screen, where Back belongs to whatever opened it. Clearing
+                    // the stack unconditionally threw away a signed-in session for anyone who
+                    // opened the avatar to look and then backed out.
+                    onBack = { navController.backOrReplaceWith(ConnectRoute) },
                 )
             }
 
@@ -264,16 +264,9 @@ fun TelevisionNavGraph(
                     onSignIn = viewModel::signIn,
                     onQuickConnect = viewModel::generateQuickConnect,
                     onForgotPassword = {
-                        navController.navigate(RecoveryRoute(state.userName))
+                        navController.pushSingleTop(RecoveryRoute(state.userName))
                     },
-                    onBack = {
-                        if (!navController.popBackStack()) {
-                            navController.navigate(ProfilesRoute) {
-                                popUpTo(0) { inclusive = true }
-                                launchSingleTop = true
-                            }
-                        }
-                    },
+                    onBack = { navController.backOrReplaceWith(ProfilesRoute) },
                 )
             }
 
@@ -357,14 +350,14 @@ fun TelevisionNavGraph(
                         shellViewModel.refreshLibraries()
                     },
                     onItemFocused = viewModel::focus,
-                    onOpenItem = { navController.navigate(DetailRoute(it.id)) },
-                    onPlay = { media -> navController.navigate(media.toPlayerRoute()) },
+                    onOpenItem = { navController.pushSingleTop(DetailRoute(it.id)) },
+                    onPlay = { media -> navController.pushSingleTop(media.toPlayerRoute()) },
                     onToggleFavorite = viewModel::toggleFavorite,
                     onNavigateHome = {},
                     onNavigateSearch = { navController.navigateTop(SearchRoute) },
                     onNavigateLibrary = { navController.navigateLibrary(it) },
                     onNavigateSettings = { navController.navigateTop(SettingsRoute) },
-                    onNavigateProfile = { navController.navigate(ProfilesRoute) },
+                    onNavigateProfile = { navController.pushSingleTop(ProfilesRoute) },
                     navigationState = topNavigationState,
                 )
             }
@@ -382,7 +375,7 @@ fun TelevisionNavGraph(
                     resultLimitReached = state.resultLimitReached,
                     onQueryChange = viewModel::setQuery,
                     onRetry = viewModel::retry,
-                    onOpenItem = { navController.navigate(DetailRoute(it.id)) },
+                    onOpenItem = { navController.pushSingleTop(DetailRoute(it.id)) },
                     onBack = navController::popBackStack,
                     libraries = shell.libraries,
                     userName = shell.userName,
@@ -390,7 +383,7 @@ fun TelevisionNavGraph(
                     onNavigateHome = { navController.navigateTop(HomeRoute) },
                     onNavigateLibrary = { navController.navigateLibrary(it) },
                     onNavigateSettings = { navController.navigateTop(SettingsRoute) },
-                    onNavigateProfile = { navController.navigate(ProfilesRoute) },
+                    onNavigateProfile = { navController.pushSingleTop(ProfilesRoute) },
                     navigationState = topNavigationState,
                 )
             }
@@ -422,16 +415,16 @@ fun TelevisionNavGraph(
                     onSetView = viewModel::setView,
                     onOpenItem = { media ->
                         if (media.type == "Audio") {
-                            navController.navigate(media.toPlayerRoute())
+                            navController.pushSingleTop(media.toPlayerRoute())
                         } else {
-                            navController.navigate(DetailRoute(media.id))
+                            navController.pushSingleTop(DetailRoute(media.id))
                         }
                     },
                     onNavigateHome = { navController.navigateTop(HomeRoute) },
                     onNavigateSearch = { navController.navigateTop(SearchRoute) },
                     onNavigateLibrary = { navController.navigateLibrary(it) },
                     onNavigateSettings = { navController.navigateTop(SettingsRoute) },
-                    onNavigateProfile = { navController.navigate(ProfilesRoute) },
+                    onNavigateProfile = { navController.pushSingleTop(ProfilesRoute) },
                     navigationState = topNavigationState,
                 )
             }
@@ -462,8 +455,8 @@ fun TelevisionNavGraph(
                     onBack = navController::popBackStack,
                     onRefresh = viewModel::refresh,
                     onFocusProgram = viewModel::focus,
-                    onOpenProgram = { navController.navigate(DetailRoute(it.id)) },
-                    onPlay = { navController.navigate(it.toPlayerRoute()) },
+                    onOpenProgram = { navController.pushSingleTop(DetailRoute(it.id)) },
+                    onPlay = { navController.pushSingleTop(it.toPlayerRoute()) },
                     libraries = shell.libraries,
                     userName = shell.userName,
                     avatarUrl = shell.avatarUrl,
@@ -471,7 +464,7 @@ fun TelevisionNavGraph(
                     onNavigateSearch = { navController.navigateTop(SearchRoute) },
                     onNavigateLibrary = { navController.navigateLibrary(it) },
                     onNavigateSettings = { navController.navigateTop(SettingsRoute) },
-                    onNavigateProfile = { navController.navigate(ProfilesRoute) },
+                    onNavigateProfile = { navController.pushSingleTop(ProfilesRoute) },
                     navigationState = topNavigationState,
                 )
             }
@@ -522,7 +515,7 @@ fun TelevisionNavGraph(
                     onNavigateHome = { navController.navigateTop(HomeRoute) },
                     onNavigateSearch = { navController.navigateTop(SearchRoute) },
                     onNavigateLibrary = { navController.navigateLibrary(it) },
-                    onNavigateProfile = { navController.navigate(ProfilesRoute) },
+                    onNavigateProfile = { navController.pushSingleTop(ProfilesRoute) },
                     navigationState = topNavigationState,
                 )
             }
@@ -537,13 +530,21 @@ fun TelevisionNavGraph(
                     initialSubtitleStreamIndex = route.initialSubtitleStreamIndex,
                     initialQualityLabel = route.initialQualityLabel,
                     onExit = navController::popBackStack,
+                    // Leaving the player for another item is one navigation, not a pop followed
+                    // by a push: doing it in two steps popped whatever happened to be on top and
+                    // stacked a second copy when the viewer pressed twice. Replacing the player
+                    // entry in a single call is atomic and idempotent.
                     onNavigateToItem = { itemId ->
-                        navController.popBackStack()
-                        navController.navigate(DetailRoute(itemId))
+                        navController.navigate(DetailRoute(itemId)) {
+                            popUpTo<PlayerRoute> { inclusive = true }
+                            launchSingleTop = true
+                        }
                     },
                     onNavigateToPerson = { personId, name ->
-                        navController.popBackStack()
-                        navController.navigate(PersonRoute(personId, name))
+                        navController.navigate(PersonRoute(personId, name)) {
+                            popUpTo<PlayerRoute> { inclusive = true }
+                            launchSingleTop = true
+                        }
                     },
                 )
             }
@@ -569,7 +570,7 @@ private fun DetailDestination(
         onRetry = viewModel::reload,
         onRetryAction = viewModel::retryLastAction,
         onPlay = { targetId, ticks, audioOnly, audioIndex, subtitleIndex, quality ->
-            navController.navigate(
+            navController.pushSingleTop(
                 PlayerRoute(
                     itemId = targetId,
                     startPositionTicks = ticks,
@@ -583,9 +584,35 @@ private fun DetailDestination(
         onToggleFavorite = viewModel::toggleFavorite,
         onTogglePlayed = viewModel::togglePlayed,
         onSelectSeason = viewModel::selectSeason,
-        onOpenItem = { navController.navigate(DetailRoute(it.id)) },
-        onOpenPerson = { navController.navigate(PersonRoute(it.id, it.name)) },
+        onOpenItem = { navController.pushSingleTop(DetailRoute(it.id)) },
+        onOpenPerson = { navController.pushSingleTop(PersonRoute(it.id, it.name)) },
     )
+}
+
+/**
+ * Returns to whatever opened this destination, falling back to [replacement] as a fresh root when
+ * nothing is underneath. Screens that can be either a pushed child or the start destination need
+ * both behaviours, and `popBackStack()`'s return value does not distinguish them reliably enough
+ * to branch on.
+ */
+private fun NavHostController.backOrReplaceWith(replacement: Any) {
+    if (previousBackStackEntry != null) {
+        popBackStack()
+    } else {
+        navigate(replacement) {
+            popUpTo(0) { inclusive = true }
+            launchSingleTop = true
+        }
+    }
+}
+
+/**
+ * Pushes [route] at most once per press. A remote's key repeat, or an impatient second press on a
+ * card while the transition runs, would otherwise stack duplicate copies of the same destination
+ * and make the viewer press Back once per stray press to escape.
+ */
+private fun NavHostController.pushSingleTop(route: Any) {
+    navigate(route) { launchSingleTop = true }
 }
 
 private fun NavHostController.navigateLibrary(library: LibraryDestinationUi) {
@@ -598,18 +625,28 @@ private fun NavHostController.navigateLibrary(library: LibraryDestinationUi) {
                 title = library.title,
                 collectionType = library.collectionType,
             ),
+            // Library tabs are different argument instances of the same LibraryRoute destination.
+            // Restoring by destination ID can therefore revive the library that was just popped
+            // and discard the newly selected library's arguments, making consecutive nav clicks
+            // look blocked. Top-nav selection is authoritative, so always create the route.
+            restoreDestinationState = false,
         )
     }
 }
 
-private fun NavHostController.navigateTop(route: Any) {
+/**
+ * Switches the top-navigation destination, preserving what the viewer left behind.
+ *
+ * Saving state on the way out and restoring it on the way in is what keeps a Search query and its
+ * results, a library's scroll position, and the selected Settings section alive across a tab
+ * switch -- the back-stack entry, and with it the destination's ViewModel, is stashed rather than
+ * destroyed. Libraries opt out of the restore half for the reason given at the call site.
+ */
+private fun NavHostController.navigateTop(route: Any, restoreDestinationState: Boolean = true) {
     navigate(route) {
         launchSingleTop = true
-        // Library tabs are different argument instances of the same LibraryRoute destination.
-        // Restoring by destination ID can therefore revive the library that was just popped and
-        // discard the newly selected library's arguments, making consecutive nav clicks look
-        // blocked. Top-nav selection is authoritative, so always create the requested route.
-        popUpTo(HomeRoute)
+        restoreState = restoreDestinationState
+        popUpTo(HomeRoute) { saveState = true }
     }
 }
 

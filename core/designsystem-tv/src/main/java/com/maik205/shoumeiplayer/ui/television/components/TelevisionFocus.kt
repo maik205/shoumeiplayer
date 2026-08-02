@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +38,8 @@ import androidx.tv.material3.Glow
 import androidx.tv.material3.Surface
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 object TelevisionFocusScale {
@@ -43,6 +48,64 @@ object TelevisionFocusScale {
     const val Landscape = 1.055f
     const val Poster = 1.055f
     const val Square = 1.055f
+}
+
+/**
+ * Serializes the scroll-and-focus coroutines that D-pad wrapping launches.
+ *
+ * Holding Left or Right on a remote delivers a KeyDown every few tens of milliseconds. Launching
+ * one uncancelled coroutine per event let several scroll-then-focus sequences interleave, and
+ * whichever finished last won -- so a held key could land somewhere the viewer never asked for.
+ * Cancelling the outstanding move keeps the most recent key press authoritative.
+ */
+@Stable
+class TelevisionFocusMoves internal constructor(private val scope: CoroutineScope) {
+    private var move: Job? = null
+
+    internal fun dispatch(block: suspend CoroutineScope.() -> Unit) {
+        move?.cancel()
+        move = scope.launch(block = block)
+    }
+}
+
+@Composable
+fun rememberTelevisionFocusMoves(): TelevisionFocusMoves {
+    val scope = rememberCoroutineScope()
+    return remember(scope) { TelevisionFocusMoves(scope) }
+}
+
+/**
+ * Hands focus to a successor when a transient control disappears.
+ *
+ * Async screens routinely remove the control the viewer is standing on: a Retry button vanishes
+ * the moment the retry starts, a rail is rebuilt by a refresh, an action is disabled while it
+ * runs. Compose does not assign a replacement, so the remote goes dead until the viewer guesses
+ * a direction that happens to find something.
+ *
+ * [present] is whether the control is still composed, and [focused] whether it owns focus.
+ * Because the removal itself clears [focused], the last value seen while the control was still
+ * present is what decides whether a handoff is owed -- a viewer who had already moved elsewhere
+ * is left alone. Successors are tried in order and the first one attached to a live node wins.
+ */
+@Composable
+fun TelevisionFocusHandoff(
+    present: Boolean,
+    focused: Boolean,
+    vararg successors: FocusRequester?,
+) {
+    val heldFocus = remember { mutableStateOf(false) }
+    if (present) {
+        SideEffect { heldFocus.value = focused }
+    }
+    val targets = successors.toList()
+    LaunchedEffect(present, targets) {
+        if (present || !heldFocus.value) return@LaunchedEffect
+        heldFocus.value = false
+        // The replacement content is composed in the same pass that removed the old control, so
+        // wait a frame for its requesters to attach before asking one of them for focus.
+        withFrameNanos { }
+        targets.firstOrNull { it != null && runCatching { it.requestFocus() }.isSuccess }
+    }
 }
 
 /**
@@ -56,7 +119,7 @@ fun Modifier.televisionHorizontalWrap(
     listState: LazyListState,
 ): Modifier {
     if (focusRequesters.size < 2 || index !in focusRequesters.indices) return this
-    val scope = rememberCoroutineScope()
+    val moves = rememberTelevisionFocusMoves()
     return onPreviewKeyEvent { event ->
         val target = when {
             event.type != KeyEventType.KeyDown -> null
@@ -65,7 +128,7 @@ fun Modifier.televisionHorizontalWrap(
             else -> null
         } ?: return@onPreviewKeyEvent false
 
-        scope.launch {
+        moves.dispatch {
             listState.scrollToItem(target)
             withFrameNanos { }
             focusRequesters[target].requestFocus()

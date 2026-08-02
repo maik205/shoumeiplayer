@@ -212,6 +212,7 @@ fun TelevisionEmptyState(
     onAction: (() -> Unit)? = null,
     focusRequester: FocusRequester? = null,
     requestInitialFocus: Boolean = false,
+    onActionFocusChanged: (Boolean) -> Unit = {},
 ) {
     val actionFocus = focusRequester ?: remember { FocusRequester() }
     LaunchedEffect(requestInitialFocus, onAction) {
@@ -228,6 +229,7 @@ fun TelevisionEmptyState(
                 onClick = onAction,
                 focusRequester = actionFocus,
                 expandedWidth = 126.dp,
+                onFocusChanged = onActionFocusChanged,
             )
         }
     }
@@ -242,6 +244,7 @@ fun TelevisionErrorState(
     focusRequester: FocusRequester? = null,
     requestInitialFocus: Boolean = true,
     retryLabel: String,
+    onRetryFocusChanged: (Boolean) -> Unit = {},
 ) {
     val retryFocus = focusRequester ?: remember { FocusRequester() }
     LaunchedEffect(requestInitialFocus) {
@@ -257,6 +260,7 @@ fun TelevisionErrorState(
             onClick = onRetry,
             focusRequester = retryFocus,
             expandedWidth = 126.dp,
+            onFocusChanged = onRetryFocusChanged,
         )
     }
 }

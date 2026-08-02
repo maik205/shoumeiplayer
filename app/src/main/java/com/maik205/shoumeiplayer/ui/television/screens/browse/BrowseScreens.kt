@@ -186,6 +186,7 @@ internal fun AppTopNavigation(
     selectedFocusRequester: FocusRequester? = null,
     navigationState: LazyListState? = null,
     onNavigationFocused: () -> Unit = {},
+    restoreFocusOnResume: Boolean = true,
 ) {
     TelevisionAppTopNavigation(
         libraries = libraries,
@@ -201,6 +202,7 @@ internal fun AppTopNavigation(
         selectedFocusRequester = selectedFocusRequester,
         navigationState = navigationState,
         onNavigationFocused = onNavigationFocused,
+        restoreFocusOnResume = restoreFocusOnResume,
     )
 }
 
