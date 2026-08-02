@@ -65,6 +65,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -75,6 +76,11 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.geometry.Offset
@@ -101,6 +107,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionBackground
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionAppTopNavigation
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionEmptyState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionErrorState
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusHandoff
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingState
@@ -140,10 +147,46 @@ fun TelevisionSearchScreen(
     navigationState: LazyListState,
 ) {
     val fieldFocus = remember { FocusRequester() }
+    val backFocus = remember { FocusRequester() }
+    val retryFocus = remember { FocusRequester() }
     val topNavigationFocus = remember { FocusRequester() }
-    val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     var focused by remember { mutableStateOf(false) }
+    var retryFocused by remember { mutableStateOf(false) }
+    val gridState = rememberLazyGridState()
+
+    // The result the viewer opened, kept in the entry's saved state so coming back from Detail
+    // lands on it again instead of on the navigation bar. `restorePending` is deliberately not
+    // saveable: it is true only on the composition that follows the return trip.
+    var focusedResultId by rememberSaveable { mutableStateOf<String?>(null) }
+    var focusedResultIndex by rememberSaveable { mutableIntStateOf(0) }
+    var restorePending by remember { mutableStateOf(true) }
+    val showingResults = !searching && error == null && results.isNotEmpty()
+    val restoreResultId = focusedResultId.takeIf { restorePending && showingResults }
+
+    val resultFocusRequesters = remember(results.size) {
+        List(results.size) { FocusRequester() }
+    }
+
+    // A query edit can drop or reorder the result that had focus. Prefer the same item, fall back
+    // to whatever now occupies its position, and give up quietly if the grid emptied.
+    LaunchedEffect(restoreResultId, results) {
+        if (restoreResultId == null || results.isEmpty()) return@LaunchedEffect
+        val exact = results.indexOfFirst { it.id == restoreResultId }
+        val target = if (exact >= 0) exact else focusedResultIndex.coerceIn(0, results.lastIndex)
+        gridState.scrollToItem(target)
+        withFrameNanos { }
+        runCatching { resultFocusRequesters[target].requestFocus() }
+        restorePending = false
+    }
+
+    // Retry is removed the instant it is pressed. Hand focus back to the query field rather than
+    // letting the remote go dead while the search runs.
+    TelevisionFocusHandoff(
+        present = error != null,
+        focused = retryFocused,
+        fieldFocus,
+    )
 
     Box(
         modifier = Modifier
@@ -151,7 +194,8 @@ fun TelevisionSearchScreen(
             .background(TelevisionTheme.colors.Black),
     ) {
         LazyVerticalGrid(
-            columns = GridCells.Fixed(5),
+            columns = GridCells.Fixed(SearchGridColumns),
+            state = gridState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = 122.dp)
@@ -177,6 +221,12 @@ fun TelevisionSearchScreen(
                         message = error.resolve(),
                         onRetry = onRetry,
                         retryLabel = stringResource(R.string.retry),
+                        // A failed search must not pull the viewer off the query they are still
+                        // typing. Retry is reachable with Down; it does not come and take them.
+                        requestInitialFocus = false,
+                        focusRequester = retryFocus,
+                        onRetryFocusChanged = { retryFocused = it },
+                        modifier = Modifier.focusProperties { up = fieldFocus },
                     )
                 }
                 query.trim().length < 2 -> item(span = { GridItemSpan(maxLineSpan) }) {
@@ -190,10 +240,23 @@ fun TelevisionSearchScreen(
                         title = stringResource(R.string.search_no_results_format, query),
                     )
                 }
-                else -> itemsIndexed(results, key = { index, item -> "${item.id}:$index" }) { _, item ->
+                else -> itemsIndexed(
+                    results,
+                    key = { index, item -> "${item.id}:$index" },
+                ) { index, item ->
                     TelevisionMediaTile(
                         item = item,
                         onClick = { onOpenItem(item) },
+                        onFocused = {
+                            focusedResultId = item.id
+                            focusedResultIndex = index
+                        },
+                        focusRequester = resultFocusRequesters.getOrNull(index),
+                        modifier = if (index < SearchGridColumns) {
+                            Modifier.focusProperties { up = fieldFocus }
+                        } else {
+                            Modifier
+                        },
                     )
                 }
             }
@@ -224,6 +287,11 @@ fun TelevisionSearchScreen(
                 icon = Icons.AutoMirrored.Filled.ArrowBack,
                 onClick = onBack,
                 expandedWidth = 92.dp,
+                focusRequester = backFocus,
+                modifier = Modifier.focusProperties {
+                    up = topNavigationFocus
+                    right = fieldFocus
+                },
             )
             Spacer(Modifier.width(16.dp))
             Icon(
@@ -240,6 +308,18 @@ fun TelevisionSearchScreen(
                     .weight(1f)
                     .height(52.dp)
                     .focusRequester(fieldFocus)
+                    .focusProperties { up = topNavigationFocus }
+                    // A text field swallows Left and Right for caret movement, which on a remote
+                    // meant the visible Back button beside it could not be reached by arrow at
+                    // all when there were no results to route around. There is no useful caret to
+                    // move with a D-pad, so Left leaves the field instead.
+                    .onPreviewKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionLeft) {
+                            runCatching { backFocus.requestFocus() }.isSuccess
+                        } else {
+                            false
+                        }
+                    }
                     .onFocusChanged { focused = it.isFocused },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.displaySmall.copy(
@@ -248,9 +328,17 @@ fun TelevisionSearchScreen(
                 cursorBrush = SolidColor(TelevisionTheme.colors.Paper),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(
+                    // Only leave the field for somewhere that exists. Moving Down unconditionally
+                    // dropped focus into a loading skeleton, a "keep typing" hint, or an empty
+                    // result set -- none of which can hold it.
                     onSearch = {
                         keyboardController?.hide()
-                        focusManager.moveFocus(FocusDirection.Down)
+                        val target = when {
+                            showingResults -> resultFocusRequesters.firstOrNull()
+                            error != null -> retryFocus
+                            else -> null
+                        }
+                        target?.let { runCatching { it.requestFocus() } }
                     },
                 ),
                 decorationBox = { input ->
@@ -281,6 +369,10 @@ fun TelevisionSearchScreen(
             contentFocusRequester = fieldFocus,
             selectedFocusRequester = topNavigationFocus,
             navigationState = navigationState,
+            restoreFocusOnResume = restoreResultId == null,
         )
     }
 }
+
+/** Kept as a named value so the first grid row can be given an explicit Up target. */
+private const val SearchGridColumns = 5
