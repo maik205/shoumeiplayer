@@ -111,6 +111,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionMediaTile
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionArtworkPrefetch
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionRowHeader
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
+import com.maik205.shoumeiplayer.ui.television.components.televisionRestoreTarget
 import com.maik205.shoumeiplayer.domain.model.ArtworkShape
 import com.maik205.shoumeiplayer.ui.television.model.HeroUi
 import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
@@ -533,9 +534,11 @@ private fun MusicShelf(
     )
 
     LaunchedEffect(restoreItemId, items) {
-        if (restoreItemId == null || items.isEmpty()) return@LaunchedEffect
-        val exact = items.indexOfFirst { it.id == restoreItemId }
-        val target = if (exact >= 0) exact else restoreItemIndex.coerceIn(0, items.lastIndex)
+        val target = televisionRestoreTarget(
+            ids = items.map(MediaItemUi::id),
+            restoreId = restoreItemId,
+            previousIndex = restoreItemIndex,
+        ) ?: return@LaunchedEffect
         railState.scrollToItem(target)
         withFrameNanos { }
         runCatching { railFocusRequesters[target].requestFocus() }

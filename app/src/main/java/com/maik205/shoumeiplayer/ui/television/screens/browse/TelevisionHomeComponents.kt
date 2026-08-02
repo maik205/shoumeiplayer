@@ -108,6 +108,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionMediaTile
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionArtworkPrefetch
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionRowHeader
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
+import com.maik205.shoumeiplayer.ui.television.components.televisionRestoreTarget
 import com.maik205.shoumeiplayer.domain.model.ArtworkShape
 import com.maik205.shoumeiplayer.ui.television.model.HeroUi
 import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
@@ -356,9 +357,11 @@ internal fun HomeShelf(
     // position it used to occupy is the fallback -- landing next to the missing card beats landing
     // at the start of the rail, and both beat the remote going dead.
     LaunchedEffect(restoreItemId, shelf.items) {
-        if (restoreItemId == null || shelf.items.isEmpty()) return@LaunchedEffect
-        val exact = shelf.items.indexOfFirst { it.id == restoreItemId }
-        val target = if (exact >= 0) exact else restoreItemIndex.coerceIn(0, shelf.items.lastIndex)
+        val target = televisionRestoreTarget(
+            ids = shelf.items.map(MediaItemUi::id),
+            restoreId = restoreItemId,
+            previousIndex = restoreItemIndex,
+        ) ?: return@LaunchedEffect
         railState.scrollToItem(target)
         withFrameNanos { }
         runCatching { railFocusRequesters[target].requestFocus() }

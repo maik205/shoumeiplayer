@@ -459,57 +459,60 @@ internal fun TelevisionPlayerContent(
         }
     }
 
-    // Back dismisses the topmost thing that is actually on screen, working down one layer at a
-    // time. It used to consult playback state first, so an open drawer or episode browser was
-    // skipped entirely and Back exited the player out from under it.
-    //
-    // The resume prompt is the one exception that stays at the top: it is a hard modal whose
-    // focus trap swallows everything, so Back has to mean the same thing as its Resume button
-    // (§91) rather than falling through to anything below.
+    // Back peels off exactly one visible layer at a time. The order lives in playerBackAction()
+    // so it can be exercised without a device; see its KDoc for why the resume prompt sits above
+    // everything and the terminal states sit below the dismissable layers.
     BackHandler {
-        when {
-            state.resumePrompt != null -> {
+        val action = playerBackAction(
+            resumePromptVisible = state.resumePrompt != null,
+            panelOpen = panel != null,
+            queueVisible = audioQueueVisible,
+            lyricsVisible = lyricsVisible,
+            postPlayBrowsing = postPlayBrowsing,
+            whileWatchingVisible = whileWatchingVisible,
+            stillWatching = stillWatching,
+            hasPlaybackError = playbackError != null,
+            playbackEnded = state.state == PlayerState.Ended,
+            osdVisible = osdVisible,
+            miniSeekVisible = miniSeekVisible,
+            audioOnly = audio,
+        )
+        when (action) {
+            PlayerBackAction.AnswerResumePrompt -> {
                 noteInteraction()
                 resumePromptActions(controller).onResume()
             }
 
-            panel != null -> closePanel()
+            PlayerBackAction.ClosePanel -> closePanel()
 
-            audioQueueVisible -> {
+            PlayerBackAction.CloseQueue -> {
                 audioQueueVisible = false
                 noteInteraction()
                 requestPlayPause()
             }
 
-            lyricsVisible -> {
+            PlayerBackAction.CloseLyrics -> {
                 lyricsVisible = false
                 noteInteraction()
             }
 
             // The visible Back button in the post-play episode browser only closes the browser.
             // Hardware Back now agrees with it instead of quitting playback.
-            postPlayBrowsing -> {
+            PlayerBackAction.ClosePostPlayBrowser -> {
                 postPlayBrowsing = false
                 noteInteraction()
             }
 
-            !audio && whileWatchingVisible -> {
+            PlayerBackAction.CloseWhileWatching -> {
                 whileWatchingVisible = false
                 noteInteraction()
                 requestPlayPause()
             }
 
-            stillWatching -> exitPlayer()
-            playbackError != null -> exitPlayer()
-            state.state == PlayerState.Ended -> exitPlayer()
-
-            !audio && osdVisible -> hideOsd()
-            !audio && miniSeekVisible -> miniSeekVisible = false
-
-            // Leaving playback is the same decision whether it is asked for with the on-screen
-            // Exit control or with Back, so it takes the same confirmation. Back used to stop
-            // playback on the first press while the button beside it required two.
-            else -> handleExitButton()
+            PlayerBackAction.ExitPlayer -> exitPlayer()
+            PlayerBackAction.HideOsd -> hideOsd()
+            PlayerBackAction.HideMiniSeek -> miniSeekVisible = false
+            PlayerBackAction.ConfirmExit -> handleExitButton()
         }
     }
 

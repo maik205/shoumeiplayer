@@ -116,6 +116,7 @@ import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWr
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionMediaTile
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionRowHeader
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
+import com.maik205.shoumeiplayer.ui.television.components.televisionRestoreTarget
 import com.maik205.shoumeiplayer.domain.model.ArtworkShape
 import com.maik205.shoumeiplayer.ui.television.model.HeroUi
 import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
@@ -171,9 +172,11 @@ fun TelevisionSearchScreen(
     // A query edit can drop or reorder the result that had focus. Prefer the same item, fall back
     // to whatever now occupies its position, and give up quietly if the grid emptied.
     LaunchedEffect(restoreResultId, results) {
-        if (restoreResultId == null || results.isEmpty()) return@LaunchedEffect
-        val exact = results.indexOfFirst { it.id == restoreResultId }
-        val target = if (exact >= 0) exact else focusedResultIndex.coerceIn(0, results.lastIndex)
+        val target = televisionRestoreTarget(
+            ids = results.map(MediaItemUi::id),
+            restoreId = restoreResultId,
+            previousIndex = focusedResultIndex,
+        ) ?: return@LaunchedEffect
         gridState.scrollToItem(target)
         withFrameNanos { }
         runCatching { resultFocusRequesters[target].requestFocus() }
