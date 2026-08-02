@@ -106,6 +106,17 @@ fun ConnectScreen(
     var insecureAllowFocused by remember { mutableStateOf(false) }
     var insecureCancelFocused by remember { mutableStateOf(false) }
     var insecureOpener by remember { mutableStateOf<FocusRequester?>(null) }
+    val refreshFocus = remember { FocusRequester() }
+    val connectFocus = remember { FocusRequester() }
+
+    // A failed connection used to leave focus wherever the attempt had taken it -- the initiating
+    // control may itself have been removed on the way. Send the viewer back to whatever they
+    // pressed (ONB-003).
+    LaunchedEffect(state.connecting, state.error) {
+        if (state.connecting || state.error == null) return@LaunchedEffect
+        val origin = insecureOpener ?: addressFocus
+        runCatching { origin.requestFocus() }
+    }
 
     LaunchedEffect(state.insecureConnection) {
         if (state.insecureConnection != null) {
@@ -177,6 +188,12 @@ fun ConnectScreen(
                         icon = Icons.Default.Refresh,
                         onClick = onRefresh,
                         expandedWidth = 108.dp,
+                        focusRequester = refreshFocus,
+                        // Refresh sits above the server list; Down belongs to whichever of the
+                        // list or the address field is actually on screen (ONB-008).
+                        modifier = Modifier.focusProperties {
+                            down = if (state.servers.isNotEmpty()) firstServerFocus else addressFocus
+                        },
                     )
                 }
 
@@ -222,6 +239,12 @@ fun ConnectScreen(
                                     onServerClick(server)
                                 },
                                 focusRequester = if (server == state.servers.firstOrNull()) firstServerFocus else null,
+                                upFocusRequester = refreshFocus.takeIf {
+                                    server == state.servers.firstOrNull()
+                                },
+                                downFocusRequester = addressFocus.takeIf {
+                                    server == state.servers.lastOrNull()
+                                },
                             )
                         }
                     }
@@ -262,15 +285,35 @@ fun ConnectScreen(
                             onConnect()
                         },
                         focusRequester = addressFocus,
-                        modifier = Modifier.weight(1f),
+                        // A text field eats Left and Right for a caret a D-pad cannot use, so the
+                        // Connect button beside it was unreachable by arrow (ONB-007).
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusProperties {
+                                up = if (state.servers.isNotEmpty()) firstServerFocus else refreshFocus
+                            }
+                            .onPreviewKeyEvent { event ->
+                                if (
+                                    event.type == KeyEventType.KeyDown &&
+                                    event.key == Key.DirectionRight
+                                ) {
+                                    runCatching { connectFocus.requestFocus() }.isSuccess
+                                } else {
+                                    false
+                                }
+                            },
                     )
                     Spacer(Modifier.width(12.dp))
                     TelevisionFocusSurface(
                         onClick = {
+                            if (state.connecting) return@TelevisionFocusSurface
                             insecureOpener = addressFocus
                             onConnect()
                         },
-                        enabled = state.address.isNotBlank() && !state.connecting,
+                        // Kept focusable while connecting so the spinner does not take the remote
+                        // away from the control that started the attempt (ONB-002).
+                        enabled = state.address.isNotBlank(),
+                        focusRequester = connectFocus,
                         scaleTo = TelevisionFocusScale.Action,
                         restingAlpha = if (state.address.isBlank()) 0.24f else 0.62f,
                         modifier = Modifier.size(44.dp),
@@ -334,7 +377,7 @@ fun ConnectScreen(
                                 label = stringResource(R.string.tv_use_http_anyway),
                                 icon = Icons.AutoMirrored.Filled.ArrowForward,
                                 onClick = onAcceptInsecureConnection,
-                                enabled = !state.connecting,
+                                loading = state.connecting,
                                 focusRequester = insecureAllowFocus,
                                 expandedWidth = 164.dp,
                                 onFocusChanged = { insecureAllowFocused = it },
@@ -343,7 +386,7 @@ fun ConnectScreen(
                                 label = stringResource(R.string.tv_cancel_insecure_connection),
                                 icon = Icons.AutoMirrored.Filled.ArrowBack,
                                 onClick = onCancelInsecureConnection,
-                                enabled = !state.connecting,
+                                loading = state.connecting,
                                 expandedWidth = 116.dp,
                                 onFocusChanged = { insecureCancelFocused = it },
                             )
@@ -372,6 +415,8 @@ private fun ServerRow(
     server: ServerChoiceUi,
     onClick: () -> Unit,
     focusRequester: FocusRequester?,
+    upFocusRequester: FocusRequester? = null,
+    downFocusRequester: FocusRequester? = null,
 ) {
     TelevisionFocusSurface(
         onClick = onClick,
@@ -381,6 +426,10 @@ private fun ServerRow(
         modifier = Modifier
             .fillMaxWidth()
             .height(56.dp)
+            .focusProperties {
+                upFocusRequester?.let { up = it }
+                downFocusRequester?.let { down = it }
+            }
             .televisionBringIntoViewOnFocus(),
     ) { focused ->
         Row(
@@ -447,6 +496,9 @@ fun ProfilesScreen(
     val profileRailState = rememberLazyListState()
     var initialProfileFocusAssigned by rememberSaveable { mutableStateOf(false) }
     var pendingProfileIndex by remember { mutableStateOf<Int?>(null) }
+    val serverBackFocus = remember { FocusRequester() }
+    val anotherAccountFocus = remember { FocusRequester() }
+    val profilesRetryFocus = remember { FocusRequester() }
     LaunchedEffect(state.profiles) {
         if (state.profiles.isNotEmpty() && !initialProfileFocusAssigned) {
             firstFocus.requestFocus()
@@ -472,12 +524,18 @@ fun ProfilesScreen(
                 icon = Icons.AutoMirrored.Filled.ArrowBack,
                 onClick = onBack,
                 expandedWidth = 104.dp,
+                focusRequester = serverBackFocus,
+                // Server Back, the profile rail, and Use Another Account are one vertical chain
+                // rather than three things spatial navigation has to guess between (ONB-011).
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(
                         start = TelevisionDimensions.SafeHorizontal,
                         top = TelevisionDimensions.SafeTop,
-                    ),
+                    )
+                    .focusProperties {
+                        down = if (state.profiles.isNotEmpty()) firstFocus else anotherAccountFocus
+                    },
             )
 
             Row(
@@ -548,11 +606,16 @@ fun ProfilesScreen(
                                     },
                                     enabled = !state.loading,
                                     focusRequester = profileFocusRequesters.getOrNull(index),
-                                    modifier = Modifier.televisionHorizontalWrap(
-                                        index,
-                                        profileFocusRequesters,
-                                        profileRailState,
-                                    ),
+                                    modifier = Modifier
+                                        .televisionHorizontalWrap(
+                                            index,
+                                            profileFocusRequesters,
+                                            profileRailState,
+                                        )
+                                        .focusProperties {
+                                            up = serverBackFocus
+                                            down = anotherAccountFocus
+                                        },
                                 )
                             }
                         }
@@ -565,6 +628,13 @@ fun ProfilesScreen(
                             onClick = onAnotherAccount,
                             enabled = !state.loading,
                             expandedWidth = 186.dp,
+                            focusRequester = anotherAccountFocus,
+                            modifier = Modifier.focusProperties {
+                                up = if (state.profiles.isNotEmpty()) firstFocus else serverBackFocus
+                                if (state.error != null && state.profiles.isNotEmpty()) {
+                                    down = profilesRetryFocus
+                                }
+                            },
                         )
                     }
                     if (state.loading && state.profiles.isNotEmpty()) {
@@ -583,6 +653,8 @@ fun ProfilesScreen(
                             onRetry = onRetry,
                             retryLabel = stringResource(R.string.retry),
                             requestInitialFocus = false,
+                            focusRequester = profilesRetryFocus,
+                            modifier = Modifier.focusProperties { up = anotherAccountFocus },
                         )
                     }
                 }
@@ -670,10 +742,10 @@ fun LoginScreen(
     val quickConnectFocus = remember { FocusRequester() }
     val signInFocus = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
-    val quickConnectFocusable = state.quickConnectAvailable &&
-        !state.quickConnectChecking &&
-        !state.quickConnectLoading
-    val signInFocusable = state.userName.isNotBlank() && !state.signingIn
+    // A pending action stays in the focus order and shows a spinner. Dropping it out while it ran
+    // was what left the screen with no selected control when the attempt failed (ONB-013, -014).
+    val quickConnectFocusable = state.quickConnectAvailable && !state.quickConnectChecking
+    val signInFocusable = state.userName.isNotBlank()
 
     LaunchedEffect(Unit) {
         if (state.userName.isBlank()) usernameFocus.requestFocus() else passwordFocus.requestFocus()
@@ -808,12 +880,14 @@ fun LoginScreen(
                                     ?: stringResource(R.string.tv_quick_connect),
                                 icon = Icons.Default.Key,
                                 onClick = onQuickConnect,
-                                enabled = !state.quickConnectLoading,
+                                loading = state.quickConnectLoading,
                                 selected = state.quickConnectCode != null,
                                 expandedWidth = if (state.quickConnectCode == null) 148.dp else 118.dp,
                                 focusRequester = quickConnectFocus,
+                                // Quick Connect is the leading control: Left is the edge of the
+                                // row, not a wrap back to Sign In (ONB-015).
                                 modifier = Modifier.focusProperties {
-                                    left = if (signInFocusable) signInFocus else FocusRequester.Cancel
+                                    left = FocusRequester.Cancel
                                     up = forgotPasswordFocus
                                     right = if (signInFocusable) signInFocus else FocusRequester.Cancel
                                     down = FocusRequester.Cancel
@@ -834,8 +908,10 @@ fun LoginScreen(
                             icon = Icons.AutoMirrored.Filled.ArrowForward,
                             onClick = onSignIn,
                             enabled = signInFocusable,
+                            loading = state.signingIn,
                             expandedWidth = 104.dp,
                             focusRequester = signInFocus,
+                            // Sign In is the trailing control, so Right is the edge.
                             modifier = Modifier.focusProperties {
                                 left = if (quickConnectFocusable) {
                                     quickConnectFocus
@@ -843,11 +919,7 @@ fun LoginScreen(
                                     FocusRequester.Cancel
                                 }
                                 up = forgotPasswordFocus
-                                right = if (quickConnectFocusable) {
-                                    quickConnectFocus
-                                } else {
-                                    FocusRequester.Cancel
-                                }
+                                right = FocusRequester.Cancel
                                 down = FocusRequester.Cancel
                             },
                         )
