@@ -183,6 +183,67 @@ internal fun StillWatchingOverlay(
     }
 }
 
+/**
+ * §91 — [com.maik205.shoumeiplayer.domain.settings.ResumeBehavior.Ask] surface. The ViewModel has
+ * already applied the saved position by the time this renders (see
+ * [com.maik205.shoumeiplayer.feature.player.ResumePromptUi]'s KDoc) so this is not a blocking
+ * "may we resume?" gate — it is a dismissible confirmation that also offers "start over". Copies
+ * [StillWatchingOverlay]'s shape: one focused primary action, a secondary action, no back button of
+ * its own (the host screen's global BackHandler defines Back's outcome instead, same as
+ * [StillWatchingOverlay]).
+ */
+@Composable
+internal fun ResumePromptOverlay(
+    positionMs: Long,
+    onResume: () -> Unit,
+    onStartOver: () -> Unit,
+) {
+    val resumeFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { resumeFocus.requestFocus() } }
+    Box(
+        Modifier
+            .playerModalFocusTrap()
+            .fillMaxSize()
+            .background(
+                Brush.horizontalGradient(
+                    0f to TelevisionColors.Black.copy(alpha = 0.94f),
+                    0.62f to TelevisionColors.Black.copy(alpha = 0.58f),
+                    1f to TelevisionColors.Black.copy(alpha = 0.2f),
+                ),
+            ),
+    ) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .width(740.dp)
+                .padding(start = 67.dp, bottom = 62.dp),
+        ) {
+            Text(
+                stringResource(R.string.tv_player_resume_title),
+                style = MaterialTheme.typography.displayLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.height(22.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                PlayerCompactActionButton(
+                    label = stringResource(R.string.tv_player_resume_from, formatPlayerTime(positionMs)),
+                    icon = Icons.Default.PlayArrow,
+                    onClick = onResume,
+                    focusRequester = resumeFocus,
+                    selected = true,
+                    expandedWidth = 190.dp,
+                )
+                PlayerCompactActionButton(
+                    label = stringResource(R.string.tv_player_start_over),
+                    icon = Icons.Default.Refresh,
+                    onClick = onStartOver,
+                    expandedWidth = 130.dp,
+                )
+            }
+        }
+    }
+}
+
 @Composable
 internal fun PostPlayOverlay(
     upNext: UpNextUi?,

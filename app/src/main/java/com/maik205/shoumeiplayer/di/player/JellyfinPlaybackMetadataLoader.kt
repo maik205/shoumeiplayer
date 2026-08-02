@@ -23,7 +23,11 @@ class JellyfinPlaybackMetadataLoader(
     private val libraryRepository: LibraryRepository,
     private val authRepository: AuthRepository,
     private val imageUrlBuilder: ImageUrlBuilder,
-    private val settingsStore: SettingsStore?,
+    /**
+     * Retained for the device-owned playback settings this loader may need; nothing in it is
+     * consulted today now that next-episode autoplay is read from the account (issue #94).
+     */
+    @Suppress("UNUSED_PARAMETER") settingsStore: SettingsStore?,
     private val playbackRepository: PlaybackRepository,
 ) : PlaybackMetadataLoader {
     private val itemCache = object : LinkedHashMap<String, BaseItemDto>(8, 0.75f, true) {
@@ -155,10 +159,13 @@ class JellyfinPlaybackMetadataLoader(
         if (index < 0) return null
         val previous = episodes.getOrNull(index - 1)
         val next = episodes.getOrNull(index + 1)
-        val autoPlay = settingsStore
-            ?.let { runCatching { it.current().autoplayNextEpisode }.getOrNull() }
-            ?: authRepository.userConfiguration()?.enableNextEpisodeAutoPlay
-            ?: true
+        // Next-episode autoplay is server-owned: it is the same Jellyfin account setting the web
+        // client shows, so turning it off there turns it off here. There is no client-side copy to
+        // shadow it any more (the old elvis chain could never reach the server value, because the
+        // client field was a non-null Boolean that always "had" a value). userConfiguration()
+        // falls back to the local mirror, so an offline TV still honours the user's choice; only
+        // an account never seen on this device lands on Jellyfin's own default of `true`.
+        val autoPlay = authRepository.userConfiguration()?.enableNextEpisodeAutoPlay ?: true
         fun BaseItemDto.toUpNext() = UpNextUi(
             itemId = id,
             title = name.orEmpty(),

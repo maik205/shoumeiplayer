@@ -47,7 +47,23 @@ class TrackController(
         selectedSubtitleIndex = selection.subtitleIndex
     }
 
-    suspend fun prepare(resolved: ResolvedPlayback, keepCurrent: Boolean) {
+    /**
+     * @param rememberedAudioIndex §88 `rememberSeriesAudio` — the audio stream a returning viewer
+     * previously picked for this item's series, if the setting is on and one is on record (see
+     * [PlayerViewModel.rememberedAudioIndexFor]). Only ever consulted for the *default* pick:
+     * [initialAudioStreamIndex] (while [initialSelectionPending] is still true) is an explicit
+     * per-item request carried in from Detail and always wins over it, and [TrackSelection]'s own
+     * server-preference default is still the fallback whenever there is no remembered index or it no
+     * longer exists on this stream (a re-muxed source, a removed track). This precedence is what
+     * keeps the two mechanisms from fighting: [TrackSelection] owns "what should a fresh account
+     * default to"; [rememberedAudioIndex] only ever overrides the specific default a *returning*
+     * viewer already chose for this series.
+     */
+    suspend fun prepare(
+        resolved: ResolvedPlayback,
+        keepCurrent: Boolean,
+        rememberedAudioIndex: Int? = null,
+    ) {
         if (keepCurrent) return
         val preferences = preferenceProvider.preferences()
         val defaultAudio = TrackSelection.selectAudioIndex(
@@ -56,10 +72,13 @@ class TrackController(
             defaultAudioStreamIndex = resolved.defaultAudioIndex,
             preferAudioDescription = preferAudioDescription,
         )
+        val remembered = rememberedAudioIndex?.takeIf { index ->
+            resolved.mediaStreams.any { it.type.equals("Audio", ignoreCase = true) && it.index == index }
+        }
         selectedAudioIndex = if (initialSelectionPending) {
             initialAudioStreamIndex ?: defaultAudio
         } else {
-            defaultAudio
+            remembered ?: defaultAudio
         }
         val defaultSubtitle = TrackSelection.selectSubtitleIndex(
             streams = resolved.mediaStreams,

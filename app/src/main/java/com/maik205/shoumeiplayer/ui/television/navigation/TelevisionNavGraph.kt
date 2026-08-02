@@ -330,9 +330,20 @@ fun TelevisionNavGraph(
                     sessionStore = container.sessionStore,
                     settingsStore = container.settingsStore,
                     libraryCacheStore = container.libraryCacheStore,
+                    preferenceStore = container.preferenceStore,
                 )
             }
             val state by viewModel.state.collectAsStateWithLifecycle()
+            // "Remember last library" (#88): once per Home visit, if the toggle is on and the
+            // remembered library still exists, send the viewer straight there. Keyed on the
+            // restoreLibrary value itself, so this fires exactly once -- consuming it clears the
+            // state field, and an unchanged (already-null) key never re-triggers the effect.
+            LaunchedEffect(state.restoreLibrary) {
+                state.restoreLibrary?.let { library ->
+                    viewModel.consumeRestoreLibrary()
+                    navController.navigateLibrary(library)
+                }
+            }
             TelevisionHomeScreen(
                 state = state,
                 userName = shell.userName,
@@ -388,6 +399,7 @@ fun TelevisionNavGraph(
                     sessionStore = container.sessionStore,
                     settingsStore = container.settingsStore,
                     libraryCacheStore = container.libraryCacheStore,
+                    preferenceStore = container.preferenceStore,
                     libraryId = route.libraryId,
                     title = route.title,
                     collectionType = route.collectionType,

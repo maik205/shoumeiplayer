@@ -12,6 +12,52 @@ internal const val UP_NEXT_WINDOW_MS = 30_000L
 
 data class ChapterMark(val positionMs: Long, val name: String?)
 
+/**
+ * Per-item and per-series playback memory (#85 / #88 / #95): the audio track last picked for a
+ * series, the playback rate last used on an item, and the A/V delay + quality-cap overrides pinned
+ * to one item.
+ *
+ * Declared here rather than consumed directly from `core.data`'s `PreferenceStore` because
+ * `feature:player` does not depend on `core:data` — this mirrors [PlaybackMetadataLoader] and
+ * [PlaybackUserDataMutator], the two data-access seams this feature already crosses the same way.
+ * The app module's DI layer supplies a `PreferenceStore`-backed implementation (scoped to the
+ * signed-in account); tests supply a fake.
+ *
+ * Every getter returning `null` — because nothing is signed in, nothing has been recorded yet, or
+ * [PlayerViewModel] was built with `preferenceMemory = null` altogether — is indistinguishable from
+ * "no memory", so every call site already has a normal, working fallback for it.
+ */
+interface PlaybackPreferenceMemory {
+    /** The audio stream index last chosen for the series [seriesId] belongs to. */
+    suspend fun seriesAudioTrack(seriesId: String): Int?
+
+    /** Records an explicit audio pick against [seriesId] for later episodes to default to. */
+    suspend fun setSeriesAudioTrack(seriesId: String, audioIndex: Int)
+
+    /** The playback rate last used on the exact item [itemId]. */
+    suspend fun playbackSpeed(itemId: String): Float?
+
+    suspend fun setPlaybackSpeed(itemId: String, speed: Float)
+
+    /** Lip-sync / subtitle-timing correction pinned to the exact item [itemId]. */
+    suspend fun trackDelays(itemId: String): ItemTrackDelays?
+
+    /** `delays = null` clears the override rather than pinning a `(0, 0)` pair. */
+    suspend fun setTrackDelays(itemId: String, delays: ItemTrackDelays?)
+
+    /** The quality ceiling pinned to the exact item [itemId], as a [VideoQuality.label]. */
+    suspend fun qualityCapLabel(itemId: String): String?
+
+    /** `label = null` clears the override. */
+    suspend fun setQualityCapLabel(itemId: String, label: String?)
+}
+
+/**
+ * Mirrors `core.data.session.PreferenceStore`'s `TrackDelays`, restated here for the same reason as
+ * [PlaybackPreferenceMemory] — see its KDoc.
+ */
+data class ItemTrackDelays(val audioDelayMs: Long, val subtitleDelayMs: Long)
+
 data class UpNextUi(
     val itemId: String,
     val title: String,
@@ -61,6 +107,17 @@ data class PlayerShelfItem(
     val title: String,
     val subtitle: String?,
     val artworkUrl: String?,
+)
+
+/**
+ * Surfaced when [com.maik205.shoumeiplayer.domain.settings.ResumeBehavior.Ask] applies and there is
+ * a saved position to resume from. Playback still starts at [positionMs] immediately — [ResumeBehavior.Ask]
+ * cannot block the transport indefinitely with no UI owning the confirmation — but a host screen can
+ * surface this as a dismissible "Resume from…" affordance and call
+ * `PlayerViewModel.confirmResumePrompt(restart = true)` to jump back to the start instead.
+ */
+data class ResumePromptUi(
+    val positionMs: Long,
 )
 
 enum class PlayerMessageKind {
@@ -143,6 +200,7 @@ data class PlayerUiState(
     val displayHeight: Int? = null,
     val favorite: Boolean = false,
     val played: Boolean = false,
+    val resumePrompt: ResumePromptUi? = null,
 )
 
 internal fun chapterMarks(chapters: List<ChapterMark>, durationMs: Long?): List<ChapterMark> =

@@ -19,7 +19,6 @@ import com.maik205.shoumeiplayer.domain.settings.RenderingProfile
 import com.maik205.shoumeiplayer.domain.settings.ResumeBehavior
 import com.maik205.shoumeiplayer.domain.settings.ScreensaverContent
 import com.maik205.shoumeiplayer.domain.settings.SubtitleColor
-import com.maik205.shoumeiplayer.domain.settings.SubtitleMode
 import com.maik205.shoumeiplayer.domain.settings.SubtitleStroke
 import com.maik205.shoumeiplayer.domain.settings.ToneMapping
 import kotlinx.coroutines.flow.first
@@ -40,7 +39,6 @@ class SettingsStoreExpansionTest {
             maxStreamingBitrateMbps = 12,
             maxRemoteBitrateMbps = 8,
             refreshRateSwitching = RefreshRateSwitching.MatchVideo,
-            autoplayNextEpisode = false,
             resumeBehavior = ResumeBehavior.Always,
             seekIntervalSeconds = 30,
             skipIntroPrompt = false,
@@ -52,7 +50,6 @@ class SettingsStoreExpansionTest {
             toneMapping = ToneMapping.Bt2390,
             deinterlaceMode = DeinterlaceMode.Bob,
             frameInterpolation = true,
-            preferredAudioLanguage = "jpn",
             rememberSeriesAudio = false,
             pitchCorrection = false,
             downmixStereo = true,
@@ -60,8 +57,6 @@ class SettingsStoreExpansionTest {
             dolbyDigitalPlusPassthrough = true,
             dtsPassthrough = true,
             audioDelayMs = 125,
-            preferredSubtitleLanguage = "eng",
-            subtitleMode = SubtitleMode.Always,
             burnSubtitles = BurnSubtitles.Always,
             subtitleSizePercent = 115,
             subtitleColor = SubtitleColor.Yellow,
@@ -95,7 +90,6 @@ class SettingsStoreExpansionTest {
             screensaverShuffle = false,
             screensaverAvoidRepeats = false,
             screensaverClock = false,
-            kidsMode = true,
         )
 
         store.save(expected)
@@ -110,7 +104,6 @@ class SettingsStoreExpansionTest {
             ClientSettings(
                 preferredQuality = PreferredQuality.Uhd4k,
                 maxStreamingBitrateMbps = 80,
-                preferredAudioLanguage = "jpn",
                 backdropImages = false,
             ),
         )
@@ -118,7 +111,6 @@ class SettingsStoreExpansionTest {
         store.update {
             it.copy(
                 maxStreamingBitrateMbps = null,
-                preferredAudioLanguage = null,
                 subtitleSizePercent = 125,
             )
         }
@@ -126,7 +118,6 @@ class SettingsStoreExpansionTest {
 
         assertEquals(PreferredQuality.Uhd4k, current.preferredQuality)
         assertNull(current.maxStreamingBitrateMbps)
-        assertNull(current.preferredAudioLanguage)
         assertEquals(125, current.subtitleSizePercent)
         assertFalse(current.backdropImages)
         assertTrue(current.networkCacheEnabled)

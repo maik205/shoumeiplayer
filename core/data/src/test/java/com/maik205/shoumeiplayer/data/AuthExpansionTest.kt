@@ -11,6 +11,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.maik205.shoumeiplayer.data.session.UserConfigurationStore
 
 class AuthExpansionTest {
 
@@ -26,7 +27,7 @@ class AuthExpansionTest {
             sessions = sessions,
         )
 
-        val result = AuthRepository(client, sessions).login("alice", "wrong")
+        val result = AuthRepository(client, sessions, UserConfigurationStore(InMemoryPreferencesDataStore())).login("alice", "wrong")
 
         assertEquals(ApiError.InvalidCredentials, (result as ApiResult.Failure).error)
         assertEquals("existing-token", sessions.current()?.accessToken)
@@ -62,7 +63,7 @@ class AuthExpansionTest {
             sessions = sessions,
             recorder = recorder,
         )
-        val repo = AuthRepository(client, sessions)
+        val repo = AuthRepository(client, sessions, UserConfigurationStore(InMemoryPreferencesDataStore()))
 
         val users = (repo.publicUsers() as ApiResult.Success).data
         assertEquals("face", users.single().primaryImageTag)
@@ -96,7 +97,7 @@ class AuthExpansionTest {
         )
 
         val users = (
-            AuthRepository(client, sessions).accountSwitcherUsers() as ApiResult.Success
+            AuthRepository(client, sessions, UserConfigurationStore(InMemoryPreferencesDataStore())).accountSwitcherUsers() as ApiResult.Success
         ).data
 
         assertEquals(listOf("hidden-1", "public-1"), users.map { it.id })
@@ -117,7 +118,7 @@ class AuthExpansionTest {
         )
 
         val users = (
-            AuthRepository(client, sessions).accountSwitcherUsers() as ApiResult.Success
+            AuthRepository(client, sessions, UserConfigurationStore(InMemoryPreferencesDataStore())).accountSwitcherUsers() as ApiResult.Success
         ).data
 
         assertEquals("active-1", users.single().id)
@@ -136,7 +137,7 @@ class AuthExpansionTest {
             recorder = recorder,
         )
 
-        val result = AuthRepository(client, sessions).logout()
+        val result = AuthRepository(client, sessions, UserConfigurationStore(InMemoryPreferencesDataStore())).logout()
 
         assertTrue(result is ApiResult.Success)
         assertEquals("/Sessions/Logout", recorder.path())
@@ -157,7 +158,7 @@ class AuthExpansionTest {
             sessions = sessions,
         )
 
-        val result = AuthRepository(client, sessions).changeServer("new-server:8096")
+        val result = AuthRepository(client, sessions, UserConfigurationStore(InMemoryPreferencesDataStore())).changeServer("new-server:8096")
 
         assertTrue(result is ApiResult.Success)
         assertNull(sessions.current())
@@ -191,7 +192,7 @@ class AuthExpansionTest {
             recorder = recorder,
         )
 
-        val result = AuthRepository(client, sessions)
+        val result = AuthRepository(client, sessions, UserConfigurationStore(InMemoryPreferencesDataStore()))
             .replaceSessionWithQuickConnect("secret-1") as ApiResult.Success
 
         assertTrue(result.data.tokenChanged)
@@ -233,7 +234,7 @@ class AuthExpansionTest {
             recorder = recorder,
         )
 
-        val result = AuthRepository(client, sessions)
+        val result = AuthRepository(client, sessions, UserConfigurationStore(InMemoryPreferencesDataStore()))
             .replaceSessionWithQuickConnect("secret-1") as ApiResult.Success
 
         assertFalse(result.data.tokenChanged)
@@ -268,7 +269,7 @@ class AuthExpansionTest {
             recorder = recorder,
         )
 
-        val result = AuthRepository(client, sessions)
+        val result = AuthRepository(client, sessions, UserConfigurationStore(InMemoryPreferencesDataStore()))
             .replaceSessionWithQuickConnect("secret-1")
 
         assertTrue(result is ApiResult.Failure)
@@ -302,7 +303,7 @@ class AuthExpansionTest {
             recorder = recorder,
         )
 
-        val result = AuthRepository(client, sessions)
+        val result = AuthRepository(client, sessions, UserConfigurationStore(InMemoryPreferencesDataStore()))
             .replaceSessionWithQuickConnect("secret-1")
 
         assertTrue(result is ApiResult.Failure)

@@ -14,9 +14,13 @@ import com.maik205.shoumeiplayer.data.api.dto.UserConfigurationDto
 import com.maik205.shoumeiplayer.data.api.dto.UserDto
 import com.maik205.shoumeiplayer.data.session.Session
 import com.maik205.shoumeiplayer.data.session.SessionStore
+import com.maik205.shoumeiplayer.data.session.UserConfigurationStore
 import com.maik205.shoumeiplayer.data.session.normalizeServerUrl
 import com.maik205.shoumeiplayer.player.PlaybackTrackPreferenceProvider
 import com.maik205.shoumeiplayer.player.PlaybackTrackPreferences
+import com.maik205.shoumeiplayer.player.ServerTrackPreferences
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 
 data class QuickConnectSessionReplacement(
     val session: Session,
@@ -27,6 +31,7 @@ data class QuickConnectSessionReplacement(
 class AuthRepository(
     private val client: JellyfinClient,
     private val sessionStore: SessionStore,
+    private val userConfigurationStore: UserConfigurationStore,
 ) : PlaybackTrackPreferenceProvider {
     val rememberedServers = sessionStore.rememberedServers
     val activeServer = sessionStore.activeServer
@@ -51,22 +56,43 @@ class AuthRepository(
     }
 
     /**
-     * The current user's default audio/subtitle preferences, or null when the server could not be
-     * reached. Cached after the first successful read.
+     * The signed-in account's server-owned preferences: audio/subtitle language, subtitle mode,
+     * play-default-audio-track and next-episode autoplay.
+     *
+     * Falls back to the local mirror when the server cannot be reached, so an offline launch shows
+     * the user's real preferences rather than the DTO's neutral defaults, and refreshes that mirror
+     * whenever the server does answer. Returns null only when the account has never been seen on
+     * this device.
      */
     suspend fun userConfiguration(): UserConfigurationDto? {
-        return currentUser()?.configuration
+        val userId = sessionStore.current()?.userId
+        val fromServer = currentUser()
+            ?.takeIf { userId == null || it.id == userId }
+            ?.configuration
+        if (fromServer != null) {
+            userConfigurationStore.cache(userId, fromServer)
+            return fromServer
+        }
+        return userConfigurationStore.cachedOrNull(userId)
     }
 
-    override suspend fun preferences(): PlaybackTrackPreferences? =
-        userConfiguration()?.let { configuration ->
-            PlaybackTrackPreferences(
-                playDefaultAudioTrack = configuration.playDefaultAudioTrack,
-                audioLanguagePreference = configuration.audioLanguagePreference,
-                subtitleLanguagePreference = configuration.subtitleLanguagePreference,
-                subtitleMode = configuration.subtitleMode,
-            )
+    /**
+     * Live view of the cached configuration for the active account, for screens that render these
+     * preferences. Emits null until [userConfiguration] or [editUserConfiguration] has populated
+     * the mirror for this account.
+     */
+    val cachedUserConfiguration: Flow<UserConfigurationDto?> =
+        combine(sessionStore.session, userConfigurationStore.cached) { session, stored ->
+            stored?.configuration?.takeIf { session != null && stored.userId == session.userId }
         }
+
+    /**
+     * Feeds [com.maik205.shoumeiplayer.player.TrackSelection] and, through
+     * [ServerTrackPreferences], mpv's own `alang`/`slang` fallback -- one document, so the engine's
+     * fallback can never contradict the stream index the app just chose.
+     */
+    override suspend fun preferences(): PlaybackTrackPreferences? =
+        userConfiguration()?.toTrackPreferences()?.also { ServerTrackPreferences.publish(it) }
 
     suspend fun probeServer(rawUrl: String): ApiResult<PublicSystemInfo> {
         val normalized = normalizeServerUrl(rawUrl)
@@ -268,6 +294,8 @@ class AuthRepository(
                 val configuration = result.data.configuration
                     ?: return ApiResult.Failure(ApiError.Unknown("User response missing configuration"))
                 cachedUser = result.data
+                userConfigurationStore.cache(sessionStore.current()?.userId, configuration)
+                ServerTrackPreferences.publish(configuration.toTrackPreferences())
                 ApiResult.Success(configuration)
             }
         }
@@ -299,9 +327,75 @@ class AuthRepository(
             is ApiResult.Failure -> result
             is ApiResult.Success -> {
                 cachedUser = cachedUser?.copy(configuration = merged)
+                userConfigurationStore.cache(userId, merged)
+                ServerTrackPreferences.publish(merged.toTrackPreferences())
                 ApiResult.Success(merged)
             }
         }
+    }
+
+    /**
+     * Applies a user-facing change to the server-owned preferences.
+     *
+     * Optimistic on purpose: the local mirror, the in-process user cache and the engine's language
+     * fallback are all moved to the new value *before* the network call, so the settings row the
+     * user just changed keeps its new value even on a TV that is offline or on a server that is
+     * slow. If the write does not land, the desired document is queued and
+     * [retryPendingUserConfiguration] replays it; the caller still gets the failure so it can say
+     * the change has not reached the account yet.
+     *
+     * The queued replay re-reads the server first and copies only the fields this app owns onto
+     * it, so a preference another client changed in the meantime is preserved rather than
+     * clobbered by a stale full document.
+     */
+    suspend fun editUserConfiguration(
+        transform: (UserConfigurationDto) -> UserConfigurationDto,
+    ): ApiResult<UserConfigurationDto> {
+        val userId = sessionStore.current()?.userId
+            ?: return ApiResult.Failure(ApiError.Unauthorized)
+        val known = userConfiguration()
+            ?: return ApiResult.Failure(ApiError.Network("No known configuration for this account"))
+        // Fold any still-queued edit into the base first. Without this a new edit is built from a
+        // document that predates the queued one, yet the success path below clears the queue -- so
+        // an earlier offline change would be dropped having never reached the account.
+        val pending = userConfigurationStore.pendingOrNull(userId)
+        val base = pending?.applyOwnedFieldsTo(known) ?: known
+        val desired = transform(base)
+        userConfigurationStore.cache(userId, desired)
+        cachedUser = cachedUser?.copy(configuration = desired)
+        ServerTrackPreferences.publish(desired.toTrackPreferences())
+
+        val result = updateUserConfiguration { current -> desired.applyOwnedFieldsTo(current) }
+        if (result is ApiResult.Failure) {
+            // updateUserConfiguration re-reads the account before writing, and on a GET that
+            // succeeds ahead of a POST that fails that read has already replaced the optimistic
+            // state above with the server's pre-edit document. Restore the viewer's choice on top
+            // of the freshest document we now hold, or the row silently snaps back while the
+            // banner claims the change is merely waiting to be sent.
+            val restored = desired.applyOwnedFieldsTo(
+                userConfigurationStore.cachedOrNull(userId) ?: base,
+            )
+            userConfigurationStore.cache(userId, restored)
+            cachedUser = cachedUser?.copy(configuration = restored)
+            ServerTrackPreferences.publish(restored.toTrackPreferences())
+            userConfigurationStore.queuePending(userId, restored)
+        } else {
+            userConfigurationStore.clearPending(userId)
+        }
+        return result
+    }
+
+    /**
+     * Retry a write-back left queued by an offline or failed [editUserConfiguration]. Mirrors
+     * [retryPendingTokenRevocation]: returns true when nothing is owed or the debt was settled.
+     */
+    suspend fun retryPendingUserConfiguration(): Boolean {
+        val userId = sessionStore.current()?.userId ?: return true
+        val pending = userConfigurationStore.pendingOrNull(userId) ?: return true
+        val result = updateUserConfiguration { current -> pending.applyOwnedFieldsTo(current) }
+        if (result is ApiResult.Failure) return false
+        userConfigurationStore.clearPending(userId)
+        return true
     }
 
     /**
@@ -316,12 +410,24 @@ class AuthRepository(
             client.postEmpty("/Sessions/Logout")
         }
         cachedUser = null
+        clearAccountScopedPreferences()
         sessionStore.clearAuth()
         return result
     }
 
+    /**
+     * A signed-out account's cached preferences (and any write-back still owed for them) must not
+     * outlive the session: the next user on this TV would otherwise briefly see, and mpv would
+     * fall back to, somebody else's languages.
+     */
+    private suspend fun clearAccountScopedPreferences() {
+        userConfigurationStore.clear()
+        ServerTrackPreferences.clear()
+    }
+
     suspend fun logoutLocal() {
         cachedUser = null
+        clearAccountScopedPreferences()
         sessionStore.clearAuth()
     }
 
@@ -348,6 +454,13 @@ class AuthRepository(
             ?: return ApiResult.Failure(ApiError.Network("No server configured"))
         cachedUser = user
         sessionStore.saveAuth(accessToken = accessToken, userId = userId, userName = userName)
+        // The auth response already carries UserConfiguration, so the account's preferences are
+        // mirrored (and the engine fallback primed) from the first screen after sign-in rather
+        // than only once something happens to ask for them.
+        user.configuration?.let { configuration ->
+            userConfigurationStore.cache(userId, configuration)
+            ServerTrackPreferences.publish(configuration.toTrackPreferences())
+        }
         return ApiResult.Success(
             Session(
                 serverUrl = serverUrl,
@@ -374,3 +487,26 @@ class AuthRepository(
         return revoked
     }
 }
+
+/**
+ * The five `UserConfiguration` properties Shoumei's settings screen owns.
+ *
+ * A queued write-back replays only these onto a freshly read server document, so anything else the
+ * account changed elsewhere while this device was offline survives the retry.
+ */
+private fun UserConfigurationDto.applyOwnedFieldsTo(
+    current: UserConfigurationDto,
+): UserConfigurationDto = current.copy(
+    audioLanguagePreference = audioLanguagePreference,
+    subtitleLanguagePreference = subtitleLanguagePreference,
+    subtitleMode = subtitleMode,
+    playDefaultAudioTrack = playDefaultAudioTrack,
+    enableNextEpisodeAutoPlay = enableNextEpisodeAutoPlay,
+)
+
+internal fun UserConfigurationDto.toTrackPreferences() = PlaybackTrackPreferences(
+    playDefaultAudioTrack = playDefaultAudioTrack,
+    audioLanguagePreference = audioLanguagePreference,
+    subtitleLanguagePreference = subtitleLanguagePreference,
+    subtitleMode = subtitleMode,
+)

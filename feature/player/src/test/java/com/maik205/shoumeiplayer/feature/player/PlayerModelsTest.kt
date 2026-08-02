@@ -34,4 +34,11 @@ class PlayerModelsTest {
         assertFalse(isUpNextDue(duration + 1, duration))
         assertFalse(isUpNextDue(1, null))
     }
+
+    @Test
+    fun `resume prompt carries the saved position in milliseconds`() {
+        val prompt = ResumePromptUi(positionMs = 42_000L)
+
+        assertEquals(42_000L, prompt.positionMs)
+    }
 }

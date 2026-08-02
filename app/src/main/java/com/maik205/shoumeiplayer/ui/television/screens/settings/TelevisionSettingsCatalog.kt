@@ -21,6 +21,7 @@ import com.maik205.shoumeiplayer.domain.settings.RefreshRateSwitching
 import com.maik205.shoumeiplayer.domain.settings.RenderingProfile
 import com.maik205.shoumeiplayer.domain.settings.ResumeBehavior
 import com.maik205.shoumeiplayer.domain.settings.ScreensaverContent
+import com.maik205.shoumeiplayer.domain.settings.ServerLanguage
 import com.maik205.shoumeiplayer.domain.settings.SettingsChoices
 import com.maik205.shoumeiplayer.domain.settings.StoredOption
 import com.maik205.shoumeiplayer.domain.settings.SubtitleColor
@@ -125,21 +126,47 @@ internal fun settingsRowsForStrings(
         onClick = onClick,
     )
 
+    /**
+     * An account-level language row. The value comes from Jellyfin's `UserConfiguration`, not from
+     * [ClientSettings], and the write goes straight back to the account so every other client on it
+     * sees the same choice. `null` is the real "no preference" state Jellyfin stores.
+     */
     fun languageRow(
         key: String,
         @StringRes labelRes: Int,
         current: String?,
         onSelect: (String?) -> Unit,
-    ): SettingRowModel = choiceRow(
-        key = key,
-        labelRes = labelRes,
-        current = current,
-        values = SettingsChoices.preferredLanguages,
-        display = { it ?: stringResource(R.string.settings_language_system_default) },
-        onSelect = onSelect,
-    )
+    ): SettingRowModel {
+        val known = ServerLanguage.entries.map(ServerLanguage::storageId)
+        // Jellyfin stores ISO 639-2 here, but older clients wrote two-letter codes, so fold a
+        // recognised alias onto its canonical id for the selection marker to land.
+        val canonical = current?.let { raw -> ServerLanguage.fromStored(raw)?.storageId ?: raw }
+        // An account may hold a language this app has no label for. Offer it as its own choice so
+        // it stays visible and selected, instead of the row reading "System default" over a value
+        // that is really set.
+        val values: List<String?> = buildList {
+            add(null)
+            addAll(known)
+            if (canonical != null && canonical !in known) add(canonical)
+        }
+        return choiceRow(
+            key = key,
+            labelRes = labelRes,
+            current = canonical,
+            values = values,
+            display = { raw ->
+                when (raw) {
+                    null -> stringResource(R.string.settings_language_system_default)
+                    else -> ServerLanguage.fromStored(raw)?.localizedLabel() ?: raw
+                }
+            },
+            onSelect = onSelect,
+        )
+    }
 
     val settings = state.settings
+    val serverPreferences = state.serverPreferences
+    val editServer = state.editServerPreferences::edit
     val rows = when (section) {
         SettingsSection.Playback -> listOf(
             choiceRow(
@@ -167,8 +194,12 @@ internal fun settingsRowsForStrings(
                 display = { it.localizedLabel() },
                 requiredCapability = SettingCapability.RefreshRateSwitching,
             ) { update { current -> current.copy(refreshRateSwitching = it) } },
-            toggleRow("autoplay", R.string.tv_settings_auto_play_next_episode, settings.autoplayNextEpisode) {
-                update { it.copy(autoplayNextEpisode = !it.autoplayNextEpisode) }
+            toggleRow(
+                "autoplay",
+                R.string.tv_settings_auto_play_next_episode,
+                serverPreferences.autoplayNextEpisode,
+            ) {
+                editServer { it.copy(autoplayNextEpisode = !it.autoplayNextEpisode) }
             },
             toggleRow("skip-intro", R.string.tv_settings_skip_intro_prompt, settings.skipIntroPrompt) {
                 update { it.copy(skipIntroPrompt = !it.skipIntroPrompt) }
@@ -255,8 +286,8 @@ internal fun settingsRowsForStrings(
             languageRow(
                 key = "audio-language",
                 labelRes = R.string.tv_settings_preferred_audio_language,
-                current = settings.preferredAudioLanguage,
-            ) { update { current -> current.copy(preferredAudioLanguage = it) } },
+                current = serverPreferences.audioLanguage,
+            ) { selected -> editServer { it.copy(audioLanguage = selected) } },
             toggleRow("remember-series-audio", R.string.tv_settings_keep_audio_language_for_series, settings.rememberSeriesAudio) {
                 update { it.copy(rememberSeriesAudio = !it.rememberSeriesAudio) }
             },
@@ -297,15 +328,15 @@ internal fun settingsRowsForStrings(
             languageRow(
                 key = "subtitle-language",
                 labelRes = R.string.tv_settings_preferred_subtitle_language,
-                current = settings.preferredSubtitleLanguage,
-            ) { update { current -> current.copy(preferredSubtitleLanguage = it) } },
+                current = serverPreferences.subtitleLanguage,
+            ) { selected -> editServer { it.copy(subtitleLanguage = selected) } },
             choiceRow(
                 key = "subtitle-mode",
                 labelRes = R.string.tv_settings_subtitle_mode,
-                current = settings.subtitleMode,
+                current = serverPreferences.subtitleMode,
                 values = SubtitleMode.entries,
                 display = { it.localizedLabel() },
-            ) { update { current -> current.copy(subtitleMode = it) } },
+            ) { selected -> editServer { it.copy(subtitleMode = selected) } },
             choiceRow(
                 key = "burn-subtitles",
                 labelRes = R.string.tv_settings_burn_subtitles,
@@ -576,9 +607,9 @@ internal fun settingsRowsForStrings(
                 },
             ),
             actionRow("switch-profile", R.string.tv_settings_switch_profile, stringResource(R.string.tv_action_switch), onSwitchProfile),
-            toggleRow("kids-mode", R.string.tv_settings_kids_mode, settings.kidsMode) {
-                update { it.copy(kidsMode = !it.kidsMode) }
-            },
+            // No Kids Mode row (#86): the toggle gated nothing -- no rating cap, no library
+            // restriction, no PIN -- and a parental control that enforces nothing is worse than
+            // none, because a caregiver believes it works.
             valueRow("login-method", R.string.tv_settings_login_method, stringResource(R.string.tv_password)),
             actionRow(
                 key = "quick-connect",
@@ -712,10 +743,20 @@ private fun StoredOption.localizedLabelRes(): Int = when (this) {
         SubtitleStroke.Heavy -> R.string.tv_settings_heavy
     }
     is SubtitleMode -> when (this) {
+        // Jellyfin's "Default" means "whatever the media marks as the default subtitle stream",
+        // which is the same idea every other Automatic row on this screen expresses.
+        SubtitleMode.Default -> R.string.tv_settings_automatic
         SubtitleMode.Smart -> R.string.tv_settings_smart
         SubtitleMode.Always -> R.string.tv_settings_always
         SubtitleMode.OnlyForced -> R.string.tv_settings_only_forced
         SubtitleMode.None -> R.string.tv_settings_none
+    }
+    is ServerLanguage -> when (this) {
+        ServerLanguage.English -> R.string.tv_settings_english
+        ServerLanguage.Vietnamese -> R.string.tv_settings_vietnamese
+        ServerLanguage.Japanese -> R.string.tv_settings_japanese
+        ServerLanguage.French -> R.string.tv_settings_french
+        ServerLanguage.German -> R.string.tv_settings_german
     }
     is BurnSubtitles -> when (this) {
         BurnSubtitles.Automatic -> R.string.tv_settings_automatic
@@ -729,6 +770,7 @@ private fun StoredOption.localizedLabelRes(): Int = when (this) {
         AssSsaDirectPlay.Disabled -> R.string.tv_settings_disabled
     }
     is DisplayLanguage -> when (this) {
+        DisplayLanguage.SystemDefault -> R.string.settings_language_system_default
         DisplayLanguage.English -> R.string.tv_settings_english
         DisplayLanguage.Vietnamese -> R.string.tv_settings_vietnamese
         DisplayLanguage.Japanese -> R.string.tv_settings_japanese

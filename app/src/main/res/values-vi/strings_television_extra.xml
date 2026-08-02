@@ -415,7 +415,6 @@
     <string name="tv_settings_hdr_handling">Xử lý HDR</string>
     <string name="tv_settings_image_duration">Thời lượng ảnh</string>
     <string name="tv_settings_keep_audio_language_for_series">Giữ ngôn ngữ âm thanh cho loạt phim</string>
-    <string name="tv_settings_kids_mode">Chế độ trẻ em</string>
     <string name="tv_settings_login_method">Cách đăng nhập</string>
     <string name="tv_settings_maximum_remote_bitrate">Bitrate từ xa tối đa</string>
     <string name="tv_settings_maximum_streaming_bitrate">Bitrate phát tối đa</string>

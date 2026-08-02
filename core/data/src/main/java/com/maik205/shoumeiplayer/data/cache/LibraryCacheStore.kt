@@ -11,6 +11,7 @@ import com.maik205.shoumeiplayer.domain.model.LibraryDestination
 import com.maik205.shoumeiplayer.domain.model.MediaItem
 import com.maik205.shoumeiplayer.domain.model.MediaShelf
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -26,7 +27,15 @@ import java.util.concurrent.atomic.AtomicLong
  * The snapshot is keyed by server and user so switching profiles cannot briefly expose another
  * account's libraries. It is only a bootstrap hint; callers must always refresh it from Jellyfin.
  */
-class LibraryCacheStore(private val store: DataStore<Preferences>) {
+class LibraryCacheStore(
+    private val store: DataStore<Preferences>,
+    /**
+     * Injectable so tests can supply their own scheduler. Serialization parked on the real
+     * [Dispatchers.IO] is invisible to `runTest`, so a ViewModel awaiting it resumes after the test
+     * body has finished and touches `Dispatchers.Main` once `resetMain` has already run.
+     */
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+) {
     private val json = Json {
         ignoreUnknownKeys = true
         encodeDefaults = true
@@ -43,7 +52,7 @@ class LibraryCacheStore(private val store: DataStore<Preferences>) {
     )
 
     suspend fun read(serverUrl: String, userId: String): List<LibraryDestination> {
-        return withContext(Dispatchers.IO) {
+        return withContext(ioDispatcher) {
             val persisted = store.data.first()[Keys.SNAPSHOT]
                 ?.let { encoded -> runCatching { json.decodeFromString<PersistedLibrarySnapshot>(encoded) }.getOrNull() }
                 ?: return@withContext emptyList()
@@ -55,7 +64,7 @@ class LibraryCacheStore(private val store: DataStore<Preferences>) {
     suspend fun write(serverUrl: String, userId: String, libraries: List<LibraryDestination>) {
         val key = "snapshot:$serverUrl:$userId"
         val writeGeneration = generation.incrementAndGet().also { latestGeneration[key] = it }
-        val encoded = withContext(Dispatchers.IO) {
+        val encoded = withContext(ioDispatcher) {
             json.encodeToString(
                 PersistedLibrarySnapshot(
                     serverUrl = serverUrl,
@@ -68,7 +77,7 @@ class LibraryCacheStore(private val store: DataStore<Preferences>) {
     }
 
     suspend fun clear() {
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             store.edit { it.remove(Keys.SNAPSHOT) }
             latestGeneration.clear()
             lastEncoded.clear()
@@ -76,7 +85,7 @@ class LibraryCacheStore(private val store: DataStore<Preferences>) {
     }
 
     suspend fun readHome(serverUrl: String, userId: String): HomeCache? {
-        return withContext(Dispatchers.IO) {
+        return withContext(ioDispatcher) {
             val persisted = store.data.first()[Keys.HOME]
                 ?.let { encoded -> runCatching { json.decodeFromString<PersistedHomeSnapshot>(encoded) }.getOrNull() }
                 ?: return@withContext null
@@ -94,7 +103,7 @@ class LibraryCacheStore(private val store: DataStore<Preferences>) {
     ) {
         val key = "home:$serverUrl:$userId"
         val writeGeneration = generation.incrementAndGet().also { latestGeneration[key] = it }
-        val encoded = withContext(Dispatchers.IO) {
+        val encoded = withContext(ioDispatcher) {
             json.encodeToString(
                 PersistedHomeSnapshot(
                     serverUrl = serverUrl,
@@ -115,7 +124,7 @@ class LibraryCacheStore(private val store: DataStore<Preferences>) {
         sort: String,
         view: String,
     ): LibraryPageCache? {
-        return withContext(Dispatchers.IO) {
+        return withContext(ioDispatcher) {
             val snapshot = store.data.first()[libraryKey(libraryId, sort, view)]
                 ?.let { encoded -> runCatching { json.decodeFromString<PersistedLibraryPage>(encoded) }.getOrNull() }
                 ?: return@withContext null
@@ -137,7 +146,7 @@ class LibraryCacheStore(private val store: DataStore<Preferences>) {
         val preferenceKey = libraryKey(libraryId, sort, view)
         val key = "library:$serverUrl:$userId:$libraryId:$sort:$view"
         val writeGeneration = generation.incrementAndGet().also { latestGeneration[key] = it }
-        val encoded = withContext(Dispatchers.IO) {
+        val encoded = withContext(ioDispatcher) {
             json.encodeToString(
                 PersistedLibraryPage(
                     serverUrl = serverUrl,
@@ -156,7 +165,7 @@ class LibraryCacheStore(private val store: DataStore<Preferences>) {
         writeGeneration: Long,
         preferenceKey: androidx.datastore.preferences.core.Preferences.Key<String>,
         encoded: String,
-    ) = withContext(Dispatchers.IO) {
+    ) = withContext(ioDispatcher) {
         writeMutex.withLock {
             if (latestGeneration[key] != writeGeneration) return@withLock
             if (lastEncoded[key] == encoded) return@withLock

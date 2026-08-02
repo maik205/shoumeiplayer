@@ -14,6 +14,7 @@ import com.maik205.shoumeiplayer.data.api.dto.PlaybackProgressBody
 import com.maik205.shoumeiplayer.data.api.dto.PlaybackStopBody
 import com.maik205.shoumeiplayer.data.api.dto.TrickplayInfoDto
 import com.maik205.shoumeiplayer.data.session.Session
+import com.maik205.shoumeiplayer.domain.settings.ClientSettings
 import com.maik205.shoumeiplayer.domain.settings.DevicePlaybackCapabilities
 import com.maik205.shoumeiplayer.player.ExternalSubtitle
 import com.maik205.shoumeiplayer.player.DEFAULT_MAX_STREAMING_BITRATE
@@ -39,6 +40,10 @@ import com.maik205.shoumeiplayer.player.TrickplaySource
 class PlaybackRepository(
     private val client: JellyfinClient,
     private val deviceCapabilities: () -> DevicePlaybackCapabilities = { DevicePlaybackCapabilities() },
+    // suspend, not a plain lambda: the real source is SettingsStore, whose only reads are
+    // `suspend fun current()` and a cold Flow (DataStore has no synchronous snapshot). `resolve` is
+    // already a suspend function, so nothing is lost by requiring the caller to suspend here too.
+    private val clientSettings: suspend () -> ClientSettings = { ClientSettings() },
 ) : PlaybackReporting, PlaybackResolver {
 
     override suspend fun resolve(request: PlaybackResolutionRequest): ApiResult<ResolvedPlayback> =
@@ -75,7 +80,7 @@ class PlaybackRepository(
         val session = client.currentSession() ?: return ApiResult.Failure(ApiError.Unauthorized)
 
         val body = PlaybackInfoDto(
-            deviceProfile = ShoumeiDeviceProfile.build(deviceCapabilities()),
+            deviceProfile = ShoumeiDeviceProfile.build(deviceCapabilities(), clientSettings()),
             startTimeTicks = startPositionTicks,
             maxStreamingBitrate = maxStreamingBitrate,
             mediaSourceId = mediaSourceId,
@@ -122,7 +127,7 @@ class PlaybackRepository(
                     itemId = itemId,
                     enableDirectPlay = !forceTranscode,
                     enableDirectStream = !forceTranscode,
-                    deviceProfile = ShoumeiDeviceProfile.build(deviceCapabilities()),
+                    deviceProfile = ShoumeiDeviceProfile.build(deviceCapabilities(), clientSettings()),
                 ),
             )
             source = when (opened) {

@@ -5,12 +5,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.domain.result.ApiResult
+import com.maik205.shoumeiplayer.data.api.dto.UserConfigurationDto
 import com.maik205.shoumeiplayer.data.cache.ArtworkCache
 import com.maik205.shoumeiplayer.data.repo.AuthRepository
 import com.maik205.shoumeiplayer.domain.settings.ClientSettings
 import com.maik205.shoumeiplayer.data.session.SessionStore
 import com.maik205.shoumeiplayer.data.session.SettingsStore
 import com.maik205.shoumeiplayer.domain.settings.DevicePlaybackCapabilities
+import com.maik205.shoumeiplayer.domain.settings.ServerLanguage
+import com.maik205.shoumeiplayer.domain.settings.SubtitleMode
+import com.maik205.shoumeiplayer.domain.settings.storedOption
 import com.maik205.shoumeiplayer.ui.i18n.UiText
 import com.maik205.shoumeiplayer.ui.i18n.toUiText
 import kotlinx.coroutines.CancellationException
@@ -31,9 +35,41 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/**
+ * The Jellyfin account preferences the settings screen edits, in UI terms.
+ *
+ * These live on the server, not in [ClientSettings]: the same values drive the Jellyfin web client
+ * and every other device on the account, and they are what `TrackSelection` actually uses to pick a
+ * track. A null language is Jellyfin's real "no preference" state, not missing data.
+ */
+@Immutable
+data class ServerPreferences(
+    /**
+     * The account's raw `AudioLanguagePreference`, not a parsed enum. Jellyfin accepts any ISO 639
+     * code and other clients write ones this app has no label for, so the value is carried through
+     * verbatim: [ServerLanguage] is only a display aid. Parsing here would turn every unrecognised
+     * code into `null` and erase it from the account on the next unrelated edit.
+     */
+    val audioLanguage: String? = null,
+    val subtitleLanguage: String? = null,
+    val subtitleMode: SubtitleMode = SubtitleMode.Default,
+    val playDefaultAudioTrack: Boolean = true,
+    val autoplayNextEpisode: Boolean = true,
+)
+
+/**
+ * Write side for [ServerPreferences], handed to the row catalog inside the state so the screen
+ * composable does not have to thread a second callback through.
+ */
+fun interface ServerPreferenceEditor {
+    fun edit(transform: (ServerPreferences) -> ServerPreferences)
+}
+
 @Immutable
 data class TelevisionSettingsState(
     val settings: ClientSettings = ClientSettings(),
+    val serverPreferences: ServerPreferences = ServerPreferences(),
+    val editServerPreferences: ServerPreferenceEditor = ServerPreferenceEditor {},
     val capabilities: DevicePlaybackCapabilities = DevicePlaybackCapabilities(),
     val userName: String = "",
     val serverUrl: String = "",
@@ -78,14 +114,23 @@ class TelevisionSettingsViewModel(
     private var quickConnectSecret: String? = null
     private var lastRetryAction: (() -> Unit)? = null
 
+    /**
+     * Stable across recompositions on purpose: [TelevisionSettingsState] is `@Immutable`, so a
+     * fresh lambda on every emission would make every row look changed.
+     */
+    private val serverPreferenceEditor = ServerPreferenceEditor(::editServerPreferences)
+
     val state: StateFlow<TelevisionSettingsState> = combine(
         settingsStore.settings,
+        authRepository.cachedUserConfiguration,
         sessionStore.session,
         sessionStore.serverUrl,
         supplement,
-    ) { settings, session, serverUrl, supplement ->
+    ) { settings, configuration, session, serverUrl, supplement ->
         TelevisionSettingsState(
             settings = settings,
+            serverPreferences = configuration.toServerPreferences(),
+            editServerPreferences = serverPreferenceEditor,
             capabilities = capabilities,
             userName = session?.userName.orEmpty(),
             serverUrl = serverUrl.orEmpty(),
@@ -102,7 +147,10 @@ class TelevisionSettingsViewModel(
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = TelevisionSettingsState(capabilities = capabilities),
+        initialValue = TelevisionSettingsState(
+            editServerPreferences = serverPreferenceEditor,
+            capabilities = capabilities,
+        ),
     )
 
     private val _events = MutableSharedFlow<TelevisionSettingsEvent>()
@@ -111,6 +159,13 @@ class TelevisionSettingsViewModel(
     init {
         viewModelScope.launch {
             authRepository.retryPendingTokenRevocation()
+        }
+        viewModelScope.launch {
+            // Opening Settings is the moment the account rows have to be right, so pull the live
+            // document (which refreshes the local mirror the rows render from) and drain any
+            // write-back an earlier offline edit left queued.
+            runCatching { authRepository.refreshUserConfiguration() }
+            runCatching { authRepository.retryPendingUserConfiguration() }
         }
         refreshArtworkCacheSize()
         viewModelScope.launch {
@@ -131,6 +186,48 @@ class TelevisionSettingsViewModel(
                 throw error
             } catch (_: Throwable) {
                 supplement.update { it.copy(error = UiText.Resource(R.string.tv_settings_save_failed)) }
+            }
+        }
+    }
+
+    /**
+     * Writes a server-owned preference back to the Jellyfin account.
+     *
+     * `AuthRepository.editUserConfiguration` moves the local mirror first, so the row shows the new
+     * value straight away; a failure therefore is not "your change was lost" but "your change has
+     * not reached the account yet", which is what the offline banner says. Retry replays the queued
+     * write rather than re-deriving the transform, so it stays correct even after a process death.
+     */
+    private fun editServerPreferences(transform: (ServerPreferences) -> ServerPreferences) {
+        lastRetryAction = ::retryPendingServerPreferences
+        viewModelScope.launch {
+            try {
+                val result = authRepository.editUserConfiguration { configuration ->
+                    transform(configuration.toServerPreferences()).applyTo(configuration)
+                }
+                supplement.update {
+                    it.copy(
+                        error = if (result is ApiResult.Failure) {
+                            UiText.Resource(R.string.tv_settings_offline)
+                        } else {
+                            null
+                        },
+                    )
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Throwable) {
+                supplement.update { it.copy(error = UiText.Resource(R.string.tv_settings_offline)) }
+            }
+        }
+    }
+
+    private fun retryPendingServerPreferences() {
+        viewModelScope.launch {
+            val settled = runCatching { authRepository.retryPendingUserConfiguration() }
+                .getOrDefault(false)
+            supplement.update {
+                it.copy(error = if (settled) null else UiText.Resource(R.string.tv_settings_offline))
             }
         }
     }
@@ -474,3 +571,42 @@ class TelevisionSettingsViewModel(
         const val QUICK_CONNECT_MAX_POLLS = 45
     }
 }
+
+/**
+ * Null means "no configuration for this account has ever reached this device" -- a first launch
+ * that has not talked to the server yet. Jellyfin's own defaults are the honest thing to show
+ * there, and they are exactly [UserConfigurationDto]'s defaults.
+ */
+internal fun UserConfigurationDto?.toServerPreferences(): ServerPreferences {
+    val configuration = this ?: UserConfigurationDto()
+    return ServerPreferences(
+        audioLanguage = configuration.audioLanguagePreference,
+        subtitleLanguage = configuration.subtitleLanguagePreference,
+        subtitleMode = storedOption(
+            configuration.subtitleMode,
+            SubtitleMode.Default,
+            SubtitleMode.entries.toTypedArray(),
+        ),
+        playDefaultAudioTrack = configuration.playDefaultAudioTrack,
+        autoplayNextEpisode = configuration.enableNextEpisodeAutoPlay,
+    )
+}
+
+/**
+ * Folds the edited preferences back onto the live document. Only the five properties this screen
+ * owns are touched -- the other eleven are the server's and must round-trip untouched.
+ *
+ * Choosing an audio language also clears `PlayDefaultAudioTrack`: that flag means "ignore language,
+ * always take the server-marked default track", so leaving it on would make
+ * `TrackSelection.selectAudioIndex` short-circuit past the language the user just picked and the
+ * row would appear to do nothing. With no language chosen the flag is left exactly as the account
+ * has it, since there is then nothing for it to override.
+ */
+internal fun ServerPreferences.applyTo(configuration: UserConfigurationDto): UserConfigurationDto =
+    configuration.copy(
+        audioLanguagePreference = audioLanguage,
+        subtitleLanguagePreference = subtitleLanguage,
+        subtitleMode = subtitleMode.storageId,
+        playDefaultAudioTrack = if (audioLanguage != null) false else configuration.playDefaultAudioTrack,
+        enableNextEpisodeAutoPlay = autoplayNextEpisode,
+    )

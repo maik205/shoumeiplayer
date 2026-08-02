@@ -3,6 +3,7 @@ package com.maik205.shoumeiplayer
 import android.app.Activity
 import android.content.Context
 import android.content.res.Configuration
+import android.content.res.Resources
 import android.os.Build
 import android.os.LocaleList
 import androidx.annotation.RequiresApi
@@ -22,7 +23,11 @@ object AppLocaleManager {
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private fun applyModern(context: Context, language: DisplayLanguage) {
         val localeManager = context.getSystemService(android.app.LocaleManager::class.java)
-        val requested = LocaleList.forLanguageTags(language.storageId)
+        val requested = if (language == DisplayLanguage.SystemDefault) {
+            LocaleList.getEmptyLocaleList()
+        } else {
+            LocaleList.forLanguageTags(language.storageId)
+        }
         if (localeManager.applicationLocales != requested) {
             localeManager.applicationLocales = requested
         }
@@ -30,7 +35,13 @@ object AppLocaleManager {
 
     @Suppress("DEPRECATION")
     private fun applyLegacy(context: Context, language: DisplayLanguage) {
-        val locale = Locale.forLanguageTag(language.storageId)
+        // There is no per-app locale override below API 33, so "system default" means restoring
+        // the device's own configuration locale rather than forcing a specific language.
+        val locale = if (language == DisplayLanguage.SystemDefault) {
+            Resources.getSystem().configuration.locales[0]
+        } else {
+            Locale.forLanguageTag(language.storageId)
+        }
         val current = context.resources.configuration.locales[0]
         if (current.language == locale.language) return
 
