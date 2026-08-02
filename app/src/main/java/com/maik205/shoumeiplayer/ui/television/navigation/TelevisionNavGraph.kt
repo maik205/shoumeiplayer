@@ -302,6 +302,13 @@ fun TelevisionNavGraph(
                             popUpTo(SessionExpiredRoute) { inclusive = true }
                         }
                     },
+                    // Back on an expired session means "pick another account", not "quit".
+                    onBack = {
+                        navController.navigate(ProfilesRoute) {
+                            popUpTo(SessionExpiredRoute) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
                 )
             }
 
@@ -312,6 +319,12 @@ fun TelevisionNavGraph(
                     detail = stringResource(R.string.tv_account_locked_detail),
                     primaryLabel = stringResource(R.string.tv_profiles),
                     onPrimary = {
+                        navController.navigate(ProfilesRoute) {
+                            popUpTo(AccountLockedRoute) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                    onBack = {
                         navController.navigate(ProfilesRoute) {
                             popUpTo(AccountLockedRoute) { inclusive = true }
                             launchSingleTop = true
