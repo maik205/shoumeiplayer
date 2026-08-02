@@ -1,5 +1,5 @@
+<img width="3840" height="1032" alt="Rectangle" src="https://github.com/user-attachments/assets/5e1b4591-6b66-40cc-a9ea-8f538f007217" />
 # Shoumei Player
-
 Shoumei Player is an opinionated Jellyfin client specifically built for Google TVs. The app is written in Kotlin with Jetpack Compose and uses mpv for audio and video playback. I love mpv <3
 
 
