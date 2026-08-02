@@ -80,6 +80,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusScale
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionEmptyState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionErrorState
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusHandoff
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingShape
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingState
 import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
@@ -102,6 +103,9 @@ fun ConnectScreen(
     val firstServerFocus = remember { FocusRequester() }
     val insecureAllowFocus = remember { FocusRequester() }
     var initialFocusAssigned by remember { mutableStateOf(false) }
+    var insecureAllowFocused by remember { mutableStateOf(false) }
+    var insecureCancelFocused by remember { mutableStateOf(false) }
+    var insecureOpener by remember { mutableStateOf<FocusRequester?>(null) }
 
     LaunchedEffect(state.insecureConnection) {
         if (state.insecureConnection != null) {
@@ -109,15 +113,31 @@ fun ConnectScreen(
         }
     }
 
-    LaunchedEffect(state.servers, state.discovering) {
-        if (!state.discovering && !initialFocusAssigned) {
-            if (state.servers.isNotEmpty()) {
-                firstServerFocus.requestFocus()
-            } else if (state.discoveryError == null) {
-                addressFocus.requestFocus()
-            }
-            initialFocusAssigned = true
-        }
+    // Whichever way the confirmation is dismissed -- Cancel, Back, or an Accept that fails --
+    // focus belongs to the control that raised it, not wherever it happens to land.
+    TelevisionFocusHandoff(
+        present = state.insecureConnection != null,
+        focused = insecureAllowFocused || insecureCancelFocused,
+        insecureOpener,
+        addressFocus,
+    )
+
+    BackHandler(enabled = state.insecureConnection != null) {
+        onCancelInsecureConnection()
+    }
+
+    // Claiming the initial focus was a one-way latch, so a discovery error that removed the
+    // original target left the flag set and no later server list or address field was ever
+    // focused. The claim is only recorded once a requester actually accepts it.
+    LaunchedEffect(state.servers, state.discovering, state.discoveryError) {
+        if (state.discovering || initialFocusAssigned) return@LaunchedEffect
+        val target = when {
+            state.servers.isNotEmpty() -> firstServerFocus
+            // A discovery error renders its own Retry, which owns focus; do not fight it.
+            state.discoveryError == null -> addressFocus
+            else -> null
+        } ?: return@LaunchedEffect
+        if (runCatching { target.requestFocus() }.isSuccess) initialFocusAssigned = true
     }
 
     TelevisionBackground(imageUrl = null) {
@@ -193,7 +213,14 @@ fun ConnectScreen(
                         items(state.servers, key = ServerChoiceUi::id) { server ->
                             ServerRow(
                                 server = server,
-                                onClick = { onServerClick(server) },
+                                onClick = {
+                                    insecureOpener = if (server == state.servers.firstOrNull()) {
+                                        firstServerFocus
+                                    } else {
+                                        null
+                                    }
+                                    onServerClick(server)
+                                },
                                 focusRequester = if (server == state.servers.firstOrNull()) firstServerFocus else null,
                             )
                         }
@@ -230,13 +257,19 @@ fun ConnectScreen(
                         value = state.address,
                         onValueChange = onAddressChange,
                         placeholder = stringResource(R.string.tv_server_address_hint),
-                        onDone = onConnect,
+                        onDone = {
+                            insecureOpener = addressFocus
+                            onConnect()
+                        },
                         focusRequester = addressFocus,
                         modifier = Modifier.weight(1f),
                     )
                     Spacer(Modifier.width(12.dp))
                     TelevisionFocusSurface(
-                        onClick = onConnect,
+                        onClick = {
+                            insecureOpener = addressFocus
+                            onConnect()
+                        },
                         enabled = state.address.isNotBlank() && !state.connecting,
                         scaleTo = TelevisionFocusScale.Action,
                         restingAlpha = if (state.address.isBlank()) 0.24f else 0.62f,
@@ -259,7 +292,14 @@ fun ConnectScreen(
 
                 state.insecureConnection?.let { insecureConnection ->
                     Spacer(Modifier.height(18.dp))
-                    Column(modifier = Modifier.focusGroup()) {
+                    // A confirmation that leaves everything behind it reachable is not a
+                    // confirmation. Trapping focus inside it makes Accept and Cancel the only
+                    // two answers, which is what the question implies.
+                    Column(
+                        modifier = Modifier
+                            .focusGroup()
+                            .focusProperties { onExit = { cancelFocusChange() } },
+                    ) {
                         Row(verticalAlignment = Alignment.Top) {
                             Icon(
                                 imageVector = Icons.Default.Warning,
@@ -297,6 +337,7 @@ fun ConnectScreen(
                                 enabled = !state.connecting,
                                 focusRequester = insecureAllowFocus,
                                 expandedWidth = 164.dp,
+                                onFocusChanged = { insecureAllowFocused = it },
                             )
                             TelevisionFocusRevealButton(
                                 label = stringResource(R.string.tv_cancel_insecure_connection),
@@ -304,6 +345,7 @@ fun ConnectScreen(
                                 onClick = onCancelInsecureConnection,
                                 enabled = !state.connecting,
                                 expandedWidth = 116.dp,
+                                onFocusChanged = { insecureCancelFocused = it },
                             )
                         }
                     }
@@ -404,11 +446,23 @@ fun ProfilesScreen(
     }
     val profileRailState = rememberLazyListState()
     var initialProfileFocusAssigned by rememberSaveable { mutableStateOf(false) }
+    var pendingProfileIndex by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(state.profiles) {
         if (state.profiles.isNotEmpty() && !initialProfileFocusAssigned) {
             firstFocus.requestFocus()
             initialProfileFocusAssigned = true
         }
+    }
+
+    // Choosing a passwordless profile disables the whole rail while it authenticates, which takes
+    // focus off the very profile that was chosen. If it then fails, the viewer was left with no
+    // selected profile and no obvious way back to the one they wanted.
+    LaunchedEffect(state.loading, state.error) {
+        if (state.loading) return@LaunchedEffect
+        val index = pendingProfileIndex ?: return@LaunchedEffect
+        pendingProfileIndex = null
+        if (state.error == null) return@LaunchedEffect
+        runCatching { profileFocusRequesters.getOrNull(index)?.requestFocus() }
     }
 
     TelevisionBackground(imageUrl = backdropUrl) {
@@ -488,7 +542,10 @@ fun ProfilesScreen(
                             ) { index, profile ->
                                 ProfileTarget(
                                     profile = profile,
-                                    onClick = { onProfileClick(profile) },
+                                    onClick = {
+                                        pendingProfileIndex = index
+                                        onProfileClick(profile)
+                                    },
                                     enabled = !state.loading,
                                     focusRequester = profileFocusRequesters.getOrNull(index),
                                     modifier = Modifier.televisionHorizontalWrap(
@@ -620,6 +677,17 @@ fun LoginScreen(
 
     LaunchedEffect(Unit) {
         if (state.userName.isBlank()) usernameFocus.requestFocus() else passwordFocus.requestFocus()
+    }
+
+    // Sign In and Quick Connect both make themselves unfocusable while they run, and submitting
+    // the password from the IME clears focus outright. When the attempt then fails, nothing was
+    // asking for focus back and the screen was left with no selected control at all. Put the
+    // viewer on the button that failed, once it can accept focus again.
+    LaunchedEffect(state.signingIn, state.quickConnectLoading, state.error) {
+        if (state.error == null || state.signingIn || state.quickConnectLoading) {
+            return@LaunchedEffect
+        }
+        runCatching { signInFocus.requestFocus() }
     }
 
     TelevisionBackground(imageUrl = backdropUrl) {
@@ -819,11 +887,16 @@ fun RecoveryScreen(
     BackHandler(onBack = onBack)
 
     val usernameFocus = remember { FocusRequester() }
-    val resultFocus = remember { FocusRequester() }
+    val backFocus = remember { FocusRequester() }
+    val requestFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { usernameFocus.requestFocus() }
-    LaunchedEffect(state.result, state.error) {
-        if (state.result != null || state.error != null) {
-            runCatching { resultFocus.requestFocus() }
+    // The outcome used to be delivered by focusing the result text itself: a node with no focus
+    // affordance, no action, and no directional contract, which is indistinguishable from a dead
+    // remote. The request action is disabled while the request runs, so focus also had nowhere to
+    // come back to. Land on that action instead, once it can accept focus again.
+    LaunchedEffect(state.result, state.error, state.requesting) {
+        if (!state.requesting && (state.result != null || state.error != null)) {
+            runCatching { requestFocus.requestFocus() }
         }
     }
 
@@ -834,12 +907,14 @@ fun RecoveryScreen(
                 icon = Icons.AutoMirrored.Filled.ArrowBack,
                 onClick = onBack,
                 expandedWidth = 106.dp,
+                focusRequester = backFocus,
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(
                         start = TelevisionDimensions.SafeHorizontal,
                         top = TelevisionDimensions.SafeTop,
-                    ),
+                    )
+                    .focusProperties { down = usernameFocus },
             )
             Row(
                 modifier = Modifier
@@ -886,6 +961,8 @@ fun RecoveryScreen(
                         onClick = onRequestReset,
                         enabled = state.userName.isNotBlank() && !state.requesting,
                         expandedWidth = 154.dp,
+                        focusRequester = requestFocus,
+                        modifier = Modifier.focusProperties { up = usernameFocus },
                     )
                     if (state.requesting) {
                         Spacer(Modifier.height(16.dp))
@@ -905,9 +982,6 @@ fun RecoveryScreen(
                             } else {
                                 TelevisionTheme.colors.PaperMuted
                             },
-                            modifier = Modifier
-                                .focusRequester(resultFocus)
-                                .focusable(),
                         )
                     }
                 }
@@ -925,9 +999,13 @@ fun CompactStateScreen(
     onPrimary: () -> Unit,
     secondaryLabel: String? = null,
     onSecondary: (() -> Unit)? = null,
+    onBack: (() -> Unit)? = null,
 ) {
     val primaryFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { primaryFocus.requestFocus() }
+    // These screens replace the whole back stack, so without a policy of their own Back left the
+    // application entirely rather than offering another way to sign in.
+    if (onBack != null) BackHandler(onBack = onBack)
 
     TelevisionBackground(imageUrl = backdropUrl) {
         Column(
