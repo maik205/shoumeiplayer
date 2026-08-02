@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -47,7 +48,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import com.maik205.shoumeiplayer.di.LocalAppContainer
 import com.maik205.shoumeiplayer.domain.model.DetailMediaStream
+import com.maik205.shoumeiplayer.domain.settings.ClientSettings
 import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionBackground
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionEmptyState
@@ -56,8 +59,9 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealB
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingShape
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
+import com.maik205.shoumeiplayer.ui.television.theme.televisionTypography
 
 @Composable
 internal fun DetailHero(
@@ -100,6 +104,14 @@ internal fun DetailHero(
         subtitleOptions += stream.streamLabel(subtitleFallbackLabel)
     }
 
+    // Same seam as TelevisionHomeScreen/TelevisionLibraryScreen: read the store directly so
+    // "Interface scale" (#89) reaches the detail hero's text without threading a ClientSettings
+    // field through TelevisionDetailState.
+    val settingsStore = LocalAppContainer.current.settingsStore
+    val settingsDefaults = remember { ClientSettings() }
+    val settings by settingsStore.settings.collectAsState(initial = settingsDefaults)
+
+    MaterialTheme(typography = televisionTypography(settings.interfaceScale)) {
     Box(
         modifier = modifier.fillMaxWidth(),
     ) {
@@ -122,7 +134,7 @@ internal fun DetailHero(
             Text(
                 text = detailEyebrow(state),
                 style = MaterialTheme.typography.labelLarge,
-                color = TelevisionColors.PaperMuted,
+                color = TelevisionTheme.colors.PaperMuted,
             )
             Spacer(Modifier.height(6.dp))
             Text(
@@ -138,7 +150,7 @@ internal fun DetailHero(
                 Text(
                     text = metadata.take(5).joinToString("   "),
                     style = MaterialTheme.typography.bodySmall,
-                    color = TelevisionColors.PaperMuted,
+                    color = TelevisionTheme.colors.PaperMuted,
                     maxLines = 1,
                 )
             }
@@ -148,7 +160,7 @@ internal fun DetailHero(
                     text = overview,
                     modifier = Modifier.width(540.dp),
                     style = MaterialTheme.typography.bodyLarge,
-                    color = TelevisionColors.PaperSoft,
+                    color = TelevisionTheme.colors.PaperSoft,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -264,6 +276,7 @@ internal fun DetailHero(
                 alignment = Alignment.Center,
             )
         }
+    }
     }
 }
 

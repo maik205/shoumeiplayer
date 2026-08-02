@@ -113,10 +113,30 @@ import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDesti
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import com.maik205.shoumeiplayer.domain.model.MediaShelf as MediaShelfUi
 import com.maik205.shoumeiplayer.R
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+
+/**
+ * Applies the Settings > Interface > "Backdrop images" toggle (#89) to a hero's ambient background:
+ * `null` makes [com.maik205.shoumeiplayer.ui.television.components.TelevisionBackground] fall back
+ * to its plain background instead of loading and cross-fading [url]. Shared by
+ * [TelevisionHomeScreen] and `TelevisionLibraryScreen`'s music view, which are the two screens in
+ * this package that mount a backdrop hero.
+ */
+internal fun resolveBackdropUrl(url: String?, backdropImagesEnabled: Boolean): String? =
+    url.takeIf { backdropImagesEnabled }
+
+/**
+ * Applies the Settings > Interface > "Watched indicators" toggle (#89) to a single tile's display
+ * state: [TelevisionMediaTile] reads [MediaItemUi.watched] for both the checkmark badge and the
+ * dimmed resting alpha, and there is no separate prop to turn just those off, so the item handed to
+ * the tile is the seam. Kept as a standalone function (rather than inline at the call site) so the
+ * ON/OFF difference is directly testable without rendering Compose.
+ */
+internal fun MediaItemUi.withWatchedIndicatorPreference(enabled: Boolean): MediaItemUi =
+    if (enabled || !watched) this else copy(watched = false)
 
 @Composable
 internal fun HomeHero(
@@ -173,7 +193,7 @@ internal fun HomeHero(
                     Text(
                         text = hero.item.metadata.take(4).joinToString("  ·  "),
                         style = MaterialTheme.typography.bodySmall,
-                        color = TelevisionColors.PaperMuted,
+                        color = TelevisionTheme.colors.PaperMuted,
                         maxLines = 1,
                     )
                 }
@@ -182,7 +202,7 @@ internal fun HomeHero(
             Text(
                 text = hero.item.metadata.take(4).joinToString("  ·  "),
                 style = MaterialTheme.typography.bodySmall,
-                color = TelevisionColors.PaperMuted,
+                color = TelevisionTheme.colors.PaperMuted,
                 maxLines = 1,
             )
         }
@@ -246,9 +266,9 @@ internal fun CompactHomeHero(
             .height(66.dp)
             .background(
                 Brush.verticalGradient(
-                    0f to TelevisionColors.Black.copy(alpha = 0.96f),
-                    0.68f to TelevisionColors.Black.copy(alpha = 0.78f),
-                    1f to TelevisionColors.Black.copy(alpha = 0.08f),
+                    0f to TelevisionTheme.colors.Black.copy(alpha = 0.96f),
+                    0.68f to TelevisionTheme.colors.Black.copy(alpha = 0.78f),
+                    1f to TelevisionTheme.colors.Black.copy(alpha = 0.08f),
                 ),
             )
             .padding(
@@ -289,7 +309,7 @@ internal fun CompactHomeHero(
                 Text(
                     text = hero.item.metadata.take(4).joinToString("   "),
                     style = MaterialTheme.typography.bodySmall,
-                    color = TelevisionColors.PaperMuted,
+                    color = TelevisionTheme.colors.PaperMuted,
                     maxLines = 1,
                 )
             }
@@ -306,6 +326,7 @@ internal fun HomeShelf(
     firstItemFocusRequester: FocusRequester?,
     onFocused: (MediaItemUi) -> Unit,
     onClick: (MediaItemUi) -> Unit,
+    watchedIndicatorsEnabled: Boolean = true,
 ) {
     // Keep the remember key allocation-free. The previous `items.map { id }` created a temporary
     // list on every recomposition before Compose could decide whether the rail changed.
@@ -350,9 +371,13 @@ internal fun HomeShelf(
             ) { itemIndex ->
                 val item = shelf.items[itemIndex]
                 TelevisionMediaTile(
-                    item = item,
+                    // Only the tile's own visual state (the checkmark badge and its dimming) reads
+                    // watchedIndicatorsEnabled -- onClick/onFocused below still hand callers the real
+                    // item, so turning the indicator off cannot make the rest of the app forget a
+                    // title was actually watched (#89).
+                    item = item.withWatchedIndicatorPreference(watchedIndicatorsEnabled),
                     onClick = { onClick(item) },
-                    onFocused = onFocused,
+                    onFocused = { onFocused(item) },
                     focusRequester = railFocusRequesters.getOrNull(itemIndex),
                     bringIntoViewOnFocus = !(firstRail && itemIndex == 0),
                     modifier = Modifier

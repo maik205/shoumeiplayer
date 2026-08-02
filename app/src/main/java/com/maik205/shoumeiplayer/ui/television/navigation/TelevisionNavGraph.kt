@@ -61,12 +61,13 @@ import com.maik205.shoumeiplayer.ui.television.screens.onboarding.RecoveryScreen
 import com.maik205.shoumeiplayer.ui.television.screens.onboarding.TelevisionLoginViewModel
 import com.maik205.shoumeiplayer.ui.television.screens.onboarding.TelevisionRecoveryViewModel
 import com.maik205.shoumeiplayer.ui.television.screens.player.TelevisionPlayerScreen
+import com.maik205.shoumeiplayer.ui.television.screens.screensaver.ScreensaverHost
 import com.maik205.shoumeiplayer.ui.television.screens.search.TelevisionSearchViewModel
 import com.maik205.shoumeiplayer.ui.television.screens.settings.TelevisionSettingsEvent
 import com.maik205.shoumeiplayer.ui.television.screens.settings.TelevisionSettingsScreen
 import com.maik205.shoumeiplayer.ui.television.screens.settings.TelevisionSettingsViewModel
 import com.maik205.shoumeiplayer.ui.television.screens.browse.TelevisionSearchScreen
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import com.maik205.shoumeiplayer.ui.i18n.resolve
 
 private val TelevisionEnter: EnterTransition = fadeIn(tween(100))
@@ -90,7 +91,7 @@ fun TelevisionNavGraph(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(TelevisionColors.Black),
+                .background(TelevisionTheme.colors.Black),
         ) {
             TelevisionLoadingState(
                 label = stringResource(R.string.tv_opening_shoumei),
@@ -105,7 +106,7 @@ fun TelevisionNavGraph(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(TelevisionColors.Black),
+                .background(TelevisionTheme.colors.Black),
         ) {
             Column(
                 modifier = Modifier
@@ -162,386 +163,390 @@ fun TelevisionNavGraph(
         }
     }
 
-    NavHost(
-        navController = navController,
-        startDestination = startRoute,
-        enterTransition = { TelevisionEnter },
-        exitTransition = { TelevisionExit },
-        popEnterTransition = { TelevisionEnter },
-        popExitTransition = { TelevisionExit },
-    ) {
-        composable<ConnectRoute> {
-            val viewModel = containerViewModel { container ->
-                ConnectViewModel(container.authRepository, container.discoveryRepository)
-            }
-            val state by viewModel.state.collectAsStateWithLifecycle()
-            LaunchedEffect(viewModel) {
-                viewModel.events.collect { event ->
-                    if (event is ConnectEvent.Connected) {
-                        if (event.resumeSession) {
-                            navController.navigate(HomeRoute) {
-                                popUpTo(ConnectRoute) { inclusive = true }
+    // The screensaver wraps the whole navigation graph so idle detection and dismissal are
+    // one concern owned in one place, rather than something every destination has to remember.
+    ScreensaverHost {
+        NavHost(
+            navController = navController,
+            startDestination = startRoute,
+            enterTransition = { TelevisionEnter },
+            exitTransition = { TelevisionExit },
+            popEnterTransition = { TelevisionEnter },
+            popExitTransition = { TelevisionExit },
+        ) {
+            composable<ConnectRoute> {
+                val viewModel = containerViewModel { container ->
+                    ConnectViewModel(container.authRepository, container.discoveryRepository)
+                }
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                LaunchedEffect(viewModel) {
+                    viewModel.events.collect { event ->
+                        if (event is ConnectEvent.Connected) {
+                            if (event.resumeSession) {
+                                navController.navigate(HomeRoute) {
+                                    popUpTo(ConnectRoute) { inclusive = true }
+                                }
+                            } else {
+                                navController.navigate(ProfilesRoute) {
+                                    popUpTo(ConnectRoute) { inclusive = true }
+                                }
                             }
-                        } else {
+                        }
+                    }
+                }
+                ConnectScreen(
+                    state = state,
+                    onAddressChange = viewModel::setAddress,
+                    onRefresh = viewModel::refresh,
+                    onServerClick = viewModel::connectSelected,
+                    onConnect = viewModel::connectManual,
+                    onRetryConnection = viewModel::retryConnection,
+                    onAcceptInsecureConnection = viewModel::acceptInsecureConnection,
+                    onCancelInsecureConnection = viewModel::cancelInsecureConnection,
+                )
+            }
+
+            composable<ProfilesRoute> {
+                val viewModel = containerViewModel { container ->
+                    ProfilesViewModel(container.authRepository, container.imageUrlBuilder)
+                }
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                LaunchedEffect(viewModel) {
+                    viewModel.events.collect { event ->
+                        when (event) {
+                            ProfilesEvent.Home -> navController.navigate(HomeRoute) {
+                                popUpTo(0) { inclusive = true }
+                            }
+                            is ProfilesEvent.Login -> navController.navigate(LoginRoute(event.userName)) {
+                                launchSingleTop = true
+                            }
+                        }
+                    }
+                }
+                ProfilesScreen(
+                    state = state,
+                    backdropUrl = container.imageUrlBuilder.serverSplashscreen(),
+                    onProfileClick = viewModel::choose,
+                    onRetry = viewModel::retry,
+                    onAnotherAccount = viewModel::useAnotherAccount,
+                    onBack = {
+                        navController.navigate(ConnectRoute) {
+                            popUpTo(0) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                )
+            }
+
+            composable<LoginRoute> { entry ->
+                val route = entry.toRoute<LoginRoute>()
+                val viewModel = containerViewModel { container ->
+                    TelevisionLoginViewModel(container.authRepository, route.userName)
+                }
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                LaunchedEffect(viewModel) {
+                    viewModel.events.collect { event ->
+                        when (event) {
+                            LoginEvent.Home -> navController.navigate(HomeRoute) {
+                                popUpTo(0) { inclusive = true }
+                            }
+                            LoginEvent.AccountLocked -> navController.navigate(AccountLockedRoute) {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
+                    }
+                }
+                LoginScreen(
+                    state = state,
+                    backdropUrl = container.imageUrlBuilder.serverSplashscreen(),
+                    onUserNameChange = viewModel::setUserName,
+                    onPasswordChange = viewModel::setPassword,
+                    onSignIn = viewModel::signIn,
+                    onQuickConnect = viewModel::generateQuickConnect,
+                    onForgotPassword = {
+                        navController.navigate(RecoveryRoute(state.userName))
+                    },
+                    onBack = {
+                        if (!navController.popBackStack()) {
                             navController.navigate(ProfilesRoute) {
-                                popUpTo(ConnectRoute) { inclusive = true }
+                                popUpTo(0) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        }
+                    },
+                )
+            }
+
+            composable<RecoveryRoute> { entry ->
+                val route = entry.toRoute<RecoveryRoute>()
+                val viewModel = containerViewModel { container ->
+                    TelevisionRecoveryViewModel(container.authRepository, route.userName)
+                }
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                RecoveryScreen(
+                    state = state,
+                    backdropUrl = container.imageUrlBuilder.serverSplashscreen(),
+                    onUserNameChange = viewModel::setUserName,
+                    onRequestReset = viewModel::requestReset,
+                    onBack = navController::popBackStack,
+                )
+            }
+
+            composable<SessionExpiredRoute> {
+                CompactStateScreen(
+                    title = stringResource(R.string.tv_session_expired_title),
+                    backdropUrl = container.imageUrlBuilder.serverSplashscreen(),
+                    detail = stringResource(R.string.tv_session_expired_detail),
+                    primaryLabel = stringResource(R.string.tv_sign_in_again),
+                    onPrimary = {
+                        navController.navigate(LoginRoute()) {
+                            popUpTo(SessionExpiredRoute) { inclusive = true }
+                        }
+                    },
+                    secondaryLabel = stringResource(R.string.tv_profiles),
+                    onSecondary = {
+                        navController.navigate(ProfilesRoute) {
+                            popUpTo(SessionExpiredRoute) { inclusive = true }
+                        }
+                    },
+                )
+            }
+
+            composable<AccountLockedRoute> {
+                CompactStateScreen(
+                    title = stringResource(R.string.tv_account_locked_title),
+                    backdropUrl = container.imageUrlBuilder.serverSplashscreen(),
+                    detail = stringResource(R.string.tv_account_locked_detail),
+                    primaryLabel = stringResource(R.string.tv_profiles),
+                    onPrimary = {
+                        navController.navigate(ProfilesRoute) {
+                            popUpTo(AccountLockedRoute) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                )
+            }
+
+            composable<HomeRoute> {
+                val viewModel = containerViewModel { container ->
+                    TelevisionHomeViewModel(
+                        catalog = container.mediaCatalog,
+                        sessionStore = container.sessionStore,
+                        settingsStore = container.settingsStore,
+                        libraryCacheStore = container.libraryCacheStore,
+                        preferenceStore = container.preferenceStore,
+                    )
+                }
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                // "Remember last library" (#88): once per Home visit, if the toggle is on and the
+                // remembered library still exists, send the viewer straight there. Keyed on the
+                // restoreLibrary value itself, so this fires exactly once -- consuming it clears the
+                // state field, and an unchanged (already-null) key never re-triggers the effect.
+                LaunchedEffect(state.restoreLibrary) {
+                    state.restoreLibrary?.let { library ->
+                        viewModel.consumeRestoreLibrary()
+                        navController.navigateLibrary(library)
+                    }
+                }
+                TelevisionHomeScreen(
+                    state = state,
+                    userName = shell.userName,
+                    avatarUrl = shell.avatarUrl,
+                    onRefresh = {
+                        viewModel.refresh()
+                        shellViewModel.refreshLibraries()
+                    },
+                    onItemFocused = viewModel::focus,
+                    onOpenItem = { navController.navigate(DetailRoute(it.id)) },
+                    onPlay = { media -> navController.navigate(media.toPlayerRoute()) },
+                    onToggleFavorite = viewModel::toggleFavorite,
+                    onNavigateHome = {},
+                    onNavigateSearch = { navController.navigateTop(SearchRoute) },
+                    onNavigateLibrary = { navController.navigateLibrary(it) },
+                    onNavigateSettings = { navController.navigateTop(SettingsRoute) },
+                    onNavigateProfile = { navController.navigate(ProfilesRoute) },
+                    navigationState = topNavigationState,
+                )
+            }
+
+            composable<SearchRoute> {
+                val viewModel = containerViewModel { container ->
+                    TelevisionSearchViewModel(container.mediaCatalog)
+                }
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                TelevisionSearchScreen(
+                    query = state.query,
+                    searching = state.searching,
+                    results = state.results,
+                    error = state.error,
+                    resultLimitReached = state.resultLimitReached,
+                    onQueryChange = viewModel::setQuery,
+                    onRetry = viewModel::retry,
+                    onOpenItem = { navController.navigate(DetailRoute(it.id)) },
+                    onBack = navController::popBackStack,
+                    libraries = shell.libraries,
+                    userName = shell.userName,
+                    avatarUrl = shell.avatarUrl,
+                    onNavigateHome = { navController.navigateTop(HomeRoute) },
+                    onNavigateLibrary = { navController.navigateLibrary(it) },
+                    onNavigateSettings = { navController.navigateTop(SettingsRoute) },
+                    onNavigateProfile = { navController.navigate(ProfilesRoute) },
+                    navigationState = topNavigationState,
+                )
+            }
+
+            composable<LibraryRoute> { entry ->
+                val route = entry.toRoute<LibraryRoute>()
+                val viewModel = containerViewModel { container ->
+                    TelevisionLibraryViewModel(
+                        catalog = container.mediaCatalog,
+                        sessionStore = container.sessionStore,
+                        settingsStore = container.settingsStore,
+                        libraryCacheStore = container.libraryCacheStore,
+                        preferenceStore = container.preferenceStore,
+                        libraryId = route.libraryId,
+                        title = route.title,
+                        collectionType = route.collectionType,
+                    )
+                }
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                TelevisionLibraryScreen(
+                    state = state,
+                    libraryId = route.libraryId,
+                    libraries = shell.libraries,
+                    userName = shell.userName,
+                    avatarUrl = shell.avatarUrl,
+                    onRetry = viewModel::reload,
+                    onLoadMore = viewModel::loadMore,
+                    onSetSort = viewModel::setSort,
+                    onSetView = viewModel::setView,
+                    onOpenItem = { media ->
+                        if (media.type == "Audio") {
+                            navController.navigate(media.toPlayerRoute())
+                        } else {
+                            navController.navigate(DetailRoute(media.id))
+                        }
+                    },
+                    onNavigateHome = { navController.navigateTop(HomeRoute) },
+                    onNavigateSearch = { navController.navigateTop(SearchRoute) },
+                    onNavigateLibrary = { navController.navigateLibrary(it) },
+                    onNavigateSettings = { navController.navigateTop(SettingsRoute) },
+                    onNavigateProfile = { navController.navigate(ProfilesRoute) },
+                    navigationState = topNavigationState,
+                )
+            }
+
+            composable<DetailRoute> { entry ->
+                val route = entry.toRoute<DetailRoute>()
+                DetailDestination(
+                    itemId = route.itemId,
+                    navController = navController,
+                )
+            }
+
+            composable<PersonRoute> { entry ->
+                val route = entry.toRoute<PersonRoute>()
+                DetailDestination(
+                    itemId = route.personId,
+                    navController = navController,
+                )
+            }
+
+            composable<LiveTvRoute> {
+                val viewModel = containerViewModel { container ->
+                    TelevisionLiveViewModel(container.libraryRepository, container.imageUrlBuilder)
+                }
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                TelevisionLiveScreen(
+                    state = state,
+                    onBack = navController::popBackStack,
+                    onRefresh = viewModel::refresh,
+                    onFocusProgram = viewModel::focus,
+                    onOpenProgram = { navController.navigate(DetailRoute(it.id)) },
+                    onPlay = { navController.navigate(it.toPlayerRoute()) },
+                    libraries = shell.libraries,
+                    userName = shell.userName,
+                    avatarUrl = shell.avatarUrl,
+                    onNavigateHome = { navController.navigateTop(HomeRoute) },
+                    onNavigateSearch = { navController.navigateTop(SearchRoute) },
+                    onNavigateLibrary = { navController.navigateLibrary(it) },
+                    onNavigateSettings = { navController.navigateTop(SettingsRoute) },
+                    onNavigateProfile = { navController.navigate(ProfilesRoute) },
+                    navigationState = topNavigationState,
+                )
+            }
+
+            composable<SettingsRoute> {
+                val viewModel = containerViewModel { container ->
+                    TelevisionSettingsViewModel(
+                        settingsStore = container.settingsStore,
+                        sessionStore = container.sessionStore,
+                        authRepository = container.authRepository,
+                        artworkCache = container.artworkCache,
+                        capabilities = container.devicePlaybackCapabilities,
+                    )
+                }
+                val state by viewModel.state.collectAsStateWithLifecycle()
+                val context = LocalContext.current
+                LaunchedEffect(viewModel) {
+                    viewModel.events.collect { event ->
+                        when (event) {
+                            TelevisionSettingsEvent.Profiles -> navController.navigate(ProfilesRoute) {
+                                popUpTo(0) { inclusive = true }
+                            }
+                            TelevisionSettingsEvent.Connect -> navController.navigate(ConnectRoute) {
+                                popUpTo(0) { inclusive = true }
+                            }
+                            is TelevisionSettingsEvent.CacheMessage -> {
+                                Toast.makeText(context, event.message.resolve(context), Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
                 }
-            }
-            ConnectScreen(
-                state = state,
-                onAddressChange = viewModel::setAddress,
-                onRefresh = viewModel::refresh,
-                onServerClick = viewModel::connectSelected,
-                onConnect = viewModel::connectManual,
-                onRetryConnection = viewModel::retryConnection,
-                onAcceptInsecureConnection = viewModel::acceptInsecureConnection,
-                onCancelInsecureConnection = viewModel::cancelInsecureConnection,
-            )
-        }
-
-        composable<ProfilesRoute> {
-            val viewModel = containerViewModel { container ->
-                ProfilesViewModel(container.authRepository, container.imageUrlBuilder)
-            }
-            val state by viewModel.state.collectAsStateWithLifecycle()
-            LaunchedEffect(viewModel) {
-                viewModel.events.collect { event ->
-                    when (event) {
-                        ProfilesEvent.Home -> navController.navigate(HomeRoute) {
-                            popUpTo(0) { inclusive = true }
-                        }
-                        is ProfilesEvent.Login -> navController.navigate(LoginRoute(event.userName)) {
-                            launchSingleTop = true
-                        }
-                    }
-                }
-            }
-            ProfilesScreen(
-                state = state,
-                backdropUrl = container.imageUrlBuilder.serverSplashscreen(),
-                onProfileClick = viewModel::choose,
-                onRetry = viewModel::retry,
-                onAnotherAccount = viewModel::useAnotherAccount,
-                onBack = {
-                    navController.navigate(ConnectRoute) {
-                        popUpTo(0) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                },
-            )
-        }
-
-        composable<LoginRoute> { entry ->
-            val route = entry.toRoute<LoginRoute>()
-            val viewModel = containerViewModel { container ->
-                TelevisionLoginViewModel(container.authRepository, route.userName)
-            }
-            val state by viewModel.state.collectAsStateWithLifecycle()
-            LaunchedEffect(viewModel) {
-                viewModel.events.collect { event ->
-                    when (event) {
-                        LoginEvent.Home -> navController.navigate(HomeRoute) {
-                            popUpTo(0) { inclusive = true }
-                        }
-                        LoginEvent.AccountLocked -> navController.navigate(AccountLockedRoute) {
-                            popUpTo(0) { inclusive = true }
-                        }
-                    }
-                }
-            }
-            LoginScreen(
-                state = state,
-                backdropUrl = container.imageUrlBuilder.serverSplashscreen(),
-                onUserNameChange = viewModel::setUserName,
-                onPasswordChange = viewModel::setPassword,
-                onSignIn = viewModel::signIn,
-                onQuickConnect = viewModel::generateQuickConnect,
-                onForgotPassword = {
-                    navController.navigate(RecoveryRoute(state.userName))
-                },
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(ProfilesRoute) {
-                            popUpTo(0) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    }
-                },
-            )
-        }
-
-        composable<RecoveryRoute> { entry ->
-            val route = entry.toRoute<RecoveryRoute>()
-            val viewModel = containerViewModel { container ->
-                TelevisionRecoveryViewModel(container.authRepository, route.userName)
-            }
-            val state by viewModel.state.collectAsStateWithLifecycle()
-            RecoveryScreen(
-                state = state,
-                backdropUrl = container.imageUrlBuilder.serverSplashscreen(),
-                onUserNameChange = viewModel::setUserName,
-                onRequestReset = viewModel::requestReset,
-                onBack = navController::popBackStack,
-            )
-        }
-
-        composable<SessionExpiredRoute> {
-            CompactStateScreen(
-                title = stringResource(R.string.tv_session_expired_title),
-                backdropUrl = container.imageUrlBuilder.serverSplashscreen(),
-                detail = stringResource(R.string.tv_session_expired_detail),
-                primaryLabel = stringResource(R.string.tv_sign_in_again),
-                onPrimary = {
-                    navController.navigate(LoginRoute()) {
-                        popUpTo(SessionExpiredRoute) { inclusive = true }
-                    }
-                },
-                secondaryLabel = stringResource(R.string.tv_profiles),
-                onSecondary = {
-                    navController.navigate(ProfilesRoute) {
-                        popUpTo(SessionExpiredRoute) { inclusive = true }
-                    }
-                },
-            )
-        }
-
-        composable<AccountLockedRoute> {
-            CompactStateScreen(
-                title = stringResource(R.string.tv_account_locked_title),
-                backdropUrl = container.imageUrlBuilder.serverSplashscreen(),
-                detail = stringResource(R.string.tv_account_locked_detail),
-                primaryLabel = stringResource(R.string.tv_profiles),
-                onPrimary = {
-                    navController.navigate(ProfilesRoute) {
-                        popUpTo(AccountLockedRoute) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                },
-            )
-        }
-
-        composable<HomeRoute> {
-            val viewModel = containerViewModel { container ->
-                TelevisionHomeViewModel(
-                    catalog = container.mediaCatalog,
-                    sessionStore = container.sessionStore,
-                    settingsStore = container.settingsStore,
-                    libraryCacheStore = container.libraryCacheStore,
-                    preferenceStore = container.preferenceStore,
+                TelevisionSettingsScreen(
+                    state = state,
+                    libraries = shell.libraries,
+                    avatarUrl = shell.avatarUrl,
+                    onUpdate = viewModel::update,
+                    onSignOut = viewModel::signOut,
+                    onChangeServer = viewModel::changeServer,
+                    onForgetServer = viewModel::forgetServer,
+                    onSwitchProfile = viewModel::switchProfile,
+                    onTestConnection = viewModel::testConnection,
+                    onRefreshLibraries = shellViewModel::refreshLibraries,
+                    libraryRefreshing = shell.loadingLibraries,
+                    libraryRefreshError = shell.error,
+                    onRetrySettings = viewModel::retryLastUpdate,
+                    onQuickConnect = viewModel::generateQuickConnect,
+                    onClearArtworkCache = viewModel::clearArtworkCache,
+                    onNavigateHome = { navController.navigateTop(HomeRoute) },
+                    onNavigateSearch = { navController.navigateTop(SearchRoute) },
+                    onNavigateLibrary = { navController.navigateLibrary(it) },
+                    onNavigateProfile = { navController.navigate(ProfilesRoute) },
+                    navigationState = topNavigationState,
                 )
             }
-            val state by viewModel.state.collectAsStateWithLifecycle()
-            // "Remember last library" (#88): once per Home visit, if the toggle is on and the
-            // remembered library still exists, send the viewer straight there. Keyed on the
-            // restoreLibrary value itself, so this fires exactly once -- consuming it clears the
-            // state field, and an unchanged (already-null) key never re-triggers the effect.
-            LaunchedEffect(state.restoreLibrary) {
-                state.restoreLibrary?.let { library ->
-                    viewModel.consumeRestoreLibrary()
-                    navController.navigateLibrary(library)
-                }
-            }
-            TelevisionHomeScreen(
-                state = state,
-                userName = shell.userName,
-                avatarUrl = shell.avatarUrl,
-                onRefresh = {
-                    viewModel.refresh()
-                    shellViewModel.refreshLibraries()
-                },
-                onItemFocused = viewModel::focus,
-                onOpenItem = { navController.navigate(DetailRoute(it.id)) },
-                onPlay = { media -> navController.navigate(media.toPlayerRoute()) },
-                onToggleFavorite = viewModel::toggleFavorite,
-                onNavigateHome = {},
-                onNavigateSearch = { navController.navigateTop(SearchRoute) },
-                onNavigateLibrary = { navController.navigateLibrary(it) },
-                onNavigateSettings = { navController.navigateTop(SettingsRoute) },
-                onNavigateProfile = { navController.navigate(ProfilesRoute) },
-                navigationState = topNavigationState,
-            )
-        }
 
-        composable<SearchRoute> {
-            val viewModel = containerViewModel { container ->
-                TelevisionSearchViewModel(container.mediaCatalog)
-            }
-            val state by viewModel.state.collectAsStateWithLifecycle()
-            TelevisionSearchScreen(
-                query = state.query,
-                searching = state.searching,
-                results = state.results,
-                error = state.error,
-                resultLimitReached = state.resultLimitReached,
-                onQueryChange = viewModel::setQuery,
-                onRetry = viewModel::retry,
-                onOpenItem = { navController.navigate(DetailRoute(it.id)) },
-                onBack = navController::popBackStack,
-                libraries = shell.libraries,
-                userName = shell.userName,
-                avatarUrl = shell.avatarUrl,
-                onNavigateHome = { navController.navigateTop(HomeRoute) },
-                onNavigateLibrary = { navController.navigateLibrary(it) },
-                onNavigateSettings = { navController.navigateTop(SettingsRoute) },
-                onNavigateProfile = { navController.navigate(ProfilesRoute) },
-                navigationState = topNavigationState,
-            )
-        }
-
-        composable<LibraryRoute> { entry ->
-            val route = entry.toRoute<LibraryRoute>()
-            val viewModel = containerViewModel { container ->
-                TelevisionLibraryViewModel(
-                    catalog = container.mediaCatalog,
-                    sessionStore = container.sessionStore,
-                    settingsStore = container.settingsStore,
-                    libraryCacheStore = container.libraryCacheStore,
-                    preferenceStore = container.preferenceStore,
-                    libraryId = route.libraryId,
-                    title = route.title,
-                    collectionType = route.collectionType,
+            composable<PlayerRoute> { entry ->
+                val route = entry.toRoute<PlayerRoute>()
+                TelevisionPlayerScreen(
+                    itemId = route.itemId,
+                    startPositionTicks = route.startPositionTicks,
+                    audioOnly = route.audioOnly,
+                    initialAudioStreamIndex = route.initialAudioStreamIndex,
+                    initialSubtitleStreamIndex = route.initialSubtitleStreamIndex,
+                    initialQualityLabel = route.initialQualityLabel,
+                    onExit = navController::popBackStack,
+                    onNavigateToItem = { itemId ->
+                        navController.popBackStack()
+                        navController.navigate(DetailRoute(itemId))
+                    },
+                    onNavigateToPerson = { personId, name ->
+                        navController.popBackStack()
+                        navController.navigate(PersonRoute(personId, name))
+                    },
                 )
             }
-            val state by viewModel.state.collectAsStateWithLifecycle()
-            TelevisionLibraryScreen(
-                state = state,
-                libraryId = route.libraryId,
-                libraries = shell.libraries,
-                userName = shell.userName,
-                avatarUrl = shell.avatarUrl,
-                onRetry = viewModel::reload,
-                onLoadMore = viewModel::loadMore,
-                onSetSort = viewModel::setSort,
-                onSetView = viewModel::setView,
-                onOpenItem = { media ->
-                    if (media.type == "Audio") {
-                        navController.navigate(media.toPlayerRoute())
-                    } else {
-                        navController.navigate(DetailRoute(media.id))
-                    }
-                },
-                onNavigateHome = { navController.navigateTop(HomeRoute) },
-                onNavigateSearch = { navController.navigateTop(SearchRoute) },
-                onNavigateLibrary = { navController.navigateLibrary(it) },
-                onNavigateSettings = { navController.navigateTop(SettingsRoute) },
-                onNavigateProfile = { navController.navigate(ProfilesRoute) },
-                navigationState = topNavigationState,
-            )
-        }
-
-        composable<DetailRoute> { entry ->
-            val route = entry.toRoute<DetailRoute>()
-            DetailDestination(
-                itemId = route.itemId,
-                navController = navController,
-            )
-        }
-
-        composable<PersonRoute> { entry ->
-            val route = entry.toRoute<PersonRoute>()
-            DetailDestination(
-                itemId = route.personId,
-                navController = navController,
-            )
-        }
-
-        composable<LiveTvRoute> {
-            val viewModel = containerViewModel { container ->
-                TelevisionLiveViewModel(container.libraryRepository, container.imageUrlBuilder)
-            }
-            val state by viewModel.state.collectAsStateWithLifecycle()
-            TelevisionLiveScreen(
-                state = state,
-                onBack = navController::popBackStack,
-                onRefresh = viewModel::refresh,
-                onFocusProgram = viewModel::focus,
-                onOpenProgram = { navController.navigate(DetailRoute(it.id)) },
-                onPlay = { navController.navigate(it.toPlayerRoute()) },
-                libraries = shell.libraries,
-                userName = shell.userName,
-                avatarUrl = shell.avatarUrl,
-                onNavigateHome = { navController.navigateTop(HomeRoute) },
-                onNavigateSearch = { navController.navigateTop(SearchRoute) },
-                onNavigateLibrary = { navController.navigateLibrary(it) },
-                onNavigateSettings = { navController.navigateTop(SettingsRoute) },
-                onNavigateProfile = { navController.navigate(ProfilesRoute) },
-                navigationState = topNavigationState,
-            )
-        }
-
-        composable<SettingsRoute> {
-            val viewModel = containerViewModel { container ->
-                TelevisionSettingsViewModel(
-                    settingsStore = container.settingsStore,
-                    sessionStore = container.sessionStore,
-                    authRepository = container.authRepository,
-                    artworkCache = container.artworkCache,
-                    capabilities = container.devicePlaybackCapabilities,
-                )
-            }
-            val state by viewModel.state.collectAsStateWithLifecycle()
-            val context = LocalContext.current
-            LaunchedEffect(viewModel) {
-                viewModel.events.collect { event ->
-                    when (event) {
-                        TelevisionSettingsEvent.Profiles -> navController.navigate(ProfilesRoute) {
-                            popUpTo(0) { inclusive = true }
-                        }
-                        TelevisionSettingsEvent.Connect -> navController.navigate(ConnectRoute) {
-                            popUpTo(0) { inclusive = true }
-                        }
-                        is TelevisionSettingsEvent.CacheMessage -> {
-                            Toast.makeText(context, event.message.resolve(context), Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
-            }
-            TelevisionSettingsScreen(
-                state = state,
-                libraries = shell.libraries,
-                avatarUrl = shell.avatarUrl,
-                onUpdate = viewModel::update,
-                onSignOut = viewModel::signOut,
-                onChangeServer = viewModel::changeServer,
-                onForgetServer = viewModel::forgetServer,
-                onSwitchProfile = viewModel::switchProfile,
-                onTestConnection = viewModel::testConnection,
-                onRefreshLibraries = shellViewModel::refreshLibraries,
-                libraryRefreshing = shell.loadingLibraries,
-                libraryRefreshError = shell.error,
-                onRetrySettings = viewModel::retryLastUpdate,
-                onQuickConnect = viewModel::generateQuickConnect,
-                onClearArtworkCache = viewModel::clearArtworkCache,
-                onNavigateHome = { navController.navigateTop(HomeRoute) },
-                onNavigateSearch = { navController.navigateTop(SearchRoute) },
-                onNavigateLibrary = { navController.navigateLibrary(it) },
-                onNavigateProfile = { navController.navigate(ProfilesRoute) },
-                navigationState = topNavigationState,
-            )
-        }
-
-        composable<PlayerRoute> { entry ->
-            val route = entry.toRoute<PlayerRoute>()
-            TelevisionPlayerScreen(
-                itemId = route.itemId,
-                startPositionTicks = route.startPositionTicks,
-                audioOnly = route.audioOnly,
-                initialAudioStreamIndex = route.initialAudioStreamIndex,
-                initialSubtitleStreamIndex = route.initialSubtitleStreamIndex,
-                initialQualityLabel = route.initialQualityLabel,
-                onExit = navController::popBackStack,
-                onNavigateToItem = { itemId ->
-                    navController.popBackStack()
-                    navController.navigate(DetailRoute(itemId))
-                },
-                onNavigateToPerson = { personId, name ->
-                    navController.popBackStack()
-                    navController.navigate(PersonRoute(personId, name))
-                },
-            )
         }
     }
 }

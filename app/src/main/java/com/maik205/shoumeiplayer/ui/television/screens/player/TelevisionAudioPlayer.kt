@@ -88,7 +88,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealB
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 
@@ -179,10 +179,11 @@ internal fun TelevisionAudioPlayer(
         }
     }
 
+    val colors = TelevisionTheme.colors
     Box(
         Modifier
             .fillMaxSize()
-            .background(TelevisionColors.Black),
+            .background(colors.Black),
     ) {
         state.albumArtworkUrl?.let { artwork ->
             AsyncImage(
@@ -195,7 +196,7 @@ internal fun TelevisionAudioPlayer(
                     .blur(25.dp),
             )
         }
-        Box(Modifier.fillMaxSize().background(TelevisionColors.Black.copy(alpha = 0.74f)))
+        Box(Modifier.fillMaxSize().background(colors.Black.copy(alpha = 0.74f)))
 
         TelevisionFocusRevealButton(
             label = if (exitArmed) {

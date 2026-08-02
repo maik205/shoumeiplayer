@@ -88,7 +88,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealB
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 
@@ -106,7 +106,7 @@ internal fun AudioCover(
         modifier = modifier
             .shadow(28.dp, RoundedCornerShape(4.dp))
             .clip(RoundedCornerShape(4.dp))
-            .background(TelevisionColors.ImagePlaceholder),
+            .background(TelevisionTheme.colors.ImagePlaceholder),
     )
 }
 
@@ -116,12 +116,13 @@ internal fun AudioMetadata(
     titleSize: androidx.compose.ui.unit.TextUnit,
     titleLineHeight: androidx.compose.ui.unit.TextUnit,
 ) {
+    val colors = TelevisionTheme.colors
     state.album?.takeIf(String::isNotBlank)?.let { album ->
         Text(
             text = album,
             style = MaterialTheme.typography.labelMedium.copy(fontSize = 8.sp),
             fontWeight = FontWeight.SemiBold,
-            color = TelevisionColors.PaperMuted,
+            color = colors.PaperMuted,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -149,13 +150,13 @@ internal fun AudioMetadata(
                 modifier = Modifier
                     .size(23.dp)
                     .clip(CircleShape)
-                    .background(TelevisionColors.ImagePlaceholder, CircleShape),
+                    .background(colors.ImagePlaceholder, CircleShape),
             )
             Spacer(Modifier.width(7.dp))
             Text(
                 text = artist,
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 10.sp),
-                color = TelevisionColors.PaperMuted,
+                color = colors.PaperMuted,
             )
         }
     }
@@ -166,7 +167,7 @@ internal fun AudioMetadata(
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 7.sp),
-                    color = TelevisionColors.PaperMuted.copy(alpha = 0.72f),
+                    color = colors.PaperMuted.copy(alpha = 0.72f),
                     maxLines = 1,
                 )
             }
@@ -202,6 +203,7 @@ internal fun AudioTimeline(
 ) {
     val state by timelineState.collectAsStateWithLifecycle()
     var focused by remember { mutableStateOf(false) }
+    val colors = TelevisionTheme.colors
     val duration = state.durationMs?.takeIf { it > 0L }
     val fraction = duration?.let { (state.positionMs.toFloat() / it).coerceIn(0f, 1f) } ?: 0f
     TelevisionFocusSurface(
@@ -240,11 +242,11 @@ internal fun AudioTimeline(
     ) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
             Canvas(Modifier.fillMaxWidth().height(if (focused) 3.dp else 1.5.dp)) {
-                drawRect(TelevisionColors.Paper.copy(alpha = 0.20f))
-                drawRect(TelevisionColors.Paper, size = size.copy(width = size.width * fraction))
+                drawRect(colors.Paper.copy(alpha = 0.20f))
+                drawRect(colors.Paper, size = size.copy(width = size.width * fraction))
                 if (focused) {
                     drawCircle(
-                        color = TelevisionColors.Paper,
+                        color = colors.Paper,
                         radius = 4.5.dp.toPx(),
                         center = androidx.compose.ui.geometry.Offset(size.width * fraction, size.height / 2f),
                     )
@@ -252,11 +254,11 @@ internal fun AudioTimeline(
             }
             Spacer(Modifier.height(5.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(formatAudioTime(state.positionMs), fontSize = 7.sp, color = TelevisionColors.PaperMuted)
+                Text(formatAudioTime(state.positionMs), fontSize = 7.sp, color = colors.PaperMuted)
                 Text(
                     duration?.let(::formatAudioTime) ?: stringResource(R.string.tv_time_unknown),
                     fontSize = 7.sp,
-                    color = TelevisionColors.PaperMuted,
+                    color = colors.PaperMuted,
                 )
             }
         }
@@ -351,7 +353,7 @@ internal fun AudioCircleButton(
                 Icon(
                     imageVector = icon,
                     contentDescription = label,
-                    tint = TelevisionColors.Paper,
+                    tint = TelevisionTheme.colors.Paper,
                     modifier = Modifier.size(if (primary) 27.dp else 20.dp),
                 )
             }

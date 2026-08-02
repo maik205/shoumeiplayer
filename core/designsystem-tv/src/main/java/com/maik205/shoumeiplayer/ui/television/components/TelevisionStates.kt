@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 
 @Composable
 fun TelevisionLoadingState(
@@ -85,8 +85,9 @@ enum class TelevisionLoadingShape { Rail, Home, Grid, Search, Detail, Guide, Sta
 
 @Composable
 private fun RailSkeleton(modifier: Modifier, shimmer: Float, label: String) {
+    val colors = TelevisionTheme.colors
     Column(modifier.fillMaxWidth().widthIn(max = 550.dp)) {
-        Text(label, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold, color = TelevisionColors.PaperMuted)
+        Text(label, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold, color = colors.PaperMuted)
         Spacer(Modifier.height(17.dp))
         SkeletonPosterRow(shimmer)
     }
@@ -116,13 +117,14 @@ private fun GridSkeleton(
     columns: Int,
     label: String? = null,
 ) {
+    val colors = TelevisionTheme.colors
     Column(modifier.fillMaxWidth()) {
         if (label != null) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = TelevisionColors.PaperMuted,
+                color = colors.PaperMuted,
             )
             Spacer(Modifier.height(17.dp))
         }
@@ -197,7 +199,8 @@ private fun SkeletonPosterRow(shimmer: Float) {
 
 @Composable
 private fun SkeletonBlock(modifier: Modifier) {
-    Box(modifier.clip(RoundedCornerShape(4.dp)).background(TelevisionColors.ImagePlaceholder))
+    val colors = TelevisionTheme.colors
+    Box(modifier.clip(RoundedCornerShape(4.dp)).background(colors.ImagePlaceholder))
 }
 
 @Composable
@@ -264,6 +267,7 @@ private fun TelevisionInlineMessage(
     message: String?,
     modifier: Modifier = Modifier,
 ) {
+    val colors = TelevisionTheme.colors
     Column(
         modifier = modifier.widthIn(max = 580.dp),
         horizontalAlignment = Alignment.Start,
@@ -271,7 +275,7 @@ private fun TelevisionInlineMessage(
         Icon(
             imageVector = Icons.Default.Warning,
             contentDescription = null,
-            tint = TelevisionColors.PaperMuted,
+            tint = colors.PaperMuted,
             modifier = Modifier.size(28.dp),
         )
         Spacer(Modifier.height(8.dp))
@@ -279,14 +283,14 @@ private fun TelevisionInlineMessage(
             text = title,
             style = MaterialTheme.typography.displaySmall,
             fontWeight = FontWeight.SemiBold,
-            color = TelevisionColors.Paper,
+            color = colors.Paper,
         )
         if (!message.isNullOrBlank()) {
             Spacer(Modifier.height(8.dp))
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodyLarge,
-                color = TelevisionColors.PaperMuted,
+                color = colors.PaperMuted,
             )
         }
     }

@@ -67,11 +67,11 @@ import com.maik205.shoumeiplayer.feature.player.CastMemberUi
 import com.maik205.shoumeiplayer.feature.player.ChapterMark
 import com.maik205.shoumeiplayer.feature.player.PlayerUiState
 import com.maik205.shoumeiplayer.feature.player.UpNextUi
+import com.maik205.shoumeiplayer.domain.settings.ServerLanguage
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import java.util.Locale
 
@@ -137,16 +137,21 @@ internal fun chapterRows(
     return rows
 }
 
+/**
+ * Names an audio/subtitle track's language for the in-player picker.
+ *
+ * Resolved through [ServerLanguage] so every language the app knows gets a real name in the
+ * viewer's own UI language, rather than the three that once had hardcoded string resources while a
+ * Spanish or Korean track showed as the raw tag "spa" / "kor". An unrecognised tag falls back to
+ * the tag itself, which is still more useful than hiding it.
+ */
 @Composable
 private fun displayTrackLanguage(language: String?): String {
     val value = language?.trim().orEmpty()
-    return when (value.lowercase(Locale.ROOT)) {
-        "ja", "jpn" -> stringResource(R.string.tv_settings_japanese)
-        "en", "eng" -> stringResource(R.string.tv_settings_english)
-        "vi", "vie" -> stringResource(R.string.tv_settings_vietnamese)
-        "und", "" -> stringResource(R.string.tv_player_unknown_language)
-        else -> value
+    if (value.isEmpty() || value.equals("und", ignoreCase = true)) {
+        return stringResource(R.string.tv_player_unknown_language)
     }
+    return ServerLanguage.fromStored(value)?.displayName() ?: value
 }
 
 @Composable

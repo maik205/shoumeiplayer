@@ -114,8 +114,8 @@ import com.maik205.shoumeiplayer.ui.television.model.HeroUi
 import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import com.maik205.shoumeiplayer.domain.model.MediaShelf as MediaShelfUi
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -148,7 +148,7 @@ fun TelevisionSearchScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(TelevisionColors.Black),
+            .background(TelevisionTheme.colors.Black),
     ) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(5),
@@ -202,7 +202,7 @@ fun TelevisionSearchScreen(
                     Text(
                         text = stringResource(R.string.tv_search_limit),
                         style = MaterialTheme.typography.bodySmall,
-                        color = TelevisionColors.PaperMuted,
+                        color = TelevisionTheme.colors.PaperMuted,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -230,7 +230,7 @@ fun TelevisionSearchScreen(
                 imageVector = Icons.Default.Search,
                 contentDescription = null,
                 modifier = Modifier.size(24.dp),
-                tint = if (focused) TelevisionColors.Paper else TelevisionColors.PaperMuted,
+                tint = if (focused) TelevisionTheme.colors.Paper else TelevisionTheme.colors.PaperMuted,
             )
             Spacer(Modifier.width(12.dp))
             BasicTextField(
@@ -243,9 +243,9 @@ fun TelevisionSearchScreen(
                     .onFocusChanged { focused = it.isFocused },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.displaySmall.copy(
-                    color = TelevisionColors.Paper,
+                    color = TelevisionTheme.colors.Paper,
                 ),
-                cursorBrush = SolidColor(TelevisionColors.Paper),
+                cursorBrush = SolidColor(TelevisionTheme.colors.Paper),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(
                     onSearch = {
@@ -259,7 +259,7 @@ fun TelevisionSearchScreen(
                             Text(
                                 text = stringResource(R.string.search),
                                 style = MaterialTheme.typography.displaySmall,
-                                color = TelevisionColors.PaperSoft,
+                                color = TelevisionTheme.colors.PaperSoft,
                             )
                         }
                         input()

@@ -73,10 +73,30 @@ class TelevisionSettingsCatalogTest {
 
         assertEquals(DisplayLanguage.SystemDefault, initial.displayLanguage)
         assertTrue(displayLanguage.choices.any { it.selected })
-        val english = displayLanguage.choices.single { it.label == R.string.tv_settings_english.toString() }
+        val english = displayLanguage.choices.single { it.label == DisplayLanguage.English.endonym() }
         english.onSelect()
 
         assertEquals(DisplayLanguage.English, updated.displayLanguage)
+    }
+
+    /**
+     * Every language is listed in its own script. A viewer who has landed in a language they cannot
+     * read must still recognise their own entry to get back out, so this row is the one list that
+     * deliberately does not follow the current UI language.
+     */
+    @Test
+    fun `display languages are listed by endonym, not in the current UI language`() {
+        val rows = rows(
+            section = SettingsSection.Interface,
+            state = TelevisionSettingsState(settings = ClientSettings()),
+        )
+        val choices = rows.single { it.key == "display-language" }.choices.map { it.label }
+
+        assertTrue("German should read Deutsch, got $choices", choices.contains("Deutsch"))
+        assertTrue("Japanese should read 日本語, got $choices", choices.contains("日本語"))
+        assertTrue("Korean should read 한국어, got $choices", choices.contains("한국어"))
+        // Every declared locale is offered, plus the system-default entry.
+        assertEquals(DisplayLanguage.entries.size, choices.size)
     }
 
     /**
@@ -146,11 +166,38 @@ class TelevisionSettingsCatalogTest {
         )
         val row = rows.single { it.key == "audio-language" }
 
-        assertEquals(R.string.tv_settings_english.toString(), row.value)
-        row.choices.single { it.label == R.string.tv_settings_japanese.toString() }.onSelect()
+        // Rendered from ICU data, not a string resource — see ServerLanguage.displayName. Asserting
+        // against the enum rather than a hardcoded "English" keeps the test valid on a JVM whose
+        // default locale is not English.
+        assertEquals(ServerLanguage.English.displayName(), row.value)
+        row.choices.single { it.label == ServerLanguage.Japanese.displayName() }.onSelect()
 
         assertEquals("jpn", edits.current.audioLanguage)
         assertEquals(0, clientUpdates)
+    }
+
+    /**
+     * The picker used to offer five languages while [ServerLanguage] matching already understood all
+     * of ISO 639, so a Spanish speaker could not select Spanish audio their account would have
+     * matched correctly. Guards the widened list and the resource-free labelling that made widening
+     * it free.
+     */
+    @Test
+    fun `the audio language row offers the widened language list`() {
+        val rows = rows(
+            section = SettingsSection.Audio,
+            state = TelevisionSettingsState(serverPreferences = ServerPreferences()),
+        )
+        val row = rows.single { it.key == "audio-language" }
+
+        // "No preference" plus every ServerLanguage.
+        assertEquals(ServerLanguage.entries.size + 1, row.choices.size)
+        listOf(ServerLanguage.Spanish, ServerLanguage.Korean, ServerLanguage.Russian).forEach { language ->
+            assertTrue(
+                "${language.name} should be selectable",
+                row.choices.any { it.label == language.displayName() },
+            )
+        }
     }
 
     @Test

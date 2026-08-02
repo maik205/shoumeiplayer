@@ -7,6 +7,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Typography
 import com.maik205.shoumeiplayer.R
+import com.maik205.shoumeiplayer.domain.settings.InterfaceScale
 
 /**
  * Outfit is checked in as static instances rather than one variable font.
@@ -120,3 +121,46 @@ val TelevisionTypography = Typography(
         lineHeight = 8.sp,
     ),
 )
+
+/**
+ * Per-role font-size/line-height multiplier for the Settings > Interface > "Interface scale" row
+ * (#89). [InterfaceScale.Comfortable] is exactly `1f` so it reproduces [TelevisionTypography] --
+ * the shipped baseline -- byte-for-byte; only Compact/Large actually change anything.
+ */
+internal fun InterfaceScale.televisionTextMultiplier(): Float = when (this) {
+    InterfaceScale.Compact -> 0.88f
+    InterfaceScale.Comfortable -> 1f
+    InterfaceScale.Large -> 1.16f
+}
+
+/**
+ * [TelevisionTypography] scaled for [scale].
+ *
+ * This is the seam #89 asks for: every TV screen should read its typography through this function
+ * (via a local `androidx.tv.material3.MaterialTheme(typography = televisionTypography(scale)) { }`
+ * override) instead of the [TelevisionTypography] constant directly, or the interface-scale picker
+ * keeps having no effect no matter what a viewer chooses.
+ */
+fun televisionTypography(scale: InterfaceScale): Typography {
+    val multiplier = scale.televisionTextMultiplier()
+    fun TextStyle.scaled(): TextStyle =
+        if (multiplier == 1f) this else copy(fontSize = fontSize * multiplier, lineHeight = lineHeight * multiplier)
+
+    return Typography(
+        displayLarge = TelevisionTypography.displayLarge.scaled(),
+        displayMedium = TelevisionTypography.displayMedium.scaled(),
+        displaySmall = TelevisionTypography.displaySmall.scaled(),
+        headlineLarge = TelevisionTypography.headlineLarge.scaled(),
+        headlineMedium = TelevisionTypography.headlineMedium.scaled(),
+        headlineSmall = TelevisionTypography.headlineSmall.scaled(),
+        titleLarge = TelevisionTypography.titleLarge.scaled(),
+        titleMedium = TelevisionTypography.titleMedium.scaled(),
+        titleSmall = TelevisionTypography.titleSmall.scaled(),
+        bodyLarge = TelevisionTypography.bodyLarge.scaled(),
+        bodyMedium = TelevisionTypography.bodyMedium.scaled(),
+        bodySmall = TelevisionTypography.bodySmall.scaled(),
+        labelLarge = TelevisionTypography.labelLarge.scaled(),
+        labelMedium = TelevisionTypography.labelMedium.scaled(),
+        labelSmall = TelevisionTypography.labelSmall.scaled(),
+    )
+}

@@ -63,8 +63,8 @@ import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.ui.television.components.televisionLibraryNavigationKey
 import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -114,7 +114,7 @@ fun TelevisionLiveScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(TelevisionColors.Black),
+            .background(TelevisionTheme.colors.Black),
     ) {
         Column(Modifier.fillMaxSize()) {
             LiveHero(
@@ -153,7 +153,7 @@ fun TelevisionLiveScreen(
                         Text(
                             text = stringResource(R.string.tv_refreshing),
                             style = MaterialTheme.typography.bodySmall,
-                            color = TelevisionColors.PaperMuted,
+                            color = TelevisionTheme.colors.PaperMuted,
                             modifier = Modifier.padding(horizontal = TelevisionDimensions.SafeHorizontal),
                         )
                     }
@@ -287,7 +287,7 @@ private fun LiveHero(
                         } else {
                             MaterialTheme.typography.titleMedium
                         },
-                        color = if (compact) TelevisionColors.Paper else TelevisionColors.PaperMuted,
+                        color = if (compact) TelevisionTheme.colors.Paper else TelevisionTheme.colors.PaperMuted,
                         maxLines = 1,
                     )
                     if (!compact) {
@@ -304,7 +304,7 @@ private fun LiveHero(
                             Text(
                                 text = it,
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = TelevisionColors.PaperSoft,
+                                color = TelevisionTheme.colors.PaperSoft,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -371,7 +371,7 @@ private fun GuideTimeline(
             Text(
                 text = stringResource(R.string.tv_live_label),
                 style = MaterialTheme.typography.labelLarge,
-                color = TelevisionColors.PaperMuted,
+                color = TelevisionTheme.colors.PaperMuted,
                 modifier = Modifier.width(ChannelWidth),
             )
             repeat(GuideWindowHours) { index ->
@@ -379,7 +379,7 @@ private fun GuideTimeline(
                 Text(
                     text = guideClock(time),
                     style = MaterialTheme.typography.labelMedium,
-                    color = TelevisionColors.PaperMuted,
+                    color = TelevisionTheme.colors.PaperMuted,
                     modifier = Modifier.width(TimelineWidth / GuideWindowHours),
                 )
             }
@@ -409,7 +409,7 @@ private fun GuideTimeline(
                 Text(
                     text = stringResource(R.string.tv_live_end),
                     style = MaterialTheme.typography.titleSmall,
-                    color = TelevisionColors.PaperMuted,
+                    color = TelevisionTheme.colors.PaperMuted,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 34.dp),
@@ -459,7 +459,7 @@ private fun GuideChannelRow(
                 Text(
                     text = channel.number.orEmpty(),
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (focused) TelevisionColors.Paper else TelevisionColors.PaperMuted,
+                    color = if (focused) TelevisionTheme.colors.Paper else TelevisionTheme.colors.PaperMuted,
                     modifier = Modifier.width(34.dp),
                 )
                 Text(
@@ -480,7 +480,7 @@ private fun GuideChannelRow(
                 Text(
                     text = stringResource(R.string.tv_live_no_programs),
                     style = MaterialTheme.typography.bodySmall,
-                    color = TelevisionColors.PaperMuted,
+                    color = TelevisionTheme.colors.PaperMuted,
                     modifier = Modifier.align(Alignment.CenterStart),
                 )
             }
@@ -518,7 +518,7 @@ private fun GuideChannelRow(
                             Text(
                                 text = program.item.title,
                                 style = MaterialTheme.typography.titleSmall.televisionItemTitle(),
-                                color = if (focused) TelevisionColors.Paper else TelevisionColors.PaperSoft,
+                                color = if (focused) TelevisionTheme.colors.Paper else TelevisionTheme.colors.PaperSoft,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )

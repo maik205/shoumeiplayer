@@ -84,8 +84,8 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingShape
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingState
 import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 
 @Composable
 fun ConnectScreen(
@@ -224,7 +224,7 @@ fun ConnectScreen(
                     Text(
                         text = stringResource(R.string.tv_server_scheme_hint),
                         style = MaterialTheme.typography.bodyLarge,
-                        color = TelevisionColors.PaperSoft,
+                        color = TelevisionTheme.colors.PaperSoft,
                     )
                     NativeTvField(
                         value = state.address,
@@ -264,7 +264,7 @@ fun ConnectScreen(
                             Icon(
                                 imageVector = Icons.Default.Warning,
                                 contentDescription = null,
-                                tint = TelevisionColors.PaperMuted,
+                                tint = TelevisionTheme.colors.PaperMuted,
                                 modifier = Modifier.size(28.dp),
                             )
                             Spacer(Modifier.width(10.dp))
@@ -278,13 +278,13 @@ fun ConnectScreen(
                                 Text(
                                     text = stringResource(R.string.tv_insecure_http_message),
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = TelevisionColors.PaperSoft,
+                                    color = TelevisionTheme.colors.PaperSoft,
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
                                     text = insecureConnection.address,
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = TelevisionColors.PaperMuted,
+                                    color = TelevisionTheme.colors.PaperMuted,
                                 )
                             }
                         }
@@ -377,7 +377,7 @@ private fun ServerRow(
                         else -> server.address.removePrefix("http://").removePrefix("https://")
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = TelevisionColors.PaperSoft,
+                    color = TelevisionTheme.colors.PaperSoft,
                     maxLines = 1,
                 )
             }
@@ -557,7 +557,7 @@ private fun ProfileTarget(
                 modifier = Modifier
                     .size(112.dp)
                     .clip(CircleShape)
-                    .background(TelevisionColors.ImagePlaceholder),
+                    .background(TelevisionTheme.colors.ImagePlaceholder),
                 contentAlignment = Alignment.Center,
             ) {
                 if (profile.imageUrl != null) {
@@ -799,7 +799,7 @@ fun LoginScreen(
                         Text(
                             text = loginError.resolve(),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = TelevisionColors.PaperMuted,
+                            color = TelevisionTheme.colors.PaperMuted,
                         )
                     }
                 }
@@ -901,9 +901,9 @@ fun RecoveryScreen(
                             text = recoveryMessage.resolve(),
                             style = MaterialTheme.typography.bodyLarge,
                             color = if (state.error == null) {
-                                TelevisionColors.Paper
+                                TelevisionTheme.colors.Paper
                             } else {
-                                TelevisionColors.PaperMuted
+                                TelevisionTheme.colors.PaperMuted
                             },
                             modifier = Modifier
                                 .focusRequester(resultFocus)
@@ -946,7 +946,7 @@ fun CompactStateScreen(
                 Text(
                     text = it,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = TelevisionColors.PaperMuted,
+                    color = TelevisionTheme.colors.PaperMuted,
                 )
             }
             Spacer(Modifier.height(30.dp))
@@ -986,7 +986,7 @@ private fun OnboardingStatement(
             Icon(
                 imageVector = it,
                 contentDescription = null,
-                tint = TelevisionColors.Paper,
+                tint = TelevisionTheme.colors.Paper,
                 modifier = Modifier.size(26.dp),
             )
             Spacer(Modifier.height(34.dp))
@@ -1041,9 +1041,9 @@ private fun NativeTvField(
         enabled = true,
         singleLine = true,
         textStyle = MaterialTheme.typography.bodyLarge.copy(
-            color = if (focused) TelevisionColors.Paper else TelevisionColors.PaperMuted,
+            color = if (focused) TelevisionTheme.colors.Paper else TelevisionTheme.colors.PaperMuted,
         ),
-        cursorBrush = SolidColor(TelevisionColors.Paper),
+        cursorBrush = SolidColor(TelevisionTheme.colors.Paper),
         visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = KeyboardOptions(
             keyboardType = if (password) KeyboardType.Password else KeyboardType.Uri,
@@ -1062,7 +1062,7 @@ private fun NativeTvField(
                     Text(
                         text = placeholder,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = TelevisionColors.PaperDisabled,
+                        color = TelevisionTheme.colors.PaperDisabled,
                     )
                 }
                 input()

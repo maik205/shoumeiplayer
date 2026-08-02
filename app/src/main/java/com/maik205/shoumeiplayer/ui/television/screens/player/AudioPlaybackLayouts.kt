@@ -85,7 +85,6 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealB
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 
