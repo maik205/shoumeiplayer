@@ -42,3 +42,15 @@ Without these secrets, the workflow builds unsigned artifacts that cannot be ins
 The workflow derives `SHOUMEI_RELEASE_TAG` from the pushed tag. It rejects malformed versions or a tag that does not match the workflow commit.
 
 Published release tags must remain immutable.
+
+## Update the native mpv bundle
+
+Native mpv releases use separate `native-mpv-vVERSION-rREVISION` tags. Each release contains a deterministic Android library archive and `SHA256SUMS.txt`.
+
+After publishing a native bundle, update these properties together:
+
+- `shoumei.mpvNativeBundleVersion`
+- `shoumei.mpvNativeBundleUrl`
+- `shoumei.mpvNativeBundleSha256`
+
+Application release builds download and verify this bundle before compiling the JNI bridge. Do not replace assets attached to an existing native release.

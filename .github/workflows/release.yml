@@ -92,8 +92,8 @@ jobs:
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6
 
       # bundleRelease is the Play Store artifact (.aab); assembleRelease with no ABI/density/
-      # language splits configured produces a single universal APK carrying both ABIs' native
-      # libs, which -- unlike the .aab -- is directly sideloadable as one file.
+      # language splits configured produces a single universal APK carrying all provisioned
+      # native ABIs, which -- unlike the .aab -- is directly sideloadable as one file.
       - name: Build the release bundle and universal APK
         run: ./gradlew --no-daemon :app:bundleRelease :app:assembleRelease
 

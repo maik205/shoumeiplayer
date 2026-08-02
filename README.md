@@ -17,7 +17,7 @@ Shoumei Player is a Jellyfin client for Android TV. The app is written in Kotlin
 
 `MpvEngine` connects to official mpv v0.41.0 through the app-owned `MpvNative` Java Native Interface (JNI) bridge. Both debug and release builds use this engine.
 
-The mpv source is pinned in `native/mpv/upstream`. Prebuilt libraries for `arm64-v8a` and `x86_64` are stored in `mpvroid/src/main/jniLibs`. The project does not depend on a player Android Archive (AAR) or a repackaged mpv binding.
+The mpv source is pinned in `native/mpv/upstream`. Gradle downloads a checksum-pinned native bundle for `armeabi-v7a`, `arm64-v8a`, and `x86_64`. The project does not depend on a player Android Archive (AAR) or a repackaged mpv binding.
 
 The current mpv configuration uses Android GPU output, MediaCodec hardware decoding, AudioTrack output, and Jellyfin authentication headers. Application code accesses playback through the `PlayerEngine` interface.
 
@@ -34,7 +34,7 @@ The project uses eight Gradle modules with manual dependency injection and `Stat
 | `:core:player` | Playback contracts and mpv integration |
 | `:core:model` | Shared domain models |
 | `:core:designsystem-tv` | Shared Compose components and theme definitions |
-| `:mpvroid` | JNI bridge and native mpv libraries |
+| `:mpvroid` | JNI bridge and native mpv provisioning |
 
 ## Requirements
 
@@ -58,7 +58,7 @@ Build a debug Android Package (APK):
 .\gradlew.bat :app:assembleDebug
 ```
 
-The APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
+The first build downloads and verifies the pinned mpv native bundle. Gradle caches the archive for later builds. The APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
 
 Run the Java Virtual Machine (JVM) unit tests and Android lint checks with:
 

@@ -13,7 +13,7 @@ Shoumei Player is split into eight Gradle modules. The application module owns A
 | `:core:player` | Playback contracts, mpv integration, Media3 fallback, and playback utilities |
 | `:core:model` | Shared domain models and result types |
 | `:core:designsystem-tv` | Shared Compose components, dimensions, colors, and focus behavior |
-| `:mpvroid` | Java Native Interface (JNI) bridge and native mpv libraries |
+| `:mpvroid` | Java Native Interface (JNI) bridge and native mpv provisioning |
 
 The module dependencies follow this direction:
 
