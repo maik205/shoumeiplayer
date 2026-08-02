@@ -76,12 +76,55 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+/**
+ * Puts focus back on the rail item the viewer opened.
+ *
+ * Detail is disposed while a child screen is on top, so nothing about the rail survives except
+ * what the caller saved. Coming back used to land on Play or Back regardless of which episode,
+ * track, person, or related title had been chosen. An exact match on the id is preferred; if the
+ * item is gone after a refresh, the rail is left alone rather than jumping somewhere arbitrary,
+ * because the caller's fallback (the hero) is a better answer than a stranger's card.
+ */
+@Composable
+private fun TelevisionRailFocusRestore(
+    restoreItemId: String?,
+    ids: List<String>,
+    requesters: List<FocusRequester>,
+    listState: androidx.compose.foundation.lazy.LazyListState,
+    onRestored: () -> Unit,
+) {
+    LaunchedEffect(restoreItemId, ids) {
+        if (restoreItemId == null) return@LaunchedEffect
+        val target = ids.indexOf(restoreItemId)
+        if (target < 0 || target !in requesters.indices) return@LaunchedEffect
+        listState.scrollToItem(target)
+        withFrameNanos { }
+        runCatching { requesters[target].requestFocus() }
+        onRestored()
+    }
+}
+
 @Composable
 internal fun TrackRail(
     title: String,
     tracks: List<MediaItemUi>,
     onPlay: (MediaItemUi) -> Unit,
+    restoreItemId: String? = null,
+    onRestored: () -> Unit = {},
 ) {
+    val visible = tracks.take(24)
+    val trackFocusRequesters = remember(visible.size) {
+        List(visible.size) { FocusRequester() }
+    }
+    LaunchedEffect(restoreItemId, visible) {
+        if (restoreItemId == null) return@LaunchedEffect
+        val target = visible.indexOfFirst { it.id == restoreItemId }
+        if (target < 0) return@LaunchedEffect
+        withFrameNanos { }
+        runCatching { trackFocusRequesters[target].requestFocus() }
+        onRestored()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -93,10 +136,11 @@ internal fun TrackRail(
     ) {
         TelevisionRowHeader(title = title)
         Spacer(Modifier.height(10.dp))
-        tracks.take(24).forEachIndexed { index, track ->
+        visible.forEachIndexed { index, track ->
             TelevisionFocusSurface(
                 onClick = { onPlay(track) },
                 restingAlpha = if (track.watched) 0.46f else 0.66f,
+                focusRequester = trackFocusRequesters.getOrNull(index),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp)
@@ -155,12 +199,21 @@ internal fun DetailMediaRail(
     title: String,
     items: List<MediaItemUi>,
     onOpen: (MediaItemUi) -> Unit,
+    restoreItemId: String? = null,
+    onRestored: () -> Unit = {},
 ) {
     val itemIdentity = items.fold(1) { hash, item -> 31 * hash + item.id.hashCode() }
     val railFocusRequesters = remember(items.size, itemIdentity) {
         List(items.size) { FocusRequester() }
     }
     val railState = rememberLazyListState()
+    TelevisionRailFocusRestore(
+        restoreItemId = restoreItemId,
+        ids = items.map(MediaItemUi::id),
+        requesters = railFocusRequesters,
+        listState = railState,
+        onRestored = onRestored,
+    )
     TelevisionArtworkPrefetch(
         items = items,
         listState = railState,
@@ -213,12 +266,21 @@ internal fun DetailMediaRail(
 internal fun PeopleRail(
     people: List<PersonUi>,
     onOpen: (PersonUi) -> Unit,
+    restoreItemId: String? = null,
+    onRestored: () -> Unit = {},
 ) {
     val peopleIdentity = people.fold(1) { hash, person -> 31 * hash + person.id.hashCode() }
     val railFocusRequesters = remember(people.size, peopleIdentity) {
         List(people.size) { FocusRequester() }
     }
     val railState = rememberLazyListState()
+    TelevisionRailFocusRestore(
+        restoreItemId = restoreItemId,
+        ids = people.map(PersonUi::id),
+        requesters = railFocusRequesters,
+        listState = railState,
+        onRestored = onRestored,
+    )
     Column(
         modifier = Modifier
             .fillMaxWidth()

@@ -54,6 +54,7 @@ import com.maik205.shoumeiplayer.domain.model.DetailMediaStream
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionBackground
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionEmptyState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionErrorState
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusHandoff
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingShape
@@ -99,6 +100,9 @@ fun TelevisionDetailScreen(
     val playbackLaunch = rememberPlaybackLaunchState(item?.id)
     var heroFocusTick by remember { mutableIntStateOf(0) }
     var initialFocusAssigned by rememberSaveable(item?.id) { mutableStateOf(false) }
+    var loadRetryFocused by remember { mutableStateOf(false) }
+    var actionRetryFocused by remember { mutableStateOf(false) }
+    var sectionRetryFocused by remember { mutableStateOf(false) }
     val audioStreams = remember(playbackItem?.id, playbackItem?.mediaStreams) {
         playbackItem?.mediaStreams.orEmpty().filter { it.type.equals("Audio", ignoreCase = true) }
     }
@@ -114,9 +118,34 @@ fun TelevisionDetailScreen(
     }
     var qualityChoice by rememberSaveable(item?.id) { mutableIntStateOf(0) }
 
-    LifecycleResumeEffect(item?.id) {
+    // Which child the viewer opened from this screen, so coming back can land on it rather than
+    // on Play. Detail is disposed while the child is on top, so this has to be saved state; the
+    // pending flag is not, and so is true exactly on the composition after the return trip.
+    var openedChildId by rememberSaveable(item?.id) { mutableStateOf<String?>(null) }
+    var childRestorePending by remember { mutableStateOf(true) }
+    val restoreChildId = openedChildId.takeIf { childRestorePending && !state.loading }
+    val openChild: (String) -> Unit = { childId ->
+        openedChildId = childId
+        childRestorePending = false
+    }
+    val openRelatedItem: (MediaItemUi) -> Unit = { media ->
+        openChild(media.id)
+        onOpenItem(media)
+    }
+    val openPerson: (PersonUi) -> Unit = { person ->
+        openChild(person.id)
+        onOpenPerson(person)
+    }
+
+    // The hero is not the first row. Load and action errors are inserted above it, so scrolling
+    // to index zero to reveal the hero could scroll the focused hero control off the top instead.
+    val heroIndex = (if (loadError != null) 1 else 0) + (if (actionError != null) 1 else 0)
+
+    LifecycleResumeEffect(item?.id, restoreChildId) {
         val restoreFocusJob = focusScope.launch {
             withFrameNanos { }
+            // A rail is restoring the exact card that was opened; do not pull focus off it.
+            if (restoreChildId != null) return@launch
             if (!state.loading && item != null && hero != null) {
                 if (state.playableItemId != null) {
                     playFocus.requestFocus()
@@ -139,8 +168,29 @@ fun TelevisionDetailScreen(
         }
     }
     LaunchedEffect(heroFocusTick) {
-        if (heroFocusTick > 0) listState.animateScrollToItem(0)
+        if (heroFocusTick > 0) listState.animateScrollToItem(heroIndex)
     }
+
+    // Both banner Retry controls are removed the moment the retry starts. Send focus to the hero,
+    // which is always present once the screen has content, rather than leaving it nowhere.
+    TelevisionFocusHandoff(
+        present = loadError != null,
+        focused = loadRetryFocused,
+        playFocus,
+        backFocus,
+    )
+    TelevisionFocusHandoff(
+        present = actionError != null,
+        focused = actionRetryFocused,
+        playFocus,
+        backFocus,
+    )
+    TelevisionFocusHandoff(
+        present = state.sectionErrors.isNotEmpty() || state.seasonError != null,
+        focused = sectionRetryFocused,
+        playFocus,
+        backFocus,
+    )
 
     TelevisionBackground(imageUrl = hero?.backdropUrl) {
         when {
@@ -227,6 +277,7 @@ fun TelevisionDetailScreen(
                                 onRetry = onRetry,
                                 retryLabel = stringResource(R.string.retry),
                                 requestInitialFocus = false,
+                                onRetryFocusChanged = { loadRetryFocused = it },
                                 modifier = Modifier.padding(
                                     start = TelevisionDimensions.SafeHorizontal,
                                     end = TelevisionDimensions.SafeHorizontal,
@@ -244,6 +295,7 @@ fun TelevisionDetailScreen(
                                 onRetry = onRetryAction,
                                 retryLabel = stringResource(R.string.retry),
                                 requestInitialFocus = false,
+                                onRetryFocusChanged = { actionRetryFocused = it },
                                 modifier = Modifier.padding(
                                     start = TelevisionDimensions.SafeHorizontal,
                                     end = TelevisionDimensions.SafeHorizontal,
@@ -294,6 +346,7 @@ fun TelevisionDetailScreen(
                                 title = stringResource(R.string.tv_detail_playable_error_title),
                                 error = playableSectionError,
                                 onRetry = onRetry,
+                                onRetryFocusChanged = { sectionRetryFocused = it },
                             )
                         }
                     }
@@ -303,6 +356,7 @@ fun TelevisionDetailScreen(
                                 title = stringResource(R.string.tv_detail_seasons_error_title),
                                 error = seasonsSectionError,
                                 onRetry = onRetry,
+                                onRetryFocusChanged = { sectionRetryFocused = it },
                             )
                         }
                     }
@@ -312,6 +366,7 @@ fun TelevisionDetailScreen(
                                 title = stringResource(R.string.tv_detail_episodes_error_title),
                                 error = episodesSectionError,
                                 onRetry = onRetry,
+                                onRetryFocusChanged = { sectionRetryFocused = it },
                             )
                         }
                     }
@@ -352,6 +407,7 @@ fun TelevisionDetailScreen(
                                     },
                                     retryLabel = stringResource(R.string.retry),
                                     requestInitialFocus = false,
+                                    onRetryFocusChanged = { sectionRetryFocused = it },
                                     modifier = Modifier.padding(
                                         start = TelevisionDimensions.SafeHorizontal,
                                         end = TelevisionDimensions.SafeHorizontal,
@@ -370,14 +426,17 @@ fun TelevisionDetailScreen(
                                 episodes = state.episodes,
                                 episodeTitle = stringResource(R.string.tv_episodes),
                                 onPlay = { episode ->
-                                    onPlay(
-                                        episode.id,
-                                        episode.resumeTicks,
-                                        false,
-                                        audioStreams.getOrNull(audioChoice)?.index,
-                                        subtitleStreams.getOrNull(subtitleChoice - 1)?.index,
-                                        qualityOptions.getOrNull(qualityChoice),
-                                    )
+                                    playbackLaunch.launch {
+                                        openChild(episode.id)
+                                        onPlay(
+                                            episode.id,
+                                            episode.resumeTicks,
+                                            false,
+                                            audioStreams.getOrNull(audioChoice)?.index,
+                                            subtitleStreams.getOrNull(subtitleChoice - 1)?.index,
+                                            qualityOptions.getOrNull(qualityChoice),
+                                        )
+                                    }
                                 },
                             )
                         }
@@ -393,14 +452,17 @@ fun TelevisionDetailScreen(
                                 episodeTitle = stringResource(R.string.tv_detail_more_episodes),
                                 currentEpisodeId = item.id,
                                 onPlay = { episode ->
-                                    onPlay(
-                                        episode.id,
-                                        episode.resumeTicks,
-                                        false,
-                                        audioStreams.getOrNull(audioChoice)?.index,
-                                        subtitleStreams.getOrNull(subtitleChoice - 1)?.index,
-                                        qualityOptions.getOrNull(qualityChoice),
-                                    )
+                                    playbackLaunch.launch {
+                                        openChild(episode.id)
+                                        onPlay(
+                                            episode.id,
+                                            episode.resumeTicks,
+                                            false,
+                                            audioStreams.getOrNull(audioChoice)?.index,
+                                            subtitleStreams.getOrNull(subtitleChoice - 1)?.index,
+                                            qualityOptions.getOrNull(qualityChoice),
+                                        )
+                                    }
                                 },
                             )
                         }
@@ -414,6 +476,7 @@ fun TelevisionDetailScreen(
                                 onRetry = onRetry,
                                 retryLabel = stringResource(R.string.retry),
                                 requestInitialFocus = false,
+                                onRetryFocusChanged = { sectionRetryFocused = it },
                                 modifier = Modifier.padding(horizontal = TelevisionDimensions.SafeHorizontal),
                             )
                         }
@@ -429,8 +492,13 @@ fun TelevisionDetailScreen(
                                 },
                                 tracks = state.tracks,
                                 onPlay = { track ->
-                                    onPlay(track.id, track.resumeTicks, true, null, null, null)
+                                    playbackLaunch.launch {
+                                        openChild(track.id)
+                                        onPlay(track.id, track.resumeTicks, true, null, null, null)
+                                    }
                                 },
+                                restoreItemId = restoreChildId,
+                                onRestored = { childRestorePending = false },
                             )
                         }
                     }
@@ -440,7 +508,9 @@ fun TelevisionDetailScreen(
                             DetailMediaRail(
                                 title = stringResource(R.string.tv_detail_albums),
                                 items = state.releases,
-                                onOpen = onOpenItem,
+                                onOpen = openRelatedItem,
+                                restoreItemId = restoreChildId,
+                                onRestored = { childRestorePending = false },
                             )
                         }
                     }
@@ -453,6 +523,7 @@ fun TelevisionDetailScreen(
                                 onRetry = onRetry,
                                 retryLabel = stringResource(R.string.retry),
                                 requestInitialFocus = false,
+                                onRetryFocusChanged = { sectionRetryFocused = it },
                                 modifier = Modifier.padding(horizontal = TelevisionDimensions.SafeHorizontal),
                             )
                         }
@@ -463,7 +534,9 @@ fun TelevisionDetailScreen(
                             DetailMediaRail(
                                 title = stringResource(R.string.tv_detail_more_like),
                                 items = relatedItems,
-                                onOpen = onOpenItem,
+                                onOpen = openRelatedItem,
+                                restoreItemId = restoreChildId,
+                                onRestored = { childRestorePending = false },
                             )
                         }
                     }
@@ -476,6 +549,7 @@ fun TelevisionDetailScreen(
                                 onRetry = onRetry,
                                 retryLabel = stringResource(R.string.retry),
                                 requestInitialFocus = false,
+                                onRetryFocusChanged = { sectionRetryFocused = it },
                                 modifier = Modifier.padding(horizontal = TelevisionDimensions.SafeHorizontal),
                             )
                         }
@@ -485,7 +559,9 @@ fun TelevisionDetailScreen(
                         item(key = "people") {
                             PeopleRail(
                                 people = state.people,
-                                onOpen = onOpenPerson,
+                                onOpen = openPerson,
+                                restoreItemId = restoreChildId,
+                                onRestored = { childRestorePending = false },
                             )
                         }
                     }
@@ -495,7 +571,9 @@ fun TelevisionDetailScreen(
                             DetailMediaRail(
                                 title = stringResource(R.string.tv_detail_known_for),
                                 items = state.credits,
-                                onOpen = onOpenItem,
+                                onOpen = openRelatedItem,
+                                restoreItemId = restoreChildId,
+                                onRestored = { childRestorePending = false },
                             )
                         }
                     }
@@ -508,6 +586,7 @@ fun TelevisionDetailScreen(
                                 onRetry = onRetry,
                                 retryLabel = stringResource(R.string.retry),
                                 requestInitialFocus = false,
+                                onRetryFocusChanged = { sectionRetryFocused = it },
                                 modifier = Modifier.padding(horizontal = TelevisionDimensions.SafeHorizontal),
                             )
                         }
@@ -527,6 +606,7 @@ private fun DetailSectionError(
     title: String,
     error: UiText,
     onRetry: () -> Unit,
+    onRetryFocusChanged: (Boolean) -> Unit = {},
 ) {
     TelevisionErrorState(
         title = title,
@@ -534,6 +614,7 @@ private fun DetailSectionError(
         onRetry = onRetry,
         retryLabel = stringResource(R.string.retry),
         requestInitialFocus = false,
+        onRetryFocusChanged = onRetryFocusChanged,
         modifier = Modifier.padding(
             start = TelevisionDimensions.SafeHorizontal,
             end = TelevisionDimensions.SafeHorizontal,
