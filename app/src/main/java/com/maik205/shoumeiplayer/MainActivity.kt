@@ -25,15 +25,27 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionBrandSplash
 import com.maik205.shoumeiplayer.ui.television.navigation.TelevisionNavGraph
 import com.maik205.shoumeiplayer.ui.television.theme.ShoumeiTelevisionTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         volumeControlStream = AudioManager.STREAM_MUSIC
         setContent {
+            val appContainer = (application as ShoumeiApp).container
             CompositionLocalProvider(
-                LocalAppContainer provides (application as ShoumeiApp).container
+                LocalAppContainer provides appContainer,
             ) {
+                LaunchedEffect(Unit) {
+                    appContainer.settingsStore.settings
+                        .map { it.displayLanguage }
+                        .distinctUntilChanged()
+                        .collectLatest { language ->
+                            AppLocaleManager.apply(this@MainActivity, language)
+                        }
+                }
                 ShoumeiTelevisionTheme {
                     Surface(
                         modifier = Modifier.fillMaxSize(),

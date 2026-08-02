@@ -47,6 +47,12 @@ data class PlayerTimelineState(
     val positionMs: Long = 0,
     val durationMs: Long? = null,
     val bufferedMs: Long? = null,
+    val readRateBytesPerSecond: Long? = null,
+    val videoBitrateBitsPerSecond: Long? = null,
+    val audioBitrateBitsPerSecond: Long? = null,
+    val cacheIdle: Boolean? = null,
+    val seeking: Boolean = false,
+    val pausedForCache: Boolean = false,
     val upNextVisible: Boolean = false,
 )
 

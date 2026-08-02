@@ -150,6 +150,23 @@ class PlayerViewModel(
     /** Position + duration + buffered end, grouped so the outer [combine] stays within arity. */
     private data class Timeline(val positionMs: Long, val durationMs: Long?, val bufferedMs: Long?)
 
+    private data class BufferRates(
+        val readRateBytesPerSecond: Long?,
+        val videoBitrateBitsPerSecond: Long?,
+        val audioBitrateBitsPerSecond: Long?,
+    )
+
+    private data class BufferFlags(
+        val cacheIdle: Boolean?,
+        val seeking: Boolean,
+        val pausedForCache: Boolean,
+    )
+
+    private data class BufferTelemetry(
+        val rates: BufferRates,
+        val flags: BufferFlags,
+    )
+
     private val sampledTimeline = combine(
         engine.positionMs,
         engine.durationMs,
@@ -159,15 +176,42 @@ class PlayerViewModel(
         // exact values on the engine flows for seeking/reporting, but bound UI state churn.
         .sample(100)
 
+    private val sampledBufferTelemetry = combine(
+        combine(
+            engine.readRateBytesPerSecond,
+            engine.videoBitrateBitsPerSecond,
+            engine.audioBitrateBitsPerSecond,
+        ) { readRateBytesPerSecond, videoBitrateBitsPerSecond, audioBitrateBitsPerSecond ->
+            BufferRates(readRateBytesPerSecond, videoBitrateBitsPerSecond, audioBitrateBitsPerSecond)
+        },
+        combine(
+            engine.cacheIdle,
+            engine.seeking,
+            engine.pausedForCache,
+        ) { cacheIdle, seeking, pausedForCache ->
+            BufferFlags(cacheIdle, seeking, pausedForCache)
+        },
+    ) { rates, flags -> BufferTelemetry(rates, flags) }
+        // Cache metrics are diagnostic context, not frame-by-frame playback state. Keep their
+        // updates calm enough that the compact TV overlay does not churn during a rebuffer.
+        .sample(250)
+
     val timelineState: StateFlow<PlayerTimelineState> = combine(
         sampledTimeline,
+        sampledBufferTelemetry,
         localState,
-    ) { timeline, local ->
+    ) { timeline, telemetry, local ->
         val duration = timeline.durationMs ?: local.itemDurationMs
         PlayerTimelineState(
             positionMs = timeline.positionMs,
             durationMs = duration,
             bufferedMs = timeline.bufferedMs,
+            readRateBytesPerSecond = telemetry.rates.readRateBytesPerSecond,
+            videoBitrateBitsPerSecond = telemetry.rates.videoBitrateBitsPerSecond,
+            audioBitrateBitsPerSecond = telemetry.rates.audioBitrateBitsPerSecond,
+            cacheIdle = telemetry.flags.cacheIdle,
+            seeking = telemetry.flags.seeking,
+            pausedForCache = telemetry.flags.pausedForCache,
             upNextVisible = local.upNext != null &&
                 !local.upNextDismissed &&
                 isUpNextDue(timeline.positionMs, duration),

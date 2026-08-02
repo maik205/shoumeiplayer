@@ -1,0 +1,106 @@
+<resources>
+    <string name="tv_opening_shoumei">Đang mở Shoumei...</string>
+    <string name="tv_startup_error">Không mở được Shoumei</string>
+    <string name="tv_startup_error_detail">Mở phiên hơi lâu hoặc bị lỗi. Thử lại nha, hoặc tự nhập server.</string>
+    <string name="tv_session_expired_title">Phiên hết hạn rồi</string>
+    <string name="tv_session_expired_detail">Đăng nhập lại để tiếp tục nha.</string>
+    <string name="tv_sign_in_again">Đăng nhập lại</string>
+    <string name="tv_account_locked_title">Tài khoản bị khóa</string>
+    <string name="tv_account_locked_detail">Nhờ quản trị viên server mở khóa giúp nha.</string>
+    <string name="tv_profiles">Tài khoản</string>
+
+    <string name="tv_choose_media_server">Chọn server media\ncủa bạn</string>
+    <string name="tv_available_servers">Server tìm thấy</string>
+    <string name="tv_signed_in_as">Đã đăng nhập với %1$s</string>
+    <string name="tv_current_server">Server hiện tại</string>
+    <string name="tv_remembered_server">Server đã lưu</string>
+    <string name="tv_refresh">Làm mới</string>
+    <string name="tv_discovery_failed">Không tìm thấy server gần đây.</string>
+    <string name="tv_no_servers_found">Không thấy server nào gần đây. Nhập địa chỉ server bên dưới nha.</string>
+    <string name="tv_back">Quay lại</string>
+
+    <string name="tv_loading_home">Đang tải trang chủ...</string>
+    <string name="tv_loading_library">Đang tải thư viện...</string>
+    <string name="tv_loading_detail">Đang tải chi tiết...</string>
+    <string name="tv_loading_guide">Đang tải lịch phát...</string>
+    <string name="tv_loading_music">Đang tải nhạc...</string>
+    <string name="tv_home_error_title">Không tải được thư viện</string>
+    <string name="tv_home_empty_detail">Có nội dung mới thì nó sẽ hiện ở đây nha.</string>
+
+    <string name="tv_music_error_title">Không mở được thư viện nhạc</string>
+    <string name="tv_music_empty_title">Chưa có nhạc gì hết</string>
+    <string name="tv_music_overview">Tổng quan</string>
+    <string name="tv_music_albums">Album</string>
+    <string name="tv_music_artists">Nghệ sĩ</string>
+    <string name="tv_music_playlists">Danh sách phát</string>
+    <string name="tv_music_label">Nhạc</string>
+
+    <string name="tv_live_error_title">Không mở được lịch phát</string>
+    <string name="tv_live_empty_title">Chưa có kênh trực tiếp</string>
+    <string name="tv_live_label">Trực tiếp</string>
+    <string name="tv_watch">Xem</string>
+    <string name="tv_refreshing">Đang làm mới...</string>
+    <string name="tv_connected">Đã kết nối</string>
+    <string name="tv_not_connected">Chưa kết nối</string>
+    <string name="tv_settings_connection_failed">Kiểm tra kết nối thất bại rồi</string>
+    <string name="tv_settings_save_failed">Không lưu được cài đặt.</string>
+    <string name="tv_settings_error_title">Không lưu được cài đặt</string>
+
+    <string name="tv_player_loading">Đang chuẩn bị phát...</string>
+    <string name="tv_player_buffering">Đang nạp thêm...</string>
+    <string name="tv_player_buffer_waiting">Đợi nạp thêm xíu...</string>
+
+    <string name="tv_details">Chi tiết</string>
+    <string name="tv_audio">Âm thanh</string>
+    <string name="tv_subtitles">Phụ đề</string>
+    <string name="tv_quality">Chất lượng</string>
+    <string name="tv_default">Mặc định</string>
+    <string name="tv_on">Bật</string>
+    <string name="tv_auto">Tự động</string>
+    <string name="tv_end_of_library">Hết nội dung rồi</string>
+    <string name="tv_filter_all">Tất cả</string>
+    <string name="tv_filter_new">Mới</string>
+    <string name="tv_filter_favorites">Yêu thích</string>
+    <string name="tv_sort_title">Tên</string>
+    <string name="tv_sort_recent">Gần đây</string>
+
+    <string name="tv_settings_playback">Phát lại</string>
+    <string name="tv_settings_video">Video</string>
+    <string name="tv_settings_audio">Âm thanh</string>
+    <string name="tv_settings_subtitles">Phụ đề</string>
+    <string name="tv_settings_interface">Giao diện</string>
+    <string name="tv_settings_network">Mạng</string>
+    <string name="tv_settings_about">Giới thiệu</string>
+    <string name="tv_settings_account">Tài khoản</string>
+    <string name="tv_settings_display_language">Ngôn ngữ hiển thị</string>
+    <string name="tv_settings_interface_scale">Tỷ lệ giao diện</string>
+    <string name="tv_settings_theme">Chủ đề</string>
+    <string name="tv_settings_backdrop_images">Ảnh nền</string>
+    <string name="tv_settings_show_clock">Hiện đồng hồ</string>
+    <string name="tv_settings_remember_last_library">Nhớ thư viện cuối</string>
+    <string name="tv_settings_cache_home_content">Lưu nội dung trang chủ</string>
+    <string name="tv_settings_preferred_audio_language">Ngôn ngữ âm thanh ưu tiên</string>
+    <string name="tv_settings_preferred_subtitle_language">Ngôn ngữ phụ đề ưu tiên</string>
+    <string name="tv_settings_subtitle_mode">Chế độ phụ đề</string>
+    <string name="tv_settings_text_size">Cỡ chữ</string>
+    <string name="tv_settings_text_color">Màu chữ</string>
+    <string name="tv_settings_renderer">Bộ kết xuất</string>
+    <string name="tv_settings_stream_cache">Bộ đệm stream</string>
+    <string name="tv_settings_cache_duration">Thời lượng bộ đệm</string>
+    <string name="tv_settings_read_ahead">Tải trước</string>
+    <string name="tv_settings_network_timeout">Thời gian chờ mạng</string>
+    <string name="tv_settings_test_connection">Kiểm tra kết nối</string>
+    <string name="tv_settings_change_server">Đổi server</string>
+    <string name="tv_settings_switch_profile">Đổi tài khoản</string>
+    <string name="tv_settings_sign_out">Đăng xuất</string>
+    <string name="tv_settings_english">Tiếng Anh</string>
+    <string name="tv_settings_vietnamese">Tiếng Việt</string>
+    <string name="tv_settings_japanese">Tiếng Nhật</string>
+    <string name="tv_settings_french">Tiếng Pháp</string>
+    <string name="tv_settings_german">Tiếng Đức</string>
+    <string name="tv_settings_compact">Gọn</string>
+    <string name="tv_settings_comfortable">Thoải mái</string>
+    <string name="tv_settings_large">Lớn</string>
+    <string name="tv_settings_dark">Tối</string>
+    <string name="tv_settings_system">Hệ thống</string>
+</resources>

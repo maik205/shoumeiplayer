@@ -51,16 +51,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
@@ -203,6 +205,7 @@ internal fun TelevisionPlayerContent(
     var panelBackStack by remember { mutableStateOf<List<TelevisionPlayerPanel>>(emptyList()) }
     var osdVisible by remember { mutableStateOf(audioOnly) }
     var miniSeekVisible by remember { mutableStateOf(false) }
+    var whileWatchingVisible by remember { mutableStateOf(false) }
     var miniSeekTick by remember { mutableIntStateOf(0) }
     var interactionTick by remember { mutableIntStateOf(0) }
     var timelineFocusTick by remember { mutableIntStateOf(0) }
@@ -236,12 +239,14 @@ internal fun TelevisionPlayerContent(
 
     fun revealOsd(focusTimeline: Boolean = false) {
         osdVisible = true
+        whileWatchingVisible = false
         noteInteraction()
         if (focusTimeline) requestTimeline() else requestPlayPause()
     }
 
     fun hideOsd() {
         osdVisible = false
+        whileWatchingVisible = false
         panel = null
         panelBackStack = emptyList()
         runCatching { rootFocus.requestFocus() }
@@ -271,6 +276,7 @@ internal fun TelevisionPlayerContent(
     }
 
     fun openPanel(target: TelevisionPlayerPanel) {
+        whileWatchingVisible = false
         val current = panel
         if (current == null) {
             panelBackStack = emptyList()
@@ -419,6 +425,11 @@ internal fun TelevisionPlayerContent(
                 noteInteraction()
             }
 
+            !audio && whileWatchingVisible -> {
+                whileWatchingVisible = false
+                noteInteraction()
+                requestPlayPause()
+            }
             !audio && osdVisible -> hideOsd()
             !audio && miniSeekVisible -> miniSeekVisible = false
             else -> exitPlayer()
@@ -603,6 +614,14 @@ internal fun TelevisionPlayerContent(
                     dimmed = panel != null,
                     timelineFocus = timelineFocus,
                     playPauseFocus = playPauseFocus,
+                    whileWatchingVisible = whileWatchingVisible,
+                    onOpenWhileWatching = {
+                        whileWatchingVisible = true
+                        noteInteraction()
+                        controller.loadShelves()
+                    },
+                    onOpenItem = { target -> leavePlayer { onNavigateToItem(target) } },
+                    onRetryWhileWatching = controller::loadShelves,
                     exitArmed = exitArmed,
                     onExitButton = ::handleExitButton,
                     onSeekBy = controller::seekBy,
@@ -634,16 +653,6 @@ internal fun TelevisionPlayerContent(
             }
         }
 
-        if (state.loading || state.state == PlayerState.Loading || state.state == PlayerState.Buffering) {
-            Box(
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .height(2.dp)
-                    .background(TelevisionColors.PaperSoft),
-            )
-        }
-
         state.notice?.let {
             Text(
                 text = it.resolveMessage(),
@@ -657,8 +666,14 @@ internal fun TelevisionPlayerContent(
             )
         }
 
-        if (state.loading && playbackError == null) {
-            PlayerLoadingOverlay()
+        val playbackWaiting = state.loading ||
+            state.state == PlayerState.Loading ||
+            state.state == PlayerState.Buffering
+        if (playbackWaiting && playbackError == null && !osdVisible && !miniSeekVisible) {
+            PlayerLoadingOverlay(
+                timelineState = timelineState,
+                dimBackground = state.loading,
+            )
         }
         if (state.swapping) {
             Text(
@@ -1049,22 +1064,149 @@ internal fun TelevisionPlayerContent(
 }
 
 @Composable
-private fun PlayerLoadingOverlay() {
+private fun PlayerLoadingOverlay(
+    timelineState: StateFlow<PlayerTimelineState>,
+    dimBackground: Boolean,
+) {
+    val timeline by timelineState.collectAsStateWithLifecycle()
+    val loadingLabel = stringResource(
+        if (dimBackground) R.string.tv_player_loading else R.string.tv_player_buffering,
+    )
+    val streamBitrate = listOfNotNull(
+        timeline.videoBitrateBitsPerSecond,
+        timeline.audioBitrateBitsPerSecond,
+    ).takeIf { it.isNotEmpty() }?.sum()
+    val bufferStatus = when {
+        timeline.seeking -> stringResource(R.string.tv_player_buffer_seeking)
+        timeline.pausedForCache -> stringResource(R.string.tv_player_buffer_catching_up)
+        timeline.cacheIdle == false -> stringResource(R.string.tv_player_buffer_fetching)
+        else -> null
+    }
+    val bufferAhead = timeline.bufferedMs?.let { bufferedMs ->
+        val bufferedAheadMs = (bufferedMs - timeline.positionMs).coerceAtLeast(0L)
+        if (bufferedAheadMs >= 1_000L) formatBufferedAhead(bufferedAheadMs) else null
+    }
+    val bufferSummary = listOfNotNull(bufferStatus, bufferAhead)
+        .joinToString(separator = stringResource(R.string.tv_player_buffer_detail_separator))
+        .ifEmpty { stringResource(R.string.tv_player_buffer_waiting) }
+    val bufferMetrics = buildList {
+        timeline.readRateBytesPerSecond
+            ?.takeIf { it > 0L }
+            ?.let { add(formatIncomingRate(it)) }
+        streamBitrate
+            ?.takeIf { it > 0L }
+            ?.let { add(formatStreamBitrate(it)) }
+    }.joinToString(separator = stringResource(R.string.tv_player_buffer_detail_separator))
+    val bufferDetails = listOfNotNull(bufferSummary, bufferMetrics.takeIf(String::isNotEmpty))
+        .joinToString(separator = stringResource(R.string.tv_player_buffer_detail_separator))
+    val loadingDescription = stringResource(
+        R.string.tv_player_loading_description,
+        loadingLabel,
+        bufferDetails,
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(TelevisionColors.Black.copy(alpha = 0.78f)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator()
-            Spacer(Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.tv_player_loading),
-                style = MaterialTheme.typography.titleLarge,
-                color = TelevisionColors.Paper,
+            .background(
+                TelevisionColors.Black.copy(alpha = if (dimBackground) 0.92f else 0f),
             )
+            .semantics(mergeDescendants = true) {
+                contentDescription = loadingDescription
+                progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate
+            },
+    ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 14.dp, bottom = 6.dp)
+                .width(300.dp)
+                .height(78.dp)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            TelevisionColors.BlackRaised.copy(alpha = 0.78f),
+                            TelevisionColors.Black.copy(alpha = 0f),
+                        ),
+                    ),
+                ),
+        )
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(
+                    start = TelevisionDimensions.SafeHorizontal,
+                    bottom = TelevisionDimensions.SafeBottom,
+                ),
+            verticalAlignment = Alignment.Top,
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(TelevisionDimensions.ActionIcon),
+                color = TelevisionColors.Paper,
+                trackColor = TelevisionColors.ProgressTrack,
+                strokeWidth = 1.5.dp,
+            )
+            Spacer(Modifier.width(8.dp))
+            Column(
+                modifier = Modifier.width(234.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = loadingLabel,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = TelevisionColors.PaperMuted,
+                )
+                Text(
+                    text = bufferDetails,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TelevisionColors.PaperSoft,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun formatBufferedAhead(bufferedAheadMs: Long): String {
+    val seconds = bufferedAheadMs.coerceAtLeast(0L) / 1_000L
+    return if (seconds < 60L) {
+        stringResource(R.string.tv_player_buffer_ahead_seconds, seconds)
+    } else {
+        stringResource(R.string.tv_player_buffer_ahead, formatPlayerTime(bufferedAheadMs))
+    }
+}
+
+@Composable
+private fun formatIncomingRate(bytesPerSecond: Long): String {
+    val rate = bytesPerSecond.toDouble()
+    return when {
+        rate >= 1_000_000.0 -> stringResource(
+            R.string.tv_player_buffer_rate_megabytes,
+            rate / 1_000_000.0,
+        )
+        rate >= 1_000.0 -> stringResource(
+            R.string.tv_player_buffer_rate_kilobytes,
+            rate / 1_000.0,
+        )
+        else -> stringResource(R.string.tv_player_buffer_rate_bytes, rate)
+    }
+}
+
+@Composable
+private fun formatStreamBitrate(bitsPerSecond: Long): String {
+    val bitrate = bitsPerSecond.toDouble()
+    return if (bitrate >= 1_000_000.0) {
+        stringResource(
+            R.string.tv_player_buffer_bitrate_megabits,
+            bitrate / 1_000_000.0,
+        )
+    } else {
+        stringResource(
+            R.string.tv_player_buffer_bitrate_kilobits,
+            bitrate / 1_000.0,
+        )
     }
 }
 

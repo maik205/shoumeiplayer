@@ -2,7 +2,12 @@ package com.maik205.shoumeiplayer.player
 
 import android.view.Surface
 import com.maik205.shoumeiplayer.domain.settings.ClientSettings
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+
+private val unavailableLongTelemetry: StateFlow<Long?> = MutableStateFlow(null)
+private val unavailableBooleanTelemetry: StateFlow<Boolean?> = MutableStateFlow(null)
+private val unavailableFlagTelemetry: StateFlow<Boolean> = MutableStateFlow(false)
 
 interface PlayerEngine {
     val state: StateFlow<PlayerState>
@@ -24,6 +29,31 @@ interface PlayerEngine {
     val speed: StateFlow<Float>
     /** Native source frame rate, when the current stream reports one. */
     val videoFps: StateFlow<Double?>
+
+    /** Network/cache read rate reported by the native backend, in bytes per second. */
+    val readRateBytesPerSecond: StateFlow<Long?>
+        get() = unavailableLongTelemetry
+
+    /** Recent packet-level video bitrate reported by the native backend, in bits per second. */
+    val videoBitrateBitsPerSecond: StateFlow<Long?>
+        get() = unavailableLongTelemetry
+
+    /** Recent packet-level audio bitrate reported by the native backend, in bits per second. */
+    val audioBitrateBitsPerSecond: StateFlow<Long?>
+        get() = unavailableLongTelemetry
+
+    /** Whether the backend has filled the cache to its requested target, when known. */
+    val cacheIdle: StateFlow<Boolean?>
+        get() = unavailableBooleanTelemetry
+
+    /** True while the backend is resolving a seek and refilling the target range. */
+    val seeking: StateFlow<Boolean>
+        get() = unavailableFlagTelemetry
+
+    /** True when playback is paused specifically because the cache ran dry. */
+    val pausedForCache: StateFlow<Boolean>
+        get() = unavailableFlagTelemetry
+
     fun setSystemCaptionStyle(style: SystemCaptionStyle?) = Unit
     fun setSurface(surface: Surface?)
 

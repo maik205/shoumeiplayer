@@ -159,6 +159,108 @@ internal fun PlayerExtrasOverlay(
     }
 }
 
+@Composable
+internal fun PlayerWhileWatchingRail(
+    state: PlayerUiState,
+    focusRequester: FocusRequester,
+    upFocusRequester: FocusRequester,
+    onOpenItem: (String) -> Unit,
+    onRetry: () -> Unit,
+) {
+    val itemIds = state.similar.map(PlayerShelfItem::id)
+    val railFocusRequesters = remember(itemIds) {
+        List(itemIds.size) { FocusRequester() }
+    }
+    val focusRequesters = remember(focusRequester, itemIds, railFocusRequesters) {
+        listOf(focusRequester) + railFocusRequesters.drop(1)
+    }
+    val railState = rememberLazyListState()
+    val shelvesError = state.shelvesError
+
+    LaunchedEffect(itemIds) {
+        if (itemIds.isNotEmpty()) {
+            runCatching { focusRequester.requestFocus() }
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxWidth().focusGroup()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.tv_player_while_watching),
+                style = MaterialTheme.typography.headlineSmall,
+            )
+            if (state.shelvesLoading) {
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = stringResource(R.string.tv_loading_more),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = TelevisionColors.PaperMuted,
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        when {
+            state.similar.isNotEmpty() -> {
+                LazyRow(
+                    state = railState,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.focusGroup(),
+                ) {
+                    itemsIndexed(state.similar, key = { index, item -> "${item.id}:$index" }) { index, item ->
+                        PlayerArtworkTile(
+                            title = item.title,
+                            subtitle = item.subtitle,
+                            artworkUrl = item.artworkUrl,
+                            width = 236.dp,
+                            height = 133.dp,
+                            onClick = { onOpenItem(item.id) },
+                            focusRequester = focusRequesters[index],
+                            modifier = Modifier
+                                .focusProperties { up = upFocusRequester }
+                                .televisionHorizontalWrap(
+                                    index,
+                                    focusRequesters,
+                                    railState,
+                                ),
+                        )
+                    }
+                }
+            }
+
+            shelvesError != null -> {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = shelvesError.resolveMessage(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TelevisionColors.PaperMuted,
+                    )
+                    PlayerActionButton(
+                        label = stringResource(R.string.retry),
+                        icon = Icons.Default.Refresh,
+                        onClick = onRetry,
+                    )
+                }
+            }
+
+            state.shelvesLoading -> {
+                Text(
+                    text = stringResource(R.string.tv_loading_more),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TelevisionColors.PaperMuted,
+                )
+            }
+
+            else -> {
+                Text(
+                    text = stringResource(R.string.tv_player_empty_extras),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TelevisionColors.PaperMuted,
+                )
+            }
+        }
+    }
+}
+
 internal fun Modifier.playerModalFocusTrap(): Modifier =
     focusProperties { onExit = { cancelFocusChange() } }
         .focusGroup()

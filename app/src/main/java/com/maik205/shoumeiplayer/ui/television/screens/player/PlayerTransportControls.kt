@@ -226,9 +226,15 @@ internal fun PlayerTimeline(
     onNavigateUp: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     focusRequester: FocusRequester? = null,
+    downFocusRequester: FocusRequester? = null,
     onFocused: () -> Unit = {},
 ) {
     val duration = durationMs?.takeIf { it > 0L }
+    val directionalFocusModifier = if (downFocusRequester != null) {
+        Modifier.focusProperties { down = downFocusRequester }
+    } else {
+        Modifier
+    }
     TelevisionFocusSurface(
         onClick = onClick,
         focusRequester = focusRequester,
@@ -236,6 +242,7 @@ internal fun PlayerTimeline(
         restingAlpha = 0.82f,
         onFocusChanged = { if (it) onFocused() },
         modifier = modifier
+            .then(directionalFocusModifier)
             .height(54.dp)
             .onPreviewKeyEvent { event ->
                 if (event.nativeKeyEvent.action != KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false

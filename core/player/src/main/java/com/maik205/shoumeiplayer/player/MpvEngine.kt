@@ -62,6 +62,24 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
     private val _videoFps = MutableStateFlow<Double?>(null)
     override val videoFps: StateFlow<Double?> = _videoFps.asStateFlow()
 
+    private val _readRateBytesPerSecond = MutableStateFlow<Long?>(null)
+    override val readRateBytesPerSecond: StateFlow<Long?> = _readRateBytesPerSecond.asStateFlow()
+
+    private val _videoBitrateBitsPerSecond = MutableStateFlow<Long?>(null)
+    override val videoBitrateBitsPerSecond: StateFlow<Long?> = _videoBitrateBitsPerSecond.asStateFlow()
+
+    private val _audioBitrateBitsPerSecond = MutableStateFlow<Long?>(null)
+    override val audioBitrateBitsPerSecond: StateFlow<Long?> = _audioBitrateBitsPerSecond.asStateFlow()
+
+    private val _cacheIdle = MutableStateFlow<Boolean?>(null)
+    override val cacheIdle: StateFlow<Boolean?> = _cacheIdle.asStateFlow()
+
+    private val _seeking = MutableStateFlow(false)
+    override val seeking: StateFlow<Boolean> = _seeking.asStateFlow()
+
+    private val _pausedForCache = MutableStateFlow(false)
+    override val pausedForCache: StateFlow<Boolean> = _pausedForCache.asStateFlow()
+
     @Volatile private var released = false
     @Volatile private var surfaceAttached = false
     @Volatile private var pendingLoad: PlayRequest? = null
@@ -78,9 +96,9 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
 
     @Volatile private var corePaused = false
     @Volatile private var coreIdle = true
-    @Volatile private var pausedForCache = false
+    @Volatile private var corePausedForCache = false
     @Volatile private var eofReached = false
-    @Volatile private var seeking = false
+    @Volatile private var coreSeeking = false
     private var systemCaBundlePath: String? = null
 
     init {
@@ -168,6 +186,12 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         MpvNative.observeProperty("seeking", MpvNative.MPV_FORMAT_FLAG)
         // demuxer-cache-time is the absolute playback timestamp (seconds) the cache reaches.
         MpvNative.observeProperty("demuxer-cache-time", MpvNative.MPV_FORMAT_DOUBLE)
+        // These scalar properties make a rebuffer explainable without exposing mpv's full
+        // demuxer-cache-state node tree to the UI.
+        MpvNative.observeProperty("cache-speed", MpvNative.MPV_FORMAT_INT64)
+        MpvNative.observeProperty("video-bitrate", MpvNative.MPV_FORMAT_INT64)
+        MpvNative.observeProperty("audio-bitrate", MpvNative.MPV_FORMAT_INT64)
+        MpvNative.observeProperty("demuxer-cache-idle", MpvNative.MPV_FORMAT_FLAG)
         // mpv can refuse or round a rate change (and keeps `speed` across loadfile), so the flow is
         // driven by what mpv reports rather than by what was asked for.
         MpvNative.observeProperty("speed", MpvNative.MPV_FORMAT_DOUBLE)
@@ -319,7 +343,8 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         hasRequest = true
         fileLoaded = false
         eofReached = false
-        seeking = false
+        coreSeeking = false
+        corePausedForCache = false
         lastErrorMessage = null
         pendingAudioTrackId = item.preferredAudioTrackId
         pendingSubtitleTrackId = item.preferredSubtitleTrackId
@@ -329,6 +354,12 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         _tracks.value = emptyList()
         _bufferedMs.value = null
         _videoFps.value = null
+        _readRateBytesPerSecond.value = null
+        _videoBitrateBitsPerSecond.value = null
+        _audioBitrateBitsPerSecond.value = null
+        _cacheIdle.value = null
+        _seeking.value = false
+        _pausedForCache.value = false
         _positionMs.value = item.startPositionMs
         _durationMs.value = item.durationMs
         _state.value = PlayerState.Loading
@@ -375,7 +406,8 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         val target = ms.coerceAtLeast(0)
         _positionMs.value = target
         // Enter Buffering immediately; the `seeking` property event clears it once mpv has refilled.
-        seeking = true
+        coreSeeking = true
+        _seeking.value = true
         updateState()
         MpvNative.command(
             arrayOf("seek", String.format(Locale.ROOT, "%.3f", target / 1000.0), "absolute"),
@@ -487,7 +519,8 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         pendingLoad = null
         fileLoaded = false
         eofReached = false
-        seeking = false
+        coreSeeking = false
+        corePausedForCache = false
         MpvNative.command(arrayOf("stop"))
         mpvTracks = emptyList()
         externalIndexByMpvId = emptyMap()
@@ -496,6 +529,12 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         _durationMs.value = null
         _bufferedMs.value = null
         _videoFps.value = null
+        _readRateBytesPerSecond.value = null
+        _videoBitrateBitsPerSecond.value = null
+        _audioBitrateBitsPerSecond.value = null
+        _cacheIdle.value = null
+        _seeking.value = false
+        _pausedForCache.value = false
         _state.value = PlayerState.Idle
     }
 
@@ -525,6 +564,9 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         when (property) {
             "time-pos" -> _positionMs.value = value * 1000
             "duration" -> _durationMs.value = if (value > 0) value * 1000 else null
+            "cache-speed" -> _readRateBytesPerSecond.value = value.takeIf { it > 0L }
+            "video-bitrate" -> _videoBitrateBitsPerSecond.value = value.takeIf { it > 0L }
+            "audio-bitrate" -> _audioBitrateBitsPerSecond.value = value.takeIf { it > 0L }
         }
     }
 
@@ -544,9 +586,16 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         when (property) {
             "pause" -> corePaused = value
             "core-idle" -> coreIdle = value
-            "paused-for-cache" -> pausedForCache = value
+            "paused-for-cache" -> {
+                corePausedForCache = value
+                _pausedForCache.value = value
+            }
             "eof-reached" -> eofReached = value
-            "seeking" -> seeking = value
+            "seeking" -> {
+                coreSeeking = value
+                _seeking.value = value
+            }
+            "demuxer-cache-idle" -> _cacheIdle.value = value
             else -> return
         }
         updateState()
@@ -573,11 +622,13 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
             // bracket the refill far more reliably than the `seeking` property alone, which can
             // settle before the first frame is decoded.
             MpvNative.MPV_EVENT_SEEK -> {
-                seeking = true
+                coreSeeking = true
+                _seeking.value = true
                 updateState()
             }
             MpvNative.MPV_EVENT_PLAYBACK_RESTART -> {
-                seeking = false
+                coreSeeking = false
+                _seeking.value = false
                 updateState()
             }
             MpvNative.MPV_EVENT_END_FILE -> {
@@ -628,7 +679,7 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
             eofReached -> PlayerState.Ended
             // Cache underrun and post-seek refill both mean "waiting on data", even while the
             // user has playback nominally running.
-            pausedForCache || seeking -> PlayerState.Buffering
+            corePausedForCache || coreSeeking -> PlayerState.Buffering
             corePaused -> PlayerState.Paused
             // core-idle without an explicit pause is mpv waiting on the initial fill.
             coreIdle -> PlayerState.Buffering

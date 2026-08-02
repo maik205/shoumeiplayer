@@ -39,6 +39,18 @@ internal class SwitchingPlayerEngine(
     override val speed: StateFlow<Float> = _speed
     private val _videoFps = MutableStateFlow(delegate.videoFps.value)
     override val videoFps: StateFlow<Double?> = _videoFps
+    private val _readRateBytesPerSecond = MutableStateFlow(delegate.readRateBytesPerSecond.value)
+    override val readRateBytesPerSecond: StateFlow<Long?> = _readRateBytesPerSecond
+    private val _videoBitrateBitsPerSecond = MutableStateFlow(delegate.videoBitrateBitsPerSecond.value)
+    override val videoBitrateBitsPerSecond: StateFlow<Long?> = _videoBitrateBitsPerSecond
+    private val _audioBitrateBitsPerSecond = MutableStateFlow(delegate.audioBitrateBitsPerSecond.value)
+    override val audioBitrateBitsPerSecond: StateFlow<Long?> = _audioBitrateBitsPerSecond
+    private val _cacheIdle = MutableStateFlow(delegate.cacheIdle.value)
+    override val cacheIdle: StateFlow<Boolean?> = _cacheIdle
+    private val _seeking = MutableStateFlow(delegate.seeking.value)
+    override val seeking: StateFlow<Boolean> = _seeking
+    private val _pausedForCache = MutableStateFlow(delegate.pausedForCache.value)
+    override val pausedForCache: StateFlow<Boolean> = _pausedForCache
 
     init {
         observeDelegate()
@@ -103,6 +115,12 @@ internal class SwitchingPlayerEngine(
         _tracks.value = delegate.tracks.value
         _speed.value = delegate.speed.value
         _videoFps.value = delegate.videoFps.value
+        _readRateBytesPerSecond.value = delegate.readRateBytesPerSecond.value
+        _videoBitrateBitsPerSecond.value = delegate.videoBitrateBitsPerSecond.value
+        _audioBitrateBitsPerSecond.value = delegate.audioBitrateBitsPerSecond.value
+        _cacheIdle.value = delegate.cacheIdle.value
+        _seeking.value = delegate.seeking.value
+        _pausedForCache.value = delegate.pausedForCache.value
         observationJobs = listOf(
             scope.launch { delegate.state.collect { _state.value = it } },
             scope.launch { delegate.positionMs.collect { _positionMs.value = it } },
@@ -111,6 +129,12 @@ internal class SwitchingPlayerEngine(
             scope.launch { delegate.tracks.collect { _tracks.value = it } },
             scope.launch { delegate.speed.collect { _speed.value = it } },
             scope.launch { delegate.videoFps.collect { _videoFps.value = it } },
+            scope.launch { delegate.readRateBytesPerSecond.collect { _readRateBytesPerSecond.value = it } },
+            scope.launch { delegate.videoBitrateBitsPerSecond.collect { _videoBitrateBitsPerSecond.value = it } },
+            scope.launch { delegate.audioBitrateBitsPerSecond.collect { _audioBitrateBitsPerSecond.value = it } },
+            scope.launch { delegate.cacheIdle.collect { _cacheIdle.value = it } },
+            scope.launch { delegate.seeking.collect { _seeking.value = it } },
+            scope.launch { delegate.pausedForCache.collect { _pausedForCache.value = it } },
         )
     }
 }

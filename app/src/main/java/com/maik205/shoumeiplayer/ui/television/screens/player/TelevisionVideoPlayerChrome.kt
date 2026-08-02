@@ -115,6 +115,10 @@ internal fun VideoPlayerChrome(
     dimmed: Boolean,
     timelineFocus: FocusRequester,
     playPauseFocus: FocusRequester,
+    whileWatchingVisible: Boolean,
+    onOpenWhileWatching: () -> Unit,
+    onOpenItem: (String) -> Unit,
+    onRetryWhileWatching: () -> Unit,
     exitArmed: Boolean,
     onExitButton: () -> Unit,
     onSeekBy: (Long) -> Unit,
@@ -127,6 +131,7 @@ internal fun VideoPlayerChrome(
     modifier: Modifier = Modifier,
 ) {
     val playing = state.state == PlayerState.Playing || state.state == PlayerState.Buffering
+    val whileWatchingFocus = remember { FocusRequester() }
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -171,6 +176,7 @@ internal fun VideoPlayerChrome(
             chapters = state.chapters,
             seekIntervalMs = state.seekIntervalSeconds.toLong() * 1_000L,
             focusRequester = timelineFocus,
+            downFocusRequester = playPauseFocus,
             onSeekBy = {
                 onInteraction()
                 onSeekBy(it)
@@ -184,7 +190,23 @@ internal fun VideoPlayerChrome(
         )
         Spacer(Modifier.height(8.dp))
         Row(
-            modifier = Modifier.fillMaxWidth().focusGroup(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusGroup()
+                .onPreviewKeyEvent { event ->
+                    if (event.nativeKeyEvent.action != KeyEvent.ACTION_DOWN) {
+                        return@onPreviewKeyEvent false
+                    }
+                    if (event.nativeKeyEvent.keyCode != KeyEvent.KEYCODE_DPAD_DOWN) {
+                        return@onPreviewKeyEvent false
+                    }
+                    if (!whileWatchingVisible) {
+                        onOpenWhileWatching()
+                    } else {
+                        runCatching { whileWatchingFocus.requestFocus() }
+                    }
+                    true
+                },
             horizontalArrangement = Arrangement.spacedBy(9.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -301,6 +323,16 @@ internal fun VideoPlayerChrome(
                 onClick = { onOpenPanel(TelevisionPlayerPanel.More) },
             )
         }
+        if (whileWatchingVisible) {
+            Spacer(Modifier.height(18.dp))
+            PlayerWhileWatchingRail(
+                state = state,
+                focusRequester = whileWatchingFocus,
+                upFocusRequester = playPauseFocus,
+                onOpenItem = onOpenItem,
+                onRetry = onRetryWhileWatching,
+            )
+        }
     }
 }
 
@@ -310,6 +342,7 @@ private fun VideoPlayerTimeline(
     chapters: List<ChapterMark>,
     seekIntervalMs: Long,
     focusRequester: FocusRequester,
+    downFocusRequester: FocusRequester,
     onSeekBy: (Long) -> Unit,
     onClick: () -> Unit,
     onNavigateUp: () -> Unit,
@@ -323,6 +356,7 @@ private fun VideoPlayerTimeline(
         chapters = chapters,
         seekIntervalMs = seekIntervalMs,
         focusRequester = focusRequester,
+        downFocusRequester = downFocusRequester,
         onSeekBy = onSeekBy,
         onClick = onClick,
         onNavigateUp = onNavigateUp,
