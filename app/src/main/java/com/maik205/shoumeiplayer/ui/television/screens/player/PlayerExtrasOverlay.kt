@@ -179,8 +179,12 @@ internal fun PlayerWhileWatchingRail(
     val shelvesError = state.shelvesError
     val colors = TelevisionTheme.colors
 
-    LaunchedEffect(itemIds) {
-        if (itemIds.isNotEmpty()) {
+    // The toolbar's Down key resolves to `focusRequester`, which used to be attached only to the
+    // first similar-item tile. When the shelf failed to load there were no tiles, so Down landed
+    // on a requester with no node and the Retry button beside the message could not be reached at
+    // all. The requester now follows whatever the shelf is actually showing.
+    LaunchedEffect(itemIds, shelvesError) {
+        if (itemIds.isNotEmpty() || shelvesError != null) {
             runCatching { focusRequester.requestFocus() }
         }
     }
@@ -240,6 +244,8 @@ internal fun PlayerWhileWatchingRail(
                         label = stringResource(R.string.retry),
                         icon = Icons.Default.Refresh,
                         onClick = onRetry,
+                        focusRequester = focusRequester,
+                        modifier = Modifier.focusProperties { up = upFocusRequester },
                     )
                 }
             }

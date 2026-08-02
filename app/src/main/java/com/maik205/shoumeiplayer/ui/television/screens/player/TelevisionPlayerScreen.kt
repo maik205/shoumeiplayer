@@ -222,6 +222,7 @@ internal fun TelevisionPlayerContent(
     var repeatEnabled by remember { mutableStateOf(false) }
     var playRequestPending by remember { mutableStateOf(false) }
     var postPlaySeconds by remember { mutableStateOf<Int?>(null) }
+    var postPlayBrowsing by remember { mutableStateOf(false) }
     var frameMode by remember { mutableStateOf(FrameMode.Fit) }
     var hdrMode by remember { mutableStateOf(HdrMode.Automatic) }
     var videoTrack by remember { mutableStateOf("") }
@@ -304,7 +305,11 @@ internal fun TelevisionPlayerContent(
     }
 
     fun openPanel(target: TelevisionPlayerPanel) {
+        // One layer owns the player at a time. A drawer opened over an already-open queue or
+        // lyrics pane left two things claiming the same keys and the same focus.
         whileWatchingVisible = false
+        audioQueueVisible = false
+        lyricsVisible = false
         val current = panel
         if (current == null) {
             panelBackStack = emptyList()
@@ -354,8 +359,11 @@ internal fun TelevisionPlayerContent(
         }
     }
 
-    LaunchedEffect(osdVisible, interactionTick, panel, audio) {
-        if (!audio && osdVisible && panel == null) {
+    // An open panel already suspends auto-hide; the While Watching shelf has to as well. It is a
+    // reading surface hanging off the OSD, so timing it out took the entire focused shelf away
+    // from someone who was doing exactly what it is for -- and contradicts docs/player-controls.md.
+    LaunchedEffect(osdVisible, interactionTick, panel, audio, whileWatchingVisible) {
+        if (!audio && osdVisible && panel == null && !whileWatchingVisible) {
             delay(PLAYER_OSD_TIMEOUT_MS)
             hideOsd()
         }
@@ -384,9 +392,17 @@ internal fun TelevisionPlayerContent(
         }
     }
 
-    LaunchedEffect(state.state, state.upNext?.itemId, sleepTimer) {
+    // Browsing the episode list is an explicit "not that one" -- letting the autoplay countdown
+    // keep running underneath meant playback could switch out from under the viewer mid-choice.
+    // Keying the effect on the flag cancels the countdown outright and restarts it if they back
+    // out of the browser without picking anything.
+    LaunchedEffect(state.state, state.upNext?.itemId, sleepTimer, postPlayBrowsing) {
         if (state.state == PlayerState.Ended && sleepTimer == SleepTimer.EndOfEpisode) {
             exitPlayer()
+            return@LaunchedEffect
+        }
+        if (postPlayBrowsing) {
+            postPlaySeconds = null
             return@LaunchedEffect
         }
         if (!audio && state.state == PlayerState.Ended && state.upNext?.autoPlay == true) {
@@ -443,21 +459,21 @@ internal fun TelevisionPlayerContent(
         }
     }
 
+    // Back dismisses the topmost thing that is actually on screen, working down one layer at a
+    // time. It used to consult playback state first, so an open drawer or episode browser was
+    // skipped entirely and Back exited the player out from under it.
+    //
+    // The resume prompt is the one exception that stays at the top: it is a hard modal whose
+    // focus trap swallows everything, so Back has to mean the same thing as its Resume button
+    // (§91) rather than falling through to anything below.
     BackHandler {
         when {
-            stillWatching -> exitPlayer()
-            playbackError != null -> exitPlayer()
-            // §91 — Back on the resume prompt keeps the saved position (the same outcome as the
-            // focused "Resume" button) rather than falling through to exitPlayer(); it must never be
-            // silently swallowed by the trap in ResumePromptOverlay's Modifier.playerModalFocusTrap().
             state.resumePrompt != null -> {
                 noteInteraction()
                 resumePromptActions(controller).onResume()
             }
-            state.state == PlayerState.Ended -> exitPlayer()
-            panel != null -> {
-                closePanel()
-            }
+
+            panel != null -> closePanel()
 
             audioQueueVisible -> {
                 audioQueueVisible = false
@@ -470,14 +486,30 @@ internal fun TelevisionPlayerContent(
                 noteInteraction()
             }
 
+            // The visible Back button in the post-play episode browser only closes the browser.
+            // Hardware Back now agrees with it instead of quitting playback.
+            postPlayBrowsing -> {
+                postPlayBrowsing = false
+                noteInteraction()
+            }
+
             !audio && whileWatchingVisible -> {
                 whileWatchingVisible = false
                 noteInteraction()
                 requestPlayPause()
             }
+
+            stillWatching -> exitPlayer()
+            playbackError != null -> exitPlayer()
+            state.state == PlayerState.Ended -> exitPlayer()
+
             !audio && osdVisible -> hideOsd()
             !audio && miniSeekVisible -> miniSeekVisible = false
-            else -> exitPlayer()
+
+            // Leaving playback is the same decision whether it is asked for with the on-screen
+            // Exit control or with Back, so it takes the same confirmation. Back used to stop
+            // playback on the first press while the button beside it required two.
+            else -> handleExitButton()
         }
     }
 
@@ -536,9 +568,13 @@ internal fun TelevisionPlayerContent(
                         true
                     }
 
-                    KeyEvent.KEYCODE_MENU -> {
-                        if (!audio) revealOsd()
+                    // In audio mode the OSD is always up, so there is nothing for Menu to reveal.
+                    // Claiming the key anyway made it look broken; let it fall through instead.
+                    KeyEvent.KEYCODE_MENU -> if (!audio) {
+                        revealOsd()
                         true
+                    } else {
+                        false
                     }
 
                     KeyEvent.KEYCODE_DPAD_UP,
@@ -616,6 +652,10 @@ internal fun TelevisionPlayerContent(
                     lyricsVisible = showingLyrics
                     if (showingLyrics) {
                         audioQueueVisible = false
+                        panel = null
+                        panelBackStack = emptyList()
+                    } else {
+                        requestPlayPause()
                     }
                 },
                 onToggleQueue = {
@@ -623,6 +663,8 @@ internal fun TelevisionPlayerContent(
                     audioQueueVisible = openingQueue
                     if (openingQueue) {
                         lyricsVisible = false
+                        panel = null
+                        panelBackStack = emptyList()
                     } else {
                         requestPlayPause()
                     }
@@ -664,6 +706,8 @@ internal fun TelevisionPlayerContent(
                     whileWatchingVisible = whileWatchingVisible,
                     onOpenWhileWatching = {
                         whileWatchingVisible = true
+                        panel = null
+                        panelBackStack = emptyList()
                         noteInteraction()
                         controller.loadShelves()
                     },
@@ -952,8 +996,8 @@ internal fun TelevisionPlayerContent(
             TelevisionPlayerPanel.Information -> PlayerSelectionPanel(
                 title = stringResource(R.string.tv_player_playback_information),
                 rows = listOf(
-                    PlayerSelectionRow("info:source", stringResource(R.string.tv_player_source), state.playMethod.playMethodLabel() ?: state.quality.descriptionLabel(), onClick = {}),
-                    PlayerSelectionRow("info:container", stringResource(R.string.tv_player_container), state.container ?: stringResource(R.string.tv_unknown), onClick = {}),
+                    PlayerSelectionRow("info:source", stringResource(R.string.tv_player_source), state.playMethod.playMethodLabel() ?: state.quality.descriptionLabel(), interactive = false, onClick = {}),
+                    PlayerSelectionRow("info:container", stringResource(R.string.tv_player_container), state.container ?: stringResource(R.string.tv_unknown), interactive = false, onClick = {}),
                 PlayerSelectionRow(
                     "info:video",
                     stringResource(R.string.tv_player_video),
@@ -962,15 +1006,18 @@ internal fun TelevisionPlayerContent(
                     } else {
                         videoTrack
                     },
-                    onClick = {},
+                    interactive = false,
+                        onClick = {},
                 ),
                 PlayerSelectionRow(
                     "info:color",
                     stringResource(R.string.tv_player_color),
                     state.effectiveHdrMode.descriptionLabel() ?: stringResource(R.string.tv_unknown),
-                    onClick = {},
+                    interactive = false,
+                        onClick = {},
                 ),
-                    PlayerSelectionRow("info:audio", stringResource(R.string.tv_audio), state.audioInfo.descriptionLabel() ?: state.audioTracks.firstOrNull { it.selected }?.label ?: stringResource(R.string.tv_unknown), onClick = {}),
+                    PlayerSelectionRow("info:audio", stringResource(R.string.tv_audio), state.audioInfo.descriptionLabel() ?: state.audioTracks.firstOrNull { it.selected }?.label ?: stringResource(R.string.tv_unknown), interactive = false,
+                        onClick = {}),
                 PlayerSelectionRow(
                     "info:output",
                     stringResource(R.string.tv_player_output),
@@ -979,11 +1026,15 @@ internal fun TelevisionPlayerContent(
                     } else {
                         state.activeAudioRoute
                     },
-                    onClick = {},
+                    interactive = false,
+                        onClick = {},
                 ),
-                    PlayerSelectionRow("info:display", stringResource(R.string.tv_player_display), streamResolutionLabel(state.displayWidth, state.displayHeight) ?: stringResource(R.string.tv_android_tv), onClick = {}),
-                    PlayerSelectionRow("info:decoder", stringResource(R.string.tv_player_decoder), stringResource(R.string.tv_player_mpv_hardware), onClick = {}),
-                    PlayerSelectionRow("info:dropped", stringResource(R.string.tv_player_dropped_frames), "0", onClick = {}),
+                    PlayerSelectionRow("info:display", stringResource(R.string.tv_player_display), streamResolutionLabel(state.displayWidth, state.displayHeight) ?: stringResource(R.string.tv_android_tv), interactive = false,
+                        onClick = {}),
+                    PlayerSelectionRow("info:decoder", stringResource(R.string.tv_player_decoder), stringResource(R.string.tv_player_mpv_hardware), interactive = false,
+                        onClick = {}),
+                    PlayerSelectionRow("info:dropped", stringResource(R.string.tv_player_dropped_frames), "0", interactive = false,
+                        onClick = {}),
                 ),
                 onDismiss = ::closePanel,
                 modifier = Modifier.align(Alignment.CenterEnd),
@@ -1118,6 +1169,8 @@ internal fun TelevisionPlayerContent(
                 onPlayEpisode = controller::switchTo,
                 onReplay = controller::togglePlayPause,
                 onBack = ::exitPlayer,
+                browsingEpisodes = postPlayBrowsing,
+                onBrowsingEpisodesChange = { postPlayBrowsing = it },
             )
         } else if (activeOverlay == PlayerModalOverlay.StillWatching) {
             StillWatchingOverlay(
@@ -1125,6 +1178,9 @@ internal fun TelevisionPlayerContent(
                     stillWatching = false
                     noteInteraction()
                     controller.play()
+                    // The overlay this button lives on is removed by the click, and nothing
+                    // underneath had been asked to take focus.
+                    requestPlayPause()
                 },
                 onStop = ::exitPlayer,
             )

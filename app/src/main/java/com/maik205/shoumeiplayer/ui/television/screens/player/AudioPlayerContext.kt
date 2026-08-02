@@ -50,6 +50,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -110,9 +111,16 @@ internal fun LyricsPane(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val colors = TelevisionTheme.colors
+    var focused by remember { mutableStateOf(false) }
+    // Synced lyrics scroll themselves. The moment the viewer scrolls by hand they are reading
+    // somewhere else, and every line change used to drag them back. Auto-follow stops until they
+    // scroll to the line that is actually playing, which is an unambiguous "catch me up again".
+    var following by remember(lyrics) { mutableStateOf(true) }
 
-    LaunchedEffect(activeIndex) {
-        if (activeIndex != null) listState.animateScrollToItem((activeIndex - 1).coerceAtLeast(0))
+    LaunchedEffect(activeIndex, following) {
+        if (activeIndex != null && following) {
+            listState.animateScrollToItem((activeIndex - 1).coerceAtLeast(0))
+        }
     }
 
     Column(Modifier.fillMaxSize()) {
@@ -120,7 +128,9 @@ internal fun LyricsPane(
             stringResource(R.string.tv_player_lyrics_label),
             style = MaterialTheme.typography.labelMedium.copy(fontSize = 8.sp),
             fontWeight = FontWeight.SemiBold,
-            color = colors.PaperMuted,
+            // The pane is a focus target with no border, glow, or scale of its own, so the only
+            // thing that can say "the remote is here" is this label.
+            color = if (focused) colors.Paper else colors.PaperMuted,
         )
         Spacer(Modifier.height(7.dp))
         if (lyrics.isEmpty()) {
@@ -131,8 +141,11 @@ internal fun LyricsPane(
             }
             Text(
                 message,
-                color = colors.PaperMuted,
-                modifier = Modifier.focusRequester(focusRequester).focusable(),
+                color = if (focused) colors.Paper else colors.PaperMuted,
+                modifier = Modifier
+                    .focusRequester(focusRequester)
+                    .onFocusChanged { focused = it.isFocused || it.hasFocus }
+                    .focusable(),
             )
         } else {
             LazyColumn(
@@ -140,16 +153,27 @@ internal fun LyricsPane(
                 modifier = Modifier
                     .fillMaxSize()
                     .focusRequester(focusRequester)
+                    .onFocusChanged { focused = it.isFocused || it.hasFocus }
                     .onPreviewKeyEvent { event ->
                         if (event.nativeKeyEvent.action != KeyEvent.ACTION_DOWN) {
                             return@onPreviewKeyEvent false
                         }
+                        val first = listState.firstVisibleItemIndex
+                        // Only claim the key while there is somewhere left to scroll. Consuming
+                        // it at both ends made Back the only way out of the pane.
                         val target = when (event.nativeKeyEvent.keyCode) {
-                            KeyEvent.KEYCODE_DPAD_UP -> (listState.firstVisibleItemIndex - 1).coerceAtLeast(0)
+                            KeyEvent.KEYCODE_DPAD_UP ->
+                                if (first <= 0) return@onPreviewKeyEvent false else first - 1
                             KeyEvent.KEYCODE_DPAD_DOWN ->
-                                (listState.firstVisibleItemIndex + 1).coerceAtMost(lyrics.lastIndex)
+                                if (first >= lyrics.lastIndex) {
+                                    return@onPreviewKeyEvent false
+                                } else {
+                                    first + 1
+                                }
                             else -> return@onPreviewKeyEvent false
                         }
+                        // Scrolling back onto the playing line asks to be followed again.
+                        following = activeIndex != null && target == (activeIndex - 1).coerceAtLeast(0)
                         scope.launch { listState.animateScrollToItem(target) }
                         true
                     }
