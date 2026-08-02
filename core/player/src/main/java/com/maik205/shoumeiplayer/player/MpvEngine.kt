@@ -284,11 +284,17 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
                 HardwareDecoding.MediaCodecCopy -> "mediacodec-copy"
             },
         )
-        // Which codecs may use the MediaCodec path. This is what "Hardware codecs" means -- a
-        // decode-side choice, sitting next to "Hardware decoding" in the same settings section.
-        // It deliberately does NOT narrow the device profile sent to Jellyfin: what the server is
-        // allowed to hand back is a separate question from what this device hardware-decodes, and
-        // conflating them turned "AV1" into "transcode my whole h264 library".
+        // Which codecs may use the MediaCodec path -- a decode-side choice, sitting next to
+        // "Hardware decoding" in the same settings section. It deliberately does NOT narrow the
+        // device profile sent to Jellyfin: what the server may hand back is a separate question
+        // from what this device hardware-decodes, and conflating them turned "AV1" into
+        // "transcode my whole h264 library" (#92).
+        //
+        // The setting reads as a restriction, not a capability list: the row is labelled
+        // "Hardware-decode codecs", so "AV1" means *only AV1 uses the hardware decoder* and
+        // everything else falls back to software, which mpv handles fine. That phrasing was chosen
+        // over redesigning the option set in #104; the overlap with `hardwareDecoding` (whose
+        // Software mode is equivalent to Disabled here) is known and deliberate.
         setOption(
             "hwdec-codecs",
             when (settings.hardwareCodecs) {

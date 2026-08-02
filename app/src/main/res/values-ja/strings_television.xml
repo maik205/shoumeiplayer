@@ -396,7 +396,7 @@
     <string name="tv_settings_forget_this_server">このサーバーを忘れる</string>
     <string name="tv_settings_forward_cache_limit">前方キャッシュの上限</string>
     <string name="tv_settings_frame_interpolation">フレーム補間</string>
-    <string name="tv_settings_hardware_codecs">ハードウェアコーデック</string>
+    <string name="tv_settings_hardware_codecs">ハードウェアデコード対象</string>
     <string name="tv_settings_hardware_decoding">ハードウェアデコード</string>
     <string name="tv_settings_hdr_handling">HDR処理</string>
     <string name="tv_settings_image_duration">画像の表示時間</string>

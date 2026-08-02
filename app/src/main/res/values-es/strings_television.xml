@@ -492,7 +492,7 @@
     <string name="tv_settings_forget_this_server">Olvidar este servidor</string>
     <string name="tv_settings_forward_cache_limit">Límite de caché hacia adelante</string>
     <string name="tv_settings_frame_interpolation">Interpolación de fotogramas</string>
-    <string name="tv_settings_hardware_codecs">Códecs de hardware</string>
+    <string name="tv_settings_hardware_codecs">Decodificación por hardware para</string>
     <string name="tv_settings_hardware_decoding">Descodificación por hardware</string>
     <string name="tv_settings_hdr_handling">Gestión de HDR</string>
     <string name="tv_settings_image_duration">Duración de imagen</string>
