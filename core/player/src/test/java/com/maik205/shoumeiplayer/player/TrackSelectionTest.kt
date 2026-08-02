@@ -236,4 +236,44 @@ class TrackSelectionTest {
         assertFalse(TrackSelection.languageMatches(null, "eng"))
         assertFalse(TrackSelection.languageMatches("eng", null))
     }
+
+    // --- ISO 639-1 vs 639-2/B vs 639-2/T normalization (#96) -------------------
+
+    @Test
+    fun `ja and jpn match across ISO 639-1 and 639-2`() {
+        assertTrue(TrackSelection.languageMatches("ja", "jpn"))
+        assertTrue(TrackSelection.languageMatches("jpn", "ja"))
+    }
+
+    @Test
+    fun `de ger and deu all match German across the bibliographic and terminological codes`() {
+        assertTrue(TrackSelection.languageMatches("de", "ger"))
+        assertTrue(TrackSelection.languageMatches("de", "deu"))
+        assertTrue(TrackSelection.languageMatches("ger", "deu"))
+        assertTrue(TrackSelection.languageMatches("deu", "ger"))
+    }
+
+    @Test
+    fun `fr fre and fra all match French across the bibliographic and terminological codes`() {
+        assertTrue(TrackSelection.languageMatches("fr", "fre"))
+        assertTrue(TrackSelection.languageMatches("fr", "fra"))
+        assertTrue(TrackSelection.languageMatches("fre", "fra"))
+        assertTrue(TrackSelection.languageMatches("fra", "fre"))
+    }
+
+    @Test
+    fun `English display names stored by client settings match the ISO codes`() {
+        assertTrue(TrackSelection.languageMatches("jpn", "Japanese"))
+        assertTrue(TrackSelection.languageMatches("ja", "Japanese"))
+        assertTrue(TrackSelection.languageMatches("deu", "German"))
+        assertTrue(TrackSelection.languageMatches("fre", "French"))
+        assertTrue(TrackSelection.languageMatches("vie", "Vietnamese"))
+    }
+
+    @Test
+    fun `mismatched curated languages still do not match regardless of code standard`() {
+        assertFalse(TrackSelection.languageMatches("ja", "ger"))
+        assertFalse(TrackSelection.languageMatches("jpn", "de"))
+        assertFalse(TrackSelection.languageMatches("fre", "Japanese"))
+    }
 }

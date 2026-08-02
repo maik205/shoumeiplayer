@@ -74,6 +74,7 @@ import com.maik205.shoumeiplayer.feature.player.PlayerUiState
 import com.maik205.shoumeiplayer.feature.player.PlayerTimelineState
 import com.maik205.shoumeiplayer.feature.player.PlayerMessage
 import com.maik205.shoumeiplayer.feature.player.PlayerMessageKind
+import com.maik205.shoumeiplayer.feature.player.ResumePromptUi
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import kotlinx.coroutines.delay
@@ -342,6 +343,16 @@ internal fun TelevisionPlayerContent(
         state.videoTracks.firstOrNull { it.selected }?.let { videoTrack = it.label }
     }
 
+    // §91 — ResumeBehavior.Ask applies the saved position immediately because PlayerViewModel has no
+    // UI to block on (see ResumePromptUi's KDoc); this is the missing other half. Whenever the
+    // transport reports Playing while the prompt is still outstanding, pause it right back so nothing
+    // advances silently behind the overlay. resumePromptActions() resumes it once the viewer answers.
+    LaunchedEffect(state.resumePrompt, state.state) {
+        if (shouldPauseForResumePrompt(state.resumePrompt, state.state)) {
+            controller.pause()
+        }
+    }
+
     LaunchedEffect(osdVisible, interactionTick, panel, audio) {
         if (!audio && osdVisible && panel == null) {
             delay(PLAYER_OSD_TIMEOUT_MS)
@@ -435,6 +446,13 @@ internal fun TelevisionPlayerContent(
         when {
             stillWatching -> exitPlayer()
             playbackError != null -> exitPlayer()
+            // §91 — Back on the resume prompt keeps the saved position (the same outcome as the
+            // focused "Resume" button) rather than falling through to exitPlayer(); it must never be
+            // silently swallowed by the trap in ResumePromptOverlay's Modifier.playerModalFocusTrap().
+            state.resumePrompt != null -> {
+                noteInteraction()
+                resumePromptActions(controller).onResume()
+            }
             state.state == PlayerState.Ended -> exitPlayer()
             panel != null -> {
                 closePanel()
@@ -1053,7 +1071,19 @@ internal fun TelevisionPlayerContent(
             null -> Unit
         }
 
-        if (playbackError != null) {
+        // §91 — a single precedence list decides which modal overlay (if any) owns the player, so
+        // ResumePromptOverlay can't silently double up with PostPlayOverlay/StillWatchingOverlay. See
+        // activePlayerModalOverlay's KDoc for the ordering rationale.
+        val showPostPlay = state.state == PlayerState.Ended &&
+            (!audio || (!state.musicContextLoading && !hasQueuedAudioNext))
+        val activeOverlay = activePlayerModalOverlay(
+            hasError = playbackError != null,
+            resumePrompt = state.resumePrompt,
+            showPostPlay = showPostPlay,
+            stillWatching = stillWatching,
+        )
+
+        if (activeOverlay == PlayerModalOverlay.Error && playbackError != null) {
             PlayerErrorOverlay(
                 message = playbackError,
                 onRetry = {
@@ -1063,10 +1093,22 @@ internal fun TelevisionPlayerContent(
                 },
                 onBack = ::exitPlayer,
             )
-        } else if (
-            state.state == PlayerState.Ended &&
-            (!audio || (!state.musicContextLoading && !hasQueuedAudioNext))
-        ) {
+        } else if (activeOverlay == PlayerModalOverlay.ResumePrompt) {
+            state.resumePrompt?.let { prompt ->
+                val actions = resumePromptActions(controller)
+                ResumePromptOverlay(
+                    positionMs = prompt.positionMs,
+                    onResume = {
+                        noteInteraction()
+                        actions.onResume()
+                    },
+                    onStartOver = {
+                        noteInteraction()
+                        actions.onStartOver()
+                    },
+                )
+            }
+        } else if (activeOverlay == PlayerModalOverlay.PostPlay) {
             PostPlayOverlay(
                 upNext = state.upNext,
                 episodes = state.postPlayEpisodes,
@@ -1076,9 +1118,7 @@ internal fun TelevisionPlayerContent(
                 onReplay = controller::togglePlayPause,
                 onBack = ::exitPlayer,
             )
-        }
-
-        if (stillWatching) {
+        } else if (activeOverlay == PlayerModalOverlay.StillWatching) {
             StillWatchingOverlay(
                 onContinue = {
                     stillWatching = false
@@ -1239,3 +1279,52 @@ private fun formatStreamBitrate(bitsPerSecond: Long): String {
 
 internal fun shouldKeepScreenOn(audio: Boolean, state: PlayerState): Boolean =
     !audio && (state == PlayerState.Playing || state == PlayerState.Buffering)
+
+/** §91 — which modal overlay (if any) owns the player, in priority order. */
+internal enum class PlayerModalOverlay { Error, ResumePrompt, PostPlay, StillWatching, None }
+
+/**
+ * §91 — a resume prompt outranks the softer "up next"/"still watching" overlays (the viewer hasn't
+ * even confirmed how *this* session starts yet) but yields to a hard playback error. Extracted so the
+ * choice [TelevisionPlayerContent] renders can be exercised without composing it.
+ */
+internal fun activePlayerModalOverlay(
+    hasError: Boolean,
+    resumePrompt: ResumePromptUi?,
+    showPostPlay: Boolean,
+    stillWatching: Boolean,
+): PlayerModalOverlay = when {
+    hasError -> PlayerModalOverlay.Error
+    resumePrompt != null -> PlayerModalOverlay.ResumePrompt
+    showPostPlay -> PlayerModalOverlay.PostPlay
+    stillWatching -> PlayerModalOverlay.StillWatching
+    else -> PlayerModalOverlay.None
+}
+
+/**
+ * §91 — [com.maik205.shoumeiplayer.domain.settings.ResumeBehavior.Ask] resumes the stream immediately
+ * (see `PlayerViewModel.startInitialPlayback`) because the ViewModel owns no UI to block on; this is
+ * the host screen's half of the fix. As long as a resume prompt is outstanding, playback must not be
+ * observed running behind it.
+ */
+internal fun shouldPauseForResumePrompt(resumePrompt: ResumePromptUi?, playerState: PlayerState): Boolean =
+    resumePrompt != null && playerState == PlayerState.Playing
+
+internal data class ResumePromptActions(val onResume: () -> Unit, val onStartOver: () -> Unit)
+
+/**
+ * §91 — the resume prompt's only two outcomes: keep the saved position (`restart = false`, already
+ * applied — see [shouldPauseForResumePrompt]) or jump back to zero (`restart = true`). Both resume the
+ * transport afterward since it may have been paused while the prompt was outstanding.
+ */
+internal fun resumePromptActions(controller: TelevisionPlayerController): ResumePromptActions =
+    ResumePromptActions(
+        onResume = {
+            controller.confirmResumePrompt(restart = false)
+            controller.play()
+        },
+        onStartOver = {
+            controller.confirmResumePrompt(restart = true)
+            controller.play()
+        },
+    )

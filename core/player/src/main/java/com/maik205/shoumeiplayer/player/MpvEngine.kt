@@ -7,6 +7,7 @@ import android.view.Surface
 import com.maik205.mpvroid.MpvNative
 import com.maik205.shoumeiplayer.domain.settings.ClientSettings
 import com.maik205.shoumeiplayer.domain.settings.DeinterlaceMode
+import com.maik205.shoumeiplayer.domain.settings.HardwareCodecs
 import com.maik205.shoumeiplayer.domain.settings.HardwareDecoding
 import com.maik205.shoumeiplayer.domain.settings.HdrMode
 import com.maik205.shoumeiplayer.domain.settings.RenderingProfile
@@ -21,6 +22,9 @@ import java.util.Locale
 import kotlin.math.min
 
 private const val TAG = "MpvEngine"
+
+/** Every codec mpv may hand to MediaCodec, i.e. the unrestricted [HardwareCodecs.Automatic] case. */
+private const val ALL_HWDEC_CODECS = "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1"
 
 /**
  * Real [PlayerEngine] backed directly by mpv v0.41.0 through the app-owned
@@ -101,6 +105,38 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
     @Volatile private var coreSeeking = false
     private var systemCaBundlePath: String? = null
 
+    /**
+     * Serializes every write to the subtitle options that [configure] and [setSystemCaptionStyle]
+     * both touch, together with the flag that decides which side owns them.
+     *
+     * The two callers run on different threads -- a `CaptioningManager` listener callback versus
+     * the coroutine that applies settings -- and each one needs several `setOption` calls to land
+     * as a unit. Guarding only the flag (it used to be a bare `@Volatile`) leaves the *sequence*
+     * interleavable: the accessibility style could win the flag and then have half of the in-app
+     * values written over the top of it.
+     */
+    private val subtitleOptionsLock = Any()
+
+    /**
+     * The mpv values [configure] derives from [ClientSettings] for the appearance options
+     * [setSystemCaptionStyle] can also drive. Kept around so that when system captions are toggled
+     * off, the in-app values can be reapplied instead of leaving whatever the system style last
+     * wrote in place. Guarded by [subtitleOptionsLock].
+     */
+    private var subtitleAppearance: SubtitleAppearance = ClientSettings().toSubtitleAppearance()
+
+    /**
+     * The active system caption style, or null when captions are off. Retained (rather than only a
+     * boolean) because it is one of the two inputs to `slang`. Guarded by [subtitleOptionsLock].
+     */
+    private var systemCaptionStyle: SystemCaptionStyle? = null
+
+    /**
+     * The account's subtitle language, resolved from the server preference at load time. Guarded
+     * by [subtitleOptionsLock].
+     */
+    private var subtitleLanguagePreference: String = ""
+
     init {
         if (!MpvNative.create(context.applicationContext)) {
             _state.value = PlayerState.Error("mpv failed to initialize (mpv_create)")
@@ -116,7 +152,7 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         // mediacodec-copy is the TV-safe variant: it survives surface loss and
         // keeps subtitle/filter paths working where direct rendering does not.
         setOption("hwdec", "mediacodec-copy")
-        setOption("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
+        setOption("hwdec-codecs", ALL_HWDEC_CODECS)
         systemCaBundlePath = run {
             // The app's own HTTPS trust (Ktor/OkHttp, via network_security_config.xml) includes
             // user-installed CAs, but mpv gets its trust anchors from a plain file it reads
@@ -248,6 +284,20 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
                 HardwareDecoding.MediaCodecCopy -> "mediacodec-copy"
             },
         )
+        // Which codecs may use the MediaCodec path. This is what "Hardware codecs" means -- a
+        // decode-side choice, sitting next to "Hardware decoding" in the same settings section.
+        // It deliberately does NOT narrow the device profile sent to Jellyfin: what the server is
+        // allowed to hand back is a separate question from what this device hardware-decodes, and
+        // conflating them turned "AV1" into "transcode my whole h264 library".
+        setOption(
+            "hwdec-codecs",
+            when (settings.hardwareCodecs) {
+                HardwareCodecs.Automatic -> ALL_HWDEC_CODECS
+                HardwareCodecs.H264Hevc -> "h264,hevc"
+                HardwareCodecs.Av1 -> "av1"
+                HardwareCodecs.Disabled -> ""
+            },
+        )
         setOption(
             "target-colorspace-hint",
             if (settings.hdrMode == HdrMode.Off || settings.hdrMode == HdrMode.ForceSdr) "no" else "yes",
@@ -280,36 +330,18 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
             if (settings.dtsPassthrough) addAll(listOf("dts", "dts-hd"))
         }
         setOption("audio-spdif", passthrough.joinToString(","))
-        setOption(
-            "alang",
-            settings.preferredAudioLanguage.toMpvLanguagePreference(),
-        )
 
-        setOption("sub-scale", (settings.subtitleSizePercent / 100f).toString())
-        setOption(
-            "sub-color",
-            when (settings.subtitleColor) {
-                SubtitleColor.Yellow -> "#FFF176"
-                SubtitleColor.Grey -> "#C8C8C8"
-                SubtitleColor.White -> "#FFFFFF"
-            },
-        )
-        setOption(
-            "sub-border-size",
-            when (settings.subtitleStroke) {
-                SubtitleStroke.Off -> "0"
-                SubtitleStroke.Light -> "1"
-                SubtitleStroke.Heavy -> "4"
-                SubtitleStroke.Medium -> "2"
-            },
-        )
         setOption("sub-bold", settings.boldSubtitles.yesNo())
         setOption("sub-scale-with-window", settings.scaleSubtitlesWithWindow.yesNo())
         setOption("sub-use-margins", settings.useVideoMargins.yesNo())
-        setOption(
-            "slang",
-            settings.preferredSubtitleLanguage.toMpvLanguagePreference(),
-        )
+        // sub-scale/sub-color/sub-back-color/sub-border-color/sub-border-size overlap with
+        // setSystemCaptionStyle: the new value is always recorded so it is ready the moment system
+        // captions turn off, but it only reaches mpv now if an enabled system caption style is not
+        // currently in charge.
+        synchronized(subtitleOptionsLock) {
+            subtitleAppearance = settings.toSubtitleAppearance()
+            applySubtitleOptionsLocked()
+        }
 
         setOption("cache", settings.networkCacheEnabled.yesNo())
         setOption("cache-secs", settings.cacheDurationSeconds.toString())
@@ -327,19 +359,53 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         setOption("tls-ca-file", tlsOptions.caFile.orEmpty())
     }
 
+    /**
+     * System captions are an accessibility signal and win over in-app subtitle *appearance*, but
+     * only while [SystemCaptionStyle.enabled] is actually true -- [style] itself can still be
+     * non-null while carrying `enabled = false` (Android reports a caption style even when captions
+     * are off). Whenever the enabled system override goes away, every option it can write is
+     * restored to the in-app value captured by [configure], including `sub-back-color` and
+     * `sub-border-color`: mpv's core is process-scoped, so an option nobody resets stays on the
+     * accessibility value for the life of the process.
+     */
     override fun setSystemCaptionStyle(style: SystemCaptionStyle?) {
-        if (released || style == null) return
-        setOption("sub-scale", style.fontScale.coerceIn(0.5f, 3f).toString())
-        setOption("sub-color", style.foregroundColor.toMpvColor())
-        setOption("sub-back-color", style.backgroundColor.toMpvColor())
-        setOption("sub-border-color", style.edgeColor.toMpvColor())
-        setOption("sub-border-size", if (style.edgeType == 0) "0" else "1")
-        style.typefaceName?.takeIf(String::isNotBlank)?.let { setOption("sub-font", it) }
-        style.localeTag?.let { setOption("slang", it) }
+        if (released) return
+        synchronized(subtitleOptionsLock) {
+            systemCaptionStyle = style?.takeIf { it.enabled }
+            applySubtitleOptionsLocked()
+        }
+    }
+
+    /** Callers must hold [subtitleOptionsLock]. */
+    private fun applySubtitleOptionsLocked() {
+        resolveSubtitleOptions(
+            appearance = subtitleAppearance,
+            systemCaptions = systemCaptionStyle,
+            subtitleLanguagePreference = subtitleLanguagePreference,
+        ).forEach { (option, value) -> setOption(option, value) }
+    }
+
+    /**
+     * Points mpv's own language fallback at the account preference that just chose the track
+     * indices for this stream. See [ServerTrackPreferences] for why it is read here, at load, and
+     * not passed into [configure].
+     */
+    private fun applyServerLanguagePreferences() {
+        val preferences = ServerTrackPreferences.latestOrNull()
+        setOption("alang", preferences?.audioLanguagePreference.toMpvLanguagePreference())
+        synchronized(subtitleOptionsLock) {
+            subtitleLanguagePreference =
+                preferences?.subtitleLanguagePreference.toMpvLanguagePreference()
+            applySubtitleOptionsLocked()
+        }
     }
 
     override fun load(item: PlayRequest) {
         if (released) return
+        // Before any mpv state for this stream exists: TrackController has just resolved the
+        // account preference into item.preferredAudio/SubtitleTrackId, so alang/slang are set from
+        // the same document and mpv's fallback agrees with the indices about to be applied.
+        applyServerLanguagePreferences()
         hasRequest = true
         fileLoaded = false
         eofReached = false
@@ -736,14 +802,103 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
 
     private fun Boolean.yesNo(): String = if (this) "yes" else "no"
 
-    private fun String?.toMpvLanguagePreference(): String = when (this?.lowercase(Locale.ROOT)) {
-        "english" -> "eng,en"
-        "japanese" -> "jpn,ja"
-        "vietnamese" -> "vie,vi"
-        "french" -> "fra,fre,fr"
-        "german" -> "deu,ger,de"
-        else -> ""
+}
+
+/**
+ * Maps one account language value onto mpv's `alang`/`slang` list.
+ *
+ * Jellyfin stores an ISO 639-2 code, but older Shoumei builds wrote the English display name into
+ * the same field, so both are accepted. Every alias of the language is emitted because a stream can
+ * be tagged with any of them and mpv compares literally.
+ */
+internal fun String?.toMpvLanguagePreference(): String = when (this?.trim()?.lowercase(Locale.ROOT)) {
+    "eng", "en", "english" -> "eng,en"
+    "jpn", "ja", "japanese" -> "jpn,ja"
+    "vie", "vi", "vietnamese" -> "vie,vi"
+    "fra", "fre", "fr", "french" -> "fra,fre,fr"
+    "deu", "ger", "de", "german" -> "deu,ger,de"
+    else -> ""
+}
+
+/**
+ * mpv option values `MpvEngine.configure` derives from [ClientSettings]'s subtitle appearance
+ * fields.
+ *
+ * [backColor], [borderColor] and [font] have no in-app control, but they still need a defined value
+ * here: an enabled system caption style writes all three, and mpv's core outlives any one playback,
+ * so without an in-app value to restore they would stay on the accessibility style for the rest of
+ * the process once system captions had been enabled even briefly. These are mpv's own defaults --
+ * transparent background, opaque black outline, sans-serif.
+ */
+internal data class SubtitleAppearance(
+    val scale: String,
+    val color: String,
+    val backColor: String = "#00000000",
+    val borderColor: String = "#FF000000",
+    val borderSize: String,
+    val font: String = "sans-serif",
+)
+
+internal fun ClientSettings.toSubtitleAppearance() = SubtitleAppearance(
+    scale = (subtitleSizePercent / 100f).toString(),
+    color = when (subtitleColor) {
+        SubtitleColor.Yellow -> "#FFF176"
+        SubtitleColor.Grey -> "#C8C8C8"
+        SubtitleColor.White -> "#FFFFFF"
+    },
+    borderSize = when (subtitleStroke) {
+        SubtitleStroke.Off -> "0"
+        SubtitleStroke.Light -> "1"
+        SubtitleStroke.Heavy -> "4"
+        SubtitleStroke.Medium -> "2"
+    },
+)
+
+/**
+ * Every mpv subtitle option that both `configure` and `setSystemCaptionStyle` can drive, resolved
+ * in one place from all three inputs.
+ *
+ * Two properties matter and are what the previous split implementation got wrong:
+ *
+ * 1. **The key set never varies.** Whichever side owns the options, all six appearance keys plus
+ *    `slang` are written. An option that only one side ever set (`sub-back-color`,
+ *    `sub-border-color`, `sub-font`) used to stay on the accessibility value forever after system
+ *    captions were turned back off, because mpv's core is process-scoped and nothing reset it.
+ * 2. **`slang` has exactly one writer.** It used to be written by `configure` *or* conditionally by
+ *    `setSystemCaptionStyle` *or*, in the common case where the user never picked a caption
+ *    language, by neither -- so the account's subtitle language silently stopped being honoured.
+ *    An enabled caption *locale* is an explicit accessibility choice and wins; otherwise the
+ *    account preference does, which is the same document that chose the subtitle stream index.
+ */
+internal fun resolveSubtitleOptions(
+    appearance: SubtitleAppearance,
+    systemCaptions: SystemCaptionStyle?,
+    subtitleLanguagePreference: String,
+): Map<String, String> {
+    val active = systemCaptions?.takeIf { it.enabled }
+    val language = active?.localeTag?.takeIf(String::isNotBlank) ?: subtitleLanguagePreference
+    if (active == null) {
+        return mapOf(
+            "sub-scale" to appearance.scale,
+            "sub-color" to appearance.color,
+            "sub-back-color" to appearance.backColor,
+            "sub-border-color" to appearance.borderColor,
+            "sub-border-size" to appearance.borderSize,
+            "sub-font" to appearance.font,
+            "slang" to language,
+        )
     }
+    return mapOf(
+        "sub-scale" to active.fontScale.coerceIn(0.5f, 3f).toString(),
+        "sub-color" to active.foregroundColor.toMpvColor(),
+        "sub-back-color" to active.backgroundColor.toMpvColor(),
+        "sub-border-color" to active.edgeColor.toMpvColor(),
+        "sub-border-size" to if (active.edgeType == 0) "0" else "1",
+        // Android reports no caption typeface far more often than it reports one; the in-app value
+        // is the honest fallback rather than leaving whatever font was last in force.
+        "sub-font" to (active.typefaceName?.takeIf(String::isNotBlank) ?: appearance.font),
+        "slang" to language,
+    )
 }
 
 internal fun createSystemCaBundle(systemCaDirectory: File, destination: File): File? = runCatching {

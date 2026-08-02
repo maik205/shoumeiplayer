@@ -1,14 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Android 12+ (API 31+) cloud backup and device-to-device transfer rules. Excludes the same
-  session DataStore as backup_rules.xml (the API <=30 equivalent) so access tokens and
-  remembered-server credentials never leave the device.
+  DataStores as backup_rules.xml (the API <=30 equivalent): "shoumei_session" so access tokens and
+  remembered-server credentials never leave the device, and "shoumei_preferences" because per-item
+  playback trivia (A/V delay, quality cap, last audio track) describes this television's hardware
+  and link, not the viewer, and is meaningless (or actively wrong) on the restored device.
 -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="file" path="datastore/shoumei_session.preferences_pb" />
+        <exclude domain="file" path="datastore/shoumei_preferences.preferences_pb" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="file" path="datastore/shoumei_session.preferences_pb" />
+        <exclude domain="file" path="datastore/shoumei_preferences.preferences_pb" />
     </device-transfer>
 </data-extraction-rules>

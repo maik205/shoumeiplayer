@@ -3,7 +3,12 @@
   Android <=11 (API <= 30) auto backup rules. Session tokens and remembered-server credentials
   live in the "shoumei_session" DataStore and must never leave the device via cloud backup;
   restoring them onto another device would silently hand out this account's Jellyfin access.
+
+  "shoumei_preferences" is excluded for a different reason: it holds per-item playback trivia
+  (A/V delay, quality cap, last audio track) that describes this television and its speakers.
+  Restoring an offset that corrects this soundbar onto a phone is worse than starting clean.
 -->
 <full-backup-content>
     <exclude domain="file" path="datastore/shoumei_session.preferences_pb" />
+    <exclude domain="file" path="datastore/shoumei_preferences.preferences_pb" />
 </full-backup-content>

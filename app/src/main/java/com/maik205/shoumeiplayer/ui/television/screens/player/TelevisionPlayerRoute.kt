@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import com.maik205.shoumeiplayer.di.player.JellyfinPlaybackMetadataLoader
+import com.maik205.shoumeiplayer.di.player.PreferenceStorePlaybackMemory
 import com.maik205.shoumeiplayer.feature.player.PlayerViewModel
 import com.maik205.shoumeiplayer.feature.player.PlayerObservabilityInputs
 import com.maik205.shoumeiplayer.feature.player.PlaybackUserDataMutator
@@ -54,6 +55,10 @@ fun TelevisionPlayerScreen(
             startPositionTicks = startPositionTicks,
             teardownScope = container.applicationScope,
             settingsStore = container.settingsStore,
+            preferenceMemory = PreferenceStorePlaybackMemory(
+                preferenceStore = container.preferenceStore,
+                sessionStore = container.sessionStore,
+            ),
             initialQualityLabel = initialQualityLabel,
             observability = PlayerObservabilityInputs(
                 audioRouteLabel = container.audioRouteLabel,
@@ -210,6 +215,8 @@ internal interface TelevisionPlayerController {
     fun setSubtitleDelayMs(delayMs: Long)
     fun resetPlaybackDelays()
     fun retryPlayback()
+    /** §91 — routes to [PlayerViewModel.confirmResumePrompt]; see ResumePromptOverlay. */
+    fun confirmResumePrompt(restart: Boolean)
 }
 
 private class PlayerViewModelController(
@@ -246,4 +253,5 @@ private class PlayerViewModelController(
     override fun setSubtitleDelayMs(delayMs: Long) = viewModel.setSubtitleDelayMs(delayMs)
     override fun resetPlaybackDelays() = viewModel.resetPlaybackDelays()
     override fun retryPlayback() = viewModel.retryPlayback()
+    override fun confirmResumePrompt(restart: Boolean) = viewModel.confirmResumePrompt(restart)
 }

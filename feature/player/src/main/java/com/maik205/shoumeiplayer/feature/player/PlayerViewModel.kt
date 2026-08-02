@@ -8,7 +8,9 @@ import com.maik205.shoumeiplayer.player.TrickplaySource
 import com.maik205.shoumeiplayer.player.DEFAULT_MAX_STREAMING_BITRATE
 import com.maik205.shoumeiplayer.player.PLAY_METHOD_TRANSCODE
 import com.maik205.shoumeiplayer.player.ResolvedPlayback
+import com.maik205.shoumeiplayer.domain.settings.ClientSettings
 import com.maik205.shoumeiplayer.domain.settings.PlayerSettingsRepository
+import com.maik205.shoumeiplayer.domain.settings.ResumeBehavior
 import com.maik205.shoumeiplayer.player.PlayRequest
 import com.maik205.shoumeiplayer.player.PlaybackResolutionRequest
 import com.maik205.shoumeiplayer.player.PlaybackResolver
@@ -69,6 +71,13 @@ class PlayerViewModel(
     private val settingsStore: PlayerSettingsRepository? = null,
     private val initialQualityLabel: String? = null,
     private val userDataMutator: PlaybackUserDataMutator? = null,
+    /**
+     * Per-item/per-series playback memory (#85/#88/#95) — see [PlaybackPreferenceMemory]'s KDoc for
+     * why this is an interface owned by `feature:player` rather than a direct `core:data`
+     * dependency. `null` (the default, and what every existing caller still gets) behaves exactly
+     * like a build with no memory at all: every lookup misses and every write is skipped.
+     */
+    private val preferenceMemory: PlaybackPreferenceMemory? = null,
     private val observability: PlayerObservabilityInputs = PlayerObservabilityInputs(),
 ) : ViewModel() {
 
@@ -120,6 +129,7 @@ class PlayerViewModel(
         val seekIntervalSeconds: Int = 10,
         val favorite: Boolean = false,
         val played: Boolean = false,
+        val resumePrompt: ResumePromptUi? = null,
     )
 
     private val localState = MutableStateFlow(LocalState())
@@ -299,6 +309,7 @@ class PlayerViewModel(
             displayHeight = local.displayHeight,
             favorite = local.favorite,
             played = local.played,
+            resumePrompt = local.resumePrompt,
         )
     }
 
@@ -359,11 +370,15 @@ class PlayerViewModel(
             localState.update { it.copy(loading = true, error = null, notice = null) }
             try {
             val settings = settingsStore?.let { runCatching { it.current() }.getOrNull() }
+            // §95 — an item-pinned override wins over the global default; both fall back the same
+            // way when there is neither (fresh item, or no memory implementation at all).
+            val itemDelays = preferenceMemory?.trackDelays(itemId)
+            val itemQualityLabel = preferenceMemory?.qualityCapLabel(itemId)
             val preferredQuality = VideoQuality.forLabel(
-                initialQualityLabel ?: settings?.preferredQuality?.label,
+                initialQualityLabel ?: itemQualityLabel ?: settings?.preferredQuality?.label,
             )
-            val audioDelay = settings?.audioDelayMs?.toLong() ?: 0L
-            val subtitleDelay = settings?.subtitleDelayMs?.toLong() ?: 0L
+            val audioDelay = itemDelays?.audioDelayMs ?: settings?.audioDelayMs?.toLong() ?: 0L
+            val subtitleDelay = itemDelays?.subtitleDelayMs ?: settings?.subtitleDelayMs?.toLong() ?: 0L
             val seekIntervalSeconds = settings?.seekIntervalSeconds?.coerceAtLeast(1) ?: 10
             automaticMaxStreamingBitrate = settings
                 ?.maxRemoteBitrateMbps
@@ -372,12 +387,22 @@ class PlayerViewModel(
                 ?.times(1_000_000L)
                 ?: DEFAULT_MAX_STREAMING_BITRATE
             settings?.let(engine::configure)
+            // §91 — Restart never honours the saved position; Resume (and the dead Always rung, see
+            // ClientSettings.resumeBehavior) always does. Ask also resumes immediately — there is no
+            // owned surface here to block on a user choice — but records a prompt a host screen can
+            // use to offer "start over" without re-resolving. [switchTo] applies the same rule via
+            // [effectiveStartTicks]/[resumePromptFor] so Up Next and the episode picker behave
+            // identically to entering from Detail.
+            val resumeBehavior = settings?.resumeBehavior ?: ResumeBehavior.Ask
+            val effectiveStartPositionTicks = effectiveStartTicks(resumeBehavior, startPositionTicks)
+            val resumePrompt = resumePromptFor(resumeBehavior, startPositionTicks)
             localState.update {
                 it.copy(
                     quality = preferredQuality,
                     audioDelayMs = audioDelay,
                     subtitleDelayMs = subtitleDelay,
                     seekIntervalSeconds = seekIntervalSeconds,
+                    resumePrompt = resumePrompt,
                 )
             }
             engine.setAudioDelayMs(audioDelay)
@@ -397,7 +422,7 @@ class PlayerViewModel(
             when (
                 val result = resolveFor(
                     itemId = itemId,
-                    startPositionTicks = startPositionTicks,
+                    startPositionTicks = effectiveStartPositionTicks,
                     quality = quality,
                     audioStreamIndex = trackController.requestedAudioIndex,
                     subtitleStreamIndex = trackController.requestedSubtitleIndex,
@@ -412,11 +437,18 @@ class PlayerViewModel(
                     }
                 }
                 is ApiResult.Success -> {
-                    if (sessionCoordinator.rejectIfScreenGone(result.data, Ticks.toMs(startPositionTicks))) {
+                    if (sessionCoordinator.rejectIfScreenGone(result.data, Ticks.toMs(effectiveStartPositionTicks))) {
                         return@launch
                     }
                     localState.update { it.copy(loading = false, error = null) }
-                    attachStream(result.data, item, Ticks.toMs(startPositionTicks), keepTracks = false)
+                    attachStream(
+                        result.data,
+                        item,
+                        Ticks.toMs(effectiveStartPositionTicks),
+                        keepTracks = false,
+                        rememberedAudioIndex = rememberedAudioIndexFor(item, settings),
+                        restoreSpeed = rememberedSpeedFor(itemId, settings),
+                    )
                 }
             }
             } catch (error: kotlinx.coroutines.CancellationException) {
@@ -505,10 +537,16 @@ class PlayerViewModel(
                 )
                 if (!changed) {
                     trackController.restore(previousSelection)
+                } else if (track.type == TrackType.AUDIO) {
+                    // Already inside a coroutine, so no extra launch needed here.
+                    rememberSeriesAudioChoice(track.id)
                 }
             }
         } else {
             engine.selectTrack(track)
+            if (track.type == TrackType.AUDIO) {
+                viewModelScope.launch { rememberSeriesAudioChoice(track.id) }
+            }
             if (current != null) {
                 sessionCoordinator.reportProgressNow(
                     engine,
@@ -549,28 +587,98 @@ class PlayerViewModel(
         }
     }
 
-    /** §5 — 0.5×…2×. Purely an engine-side rate change; the stream is untouched. */
+    /**
+     * §5 — 0.5×…2×. Purely an engine-side rate change; the stream is untouched.
+     *
+     * §88 `rememberPlaybackSpeed` — persisted **per item** via [preferenceMemory] (see
+     * [PlaybackPreferenceMemory]'s KDoc). The backing store's speed slot is keyed per item, not
+     * per account or per series, so returning to the exact title you sped up keeps that pace; a
+     * sibling episode starts over at the ordinary default. [startInitialPlayback] and [switchTo]
+     * are the only readers.
+     */
     fun setSpeed(speed: Float) {
-        engine.setSpeed(PlaybackSpeed.clamp(speed))
+        val clamped = PlaybackSpeed.clamp(speed)
+        engine.setSpeed(clamped)
+        persistPlaybackSpeed(clamped)
     }
 
+    private fun persistPlaybackSpeed(speed: Float) {
+        val memory = preferenceMemory ?: return
+        val target = currentItemId
+        viewModelScope.launch {
+            val settings = settingsStore?.let { runCatching { it.current() }.getOrNull() }
+            if (settings?.rememberPlaybackSpeed != true) return@launch
+            memory.setPlaybackSpeed(target, speed)
+        }
+    }
+
+    /**
+     * §95 — A/V sync nudges made mid-playback are almost always compensating for one badly-muxed
+     * file, not a statement about every future title. Persisted **per item** via [preferenceMemory]
+     * rather than through [settingsStore]: the correction reapplies the next time *this exact item*
+     * is opened (see [startInitialPlayback] / [switchTo], the only readers of the persisted value)
+     * but never becomes a permanent global offset and never leaks onto a sibling episode. The
+     * Settings screen remains the lone writer of the persisted global default.
+     */
     fun setAudioDelayMs(value: Long) {
         localState.update { it.copy(audioDelayMs = value) }
         engine.setAudioDelayMs(value)
-        settingsStore?.let { store ->
-            viewModelScope.launch { store.setAudioDelayMs(value.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()) }
-        }
+        persistTrackDelays()
     }
 
+    /** §95 — item-scoped for the same reason as [setAudioDelayMs]. */
     fun setSubtitleDelayMs(value: Long) {
         localState.update { it.copy(subtitleDelayMs = value) }
         engine.setSubtitleDelayMs(value)
-        settingsStore?.let { store ->
-            viewModelScope.launch {
-                store.setSubtitleDelayMs(value.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt())
-            }
+        persistTrackDelays()
+    }
+
+    /**
+     * Writes the *current, effective* audio+subtitle pair for [currentItemId] — reading
+     * [localState] rather than just the field that just changed is what keeps a lone audio nudge
+     * from clobbering an already-in-effect subtitle delay (or vice versa) in the stored row.
+     */
+    private fun persistTrackDelays() {
+        val memory = preferenceMemory ?: return
+        val target = currentItemId
+        val local = localState.value
+        viewModelScope.launch {
+            memory.setTrackDelays(
+                target,
+                ItemTrackDelays(audioDelayMs = local.audioDelayMs, subtitleDelayMs = local.subtitleDelayMs),
+            )
         }
     }
+
+    /**
+     * §91 — lets a host screen offer "start over" after [ResumeBehavior.Ask] resumed automatically.
+     * [restart] jumps the already-playing stream back to the beginning instead of re-resolving, since
+     * the stream itself does not need to change, only the playhead.
+     */
+    fun confirmResumePrompt(restart: Boolean) {
+        if (localState.value.resumePrompt == null) return
+        localState.update { it.copy(resumePrompt = null) }
+        if (restart) {
+            engine.seekTo(0)
+        }
+    }
+
+    /** §91 — Restart discards the saved position; Resume and the dead Always rung keep it. */
+    private fun effectiveStartTicks(resumeBehavior: ResumeBehavior, rawResumeTicks: Long): Long =
+        if (resumeBehavior == ResumeBehavior.Restart) 0L else rawResumeTicks
+
+    /**
+     * §91 — Ask still resumes immediately (there is no owned surface here to block on a user
+     * choice), but records a prompt a host screen can use to offer "start over" without
+     * re-resolving. Shared by [startInitialPlayback] and [switchTo] so Up Next / the episode
+     * picker match entering the same item from Detail.
+     */
+    private fun resumePromptFor(resumeBehavior: ResumeBehavior, rawResumeTicks: Long): ResumePromptUi? =
+        if (resumeBehavior == ResumeBehavior.Ask && rawResumeTicks > 0L) {
+            ResumePromptUi(positionMs = Ticks.toMs(rawResumeTicks))
+        } else {
+            null
+        }
 
     fun setFrameMode(value: String) = engine.setFrameMode(value)
 
@@ -578,9 +686,21 @@ class PlayerViewModel(
 
     fun setDeinterlaceMode(value: String) = engine.setDeinterlaceMode(value)
 
+    /**
+     * §95 — clears the session state *and* the persisted per-item override in one write, so the
+     * item falls back to the global default the next time it is opened rather than reapplying a
+     * nudge the viewer just asked to discard. Deliberately does not call [setAudioDelayMs] /
+     * [setSubtitleDelayMs]: those each persist the pair on their own, which would leave a `(0, 0)`
+     * row behind instead of clearing it — an item with no override and an item explicitly pinned to
+     * "no delay" read back identically today, but only clearing avoids relying on that coincidence.
+     */
     fun resetPlaybackDelays() {
-        setAudioDelayMs(0)
-        setSubtitleDelayMs(0)
+        localState.update { it.copy(audioDelayMs = 0, subtitleDelayMs = 0) }
+        engine.setAudioDelayMs(0)
+        engine.setSubtitleDelayMs(0)
+        val memory = preferenceMemory ?: return
+        val target = currentItemId
+        viewModelScope.launch { memory.setTrackDelays(target, null) }
     }
 
     /**
@@ -655,8 +775,15 @@ class PlayerViewModel(
                 attach = { fresh -> attachStream(fresh, item = null, startMs = positionMs, keepTracks = true) },
             )
             if (changed) {
+                // §95 — item-scoped, same rationale as setAudioDelayMs: a cap chosen for one stream
+                // on a weak connection reapplies only to *this* item (see startInitialPlayback /
+                // switchTo, the only readers), never as a change to the global default a sibling
+                // episode would also pick up. Only the Settings screen persists the global default.
                 localState.update { it.copy(quality = quality) }
-                settingsStore?.setPreferredQuality(quality.label)
+                preferenceMemory?.setQualityCapLabel(
+                    current.itemId,
+                    quality.takeIf { it != VideoQuality.AUTO }?.label,
+                )
             }
         }
     }
@@ -703,29 +830,61 @@ class PlayerViewModel(
             val positionMs = engine.positionMs.value
             var targetMetadata: PlayerItemMetadata? = null
             var startMs = 0L
+            // §91 — a prompt referring to the outgoing item must not survive the switch; the target
+            // gets its own prompt (or none) once resolved below, via `attach`.
+            localState.update { it.copy(resumePrompt = null) }
+            // Resolved once per swap so a mid-swap Settings change can't make start position and
+            // prompt disagree with each other.
+            val settings = settingsStore?.let { runCatching { it.current() }.getOrNull() }
+            val resumeBehavior = settings?.resumeBehavior ?: ResumeBehavior.Ask
+            // §95 — the *target's own* pinned overrides, never the outgoing item's live session
+            // values: a quality cap or A/V nudge made on item A must not leak onto item B just
+            // because B happened to be the next thing played.
+            val targetQuality = VideoQuality.forLabel(
+                preferenceMemory?.qualityCapLabel(targetItemId) ?: settings?.preferredQuality?.label,
+            )
+            val targetDelays = preferenceMemory?.trackDelays(targetItemId)
+            val targetAudioDelay = targetDelays?.audioDelayMs ?: settings?.audioDelayMs?.toLong() ?: 0L
+            val targetSubtitleDelay = targetDelays?.subtitleDelayMs ?: settings?.subtitleDelayMs?.toLong() ?: 0L
             swapStream(
                 positionMs = positionMs,
                 resolve = {
                     val metadata = metadataLoader.loadItem(targetItemId)
                     targetMetadata = metadata
-                    // Resume where the user left the target, exactly as entering it from Detail would.
-                    val resumeTicks = metadata.resumeTicks
+                    // §91 — apply the same resume setting Detail would, exactly as startInitialPlayback does.
+                    val rawResumeTicks = metadata.resumeTicks
+                    val resumeTicks = effectiveStartTicks(resumeBehavior, rawResumeTicks)
                     startMs = Ticks.toMs(resumeTicks)
-                    resolveFor(targetItemId, resumeTicks, localState.value.quality)
+                    resolveFor(targetItemId, resumeTicks, targetQuality)
                 },
                 attach = { fresh ->
                     currentItemId = targetItemId
-                    // The new item owns its own shelves and its own Up Next dismissal.
+                    // The new item owns its own shelves, its own Up Next dismissal, its own resume
+                    // prompt (Ask records one; Resume/Restart carry none), and — per §95 above — its
+                    // own quality/delay overrides rather than whatever the outgoing item left active.
                     localState.update {
                         it.copy(
                             similar = emptyList(),
                             shelvesLoadedFor = null,
                             shelvesError = null,
                             upNextDismissed = false,
+                            resumePrompt = resumePromptFor(resumeBehavior, targetMetadata?.resumeTicks ?: 0L),
+                            quality = targetQuality,
+                            audioDelayMs = targetAudioDelay,
+                            subtitleDelayMs = targetSubtitleDelay,
                         )
                     }
+                    engine.setAudioDelayMs(targetAudioDelay)
+                    engine.setSubtitleDelayMs(targetSubtitleDelay)
                     targetMetadata?.let(::applyItemMetadata)
-                    attachStream(fresh, targetMetadata, startMs, keepTracks = false)
+                    attachStream(
+                        fresh,
+                        targetMetadata,
+                        startMs,
+                        keepTracks = false,
+                        rememberedAudioIndex = rememberedAudioIndexFor(targetMetadata, settings),
+                        restoreSpeed = rememberedSpeedFor(targetItemId, settings),
+                    )
                     targetMetadata?.let { loadPlaybackContext(targetItemId, it) }
                 },
             )
@@ -888,8 +1047,18 @@ class PlayerViewModel(
         item: PlayerItemMetadata?,
         startMs: Long,
         keepTracks: Boolean,
+        rememberedAudioIndex: Int? = null,
+        restoreSpeed: Float? = null,
     ) {
-        trackController.prepare(r, keepCurrent = keepTracks)
+        trackController.prepare(r, keepCurrent = keepTracks, rememberedAudioIndex = rememberedAudioIndex)
+        if (!keepTracks) {
+            // §88 rememberPlaybackSpeed — every genuinely new item (not a same-item quality swap,
+            // which must leave the in-flight rate alone) gets its own remembered rate applied
+            // explicitly. mpv's `speed` property survives `loadfile` on its own (see
+            // MpvEngine.setSpeed), so without this an episode swap would silently inherit whatever
+            // rate the *previous* item was playing at instead of this item's own memory/default.
+            engine.setSpeed(restoreSpeed ?: PlaybackSpeed.Normal)
+        }
         val videoStream = r.mediaStreams.firstOrNull { it.type.equals("Video", ignoreCase = true) }
         val audioStream = r.mediaStreams.firstOrNull { it.type.equals("Audio", ignoreCase = true) }
         val videoInfo = videoStream?.let { stream ->
@@ -959,6 +1128,54 @@ class PlayerViewModel(
                 selectedSubtitleIndex = { trackController.selectedSubtitleIndex },
             )
         }
+    }
+
+    /**
+     * §88 `rememberSeriesAudio` — the audio index to prefer as the *default* for [item], or `null`
+     * when there is no opinion (movie/non-episode, the setting is off, nothing on record, or this
+     * ViewModel was built without a [preferenceMemory]).
+     *
+     * Deliberately does not decide precedence itself — [TrackController.prepare] is the single place
+     * that reconciles this against an explicit per-item request and [TrackSelection]'s own
+     * server-preference default, so there is exactly one policy for "what wins" instead of two
+     * copies that could disagree.
+     */
+    private suspend fun rememberedAudioIndexFor(
+        item: PlayerItemMetadata?,
+        settings: ClientSettings?,
+    ): Int? {
+        if (item?.isEpisode != true) return null
+        if (settings?.rememberSeriesAudio != true) return null
+        val seriesId = item.seriesName ?: return null
+        return preferenceMemory?.seriesAudioTrack(seriesId)
+    }
+
+    /** §88 `rememberPlaybackSpeed` — the rate to restore for [itemId], or `null` for "no opinion". */
+    private suspend fun rememberedSpeedFor(itemId: String, settings: ClientSettings?): Float? {
+        if (settings?.rememberPlaybackSpeed != true) return null
+        return preferenceMemory?.playbackSpeed(itemId)
+    }
+
+    /**
+     * §88 `rememberSeriesAudio` — persists an *explicit* audio pick against the current series, so a
+     * later episode's default can adopt it (via [rememberedAudioIndexFor]). Only ever called after a
+     * pick has actually taken effect (see [selectTrack]): a track [TrackController.prepare] merely
+     * defaulted to on its own is never written back here, so a series nobody has touched keeps
+     * following the ordinary language/server-default logic in `TrackSelection` untouched.
+     *
+     * Keyed by series *name* rather than a true series id: [PlayerItemMetadata] does not carry a
+     * series id through to this layer today, and adding one is outside this file's ownership. Two
+     * differently-produced shows that happen to share an exact title would share this memory, which
+     * is an accepted, documented trade-off rather than an oversight.
+     */
+    private suspend fun rememberSeriesAudioChoice(audioIndex: Int) {
+        val memory = preferenceMemory ?: return
+        val local = localState.value
+        if (!local.isEpisode) return
+        val seriesId = local.seriesName ?: return
+        val settings = settingsStore?.let { runCatching { it.current() }.getOrNull() }
+        if (settings?.rememberSeriesAudio != true) return
+        memory.setSeriesAudioTrack(seriesId, audioIndex)
     }
 
     // --- item metadata -------------------------------------------------------------------------

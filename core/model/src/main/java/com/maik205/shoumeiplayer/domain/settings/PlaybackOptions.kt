@@ -146,15 +146,64 @@ enum class SubtitleStroke(
     Heavy("heavy", "Heavy"),
 }
 
+/**
+ * Typed mirror of Jellyfin's account-level `UserConfiguration.SubtitleMode`
+ * (`SubtitlePlaybackMode`), **not** a client setting.
+ *
+ * Subtitle track selection is driven entirely by the server value through
+ * `TrackSelection.selectSubtitleIndex`, so [storageId] is the wire value the server round-trips
+ * rather than an app-private id -- the enum can be converted straight back into the string posted
+ * to `/Users/Configuration`. [legacyValues] keeps the snake_case ids the retired client-side copy
+ * of this enum persisted readable, so an upgrading install still resolves its old value to a mode
+ * instead of silently falling back.
+ */
 enum class SubtitleMode(
     override val storageId: String,
     override val label: String,
     override val legacyValues: Set<String> = emptySet(),
 ) : StoredOption {
-    Smart("smart", "Smart"),
-    Always("always", "Always"),
-    OnlyForced("only_forced", "Only forced", setOf("OnlyForced")),
-    None("none", "None"),
+    Default("Default", "Default", setOf("default")),
+    Smart("Smart", "Smart", setOf("smart")),
+    Always("Always", "Always", setOf("always")),
+    OnlyForced("OnlyForced", "Only forced", setOf("only_forced")),
+    None("None", "None", setOf("none")),
+}
+
+/**
+ * The account-level audio/subtitle language values this app offers.
+ *
+ * [storageId] is the ISO 639-2 code Jellyfin's own clients write into
+ * `UserConfiguration.AudioLanguagePreference` / `SubtitleLanguagePreference`, so the value posted
+ * back is one another client recognises. [legacyValues] absorbs the 639-1 tag and the alternate
+ * 639-2 form, plus (via [StoredOption.label]) the English display names the retired client-side
+ * `ClientSettings.preferredAudioLanguage` used to persist -- an upgrading account whose server
+ * value came from either source still resolves to a real option instead of "no preference".
+ *
+ * A `null` [ServerLanguage] is a real state, not an absence of data: it is Jellyfin's "no
+ * preference", which lets the server-marked default track win.
+ */
+enum class ServerLanguage(
+    override val storageId: String,
+    override val label: String,
+    override val legacyValues: Set<String> = emptySet(),
+) : StoredOption {
+    English("eng", "English", setOf("en")),
+    Japanese("jpn", "Japanese", setOf("ja")),
+    Vietnamese("vie", "Vietnamese", setOf("vi")),
+    French("fre", "French", setOf("fr", "fra")),
+    German("ger", "German", setOf("de", "deu"));
+
+    companion object {
+        /** Resolves a server/legacy value, or null when the account expresses no preference. */
+        fun fromStored(raw: String?): ServerLanguage? {
+            if (raw.isNullOrBlank()) return null
+            return ServerLanguage.entries.firstOrNull { option ->
+                option.storageId.equals(raw, ignoreCase = true) ||
+                    option.label.equals(raw, ignoreCase = true) ||
+                    option.legacyValues.any { it.equals(raw, ignoreCase = true) }
+            }
+        }
+    }
 }
 
 enum class BurnSubtitles(
@@ -181,6 +230,11 @@ enum class DisplayLanguage(
     override val storageId: String,
     override val label: String,
 ) : StoredOption {
+    // storageId doubles as a BCP 47 tag for AppLocaleManager. "system_default" is not a valid
+    // BCP 47 language subtag, so it can never collide with a real locale tag chosen below, and it
+    // sorts before the fixed languages so a fresh install (no persisted value) follows the device
+    // locale instead of forcing English.
+    SystemDefault("system_default", "System default"),
     English("en", "English"),
     Vietnamese("vi", "Vietnamese"),
     Japanese("ja", "Japanese"),

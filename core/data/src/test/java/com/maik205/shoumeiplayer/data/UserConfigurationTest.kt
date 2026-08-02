@@ -8,6 +8,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.maik205.shoumeiplayer.data.session.UserConfigurationStore
 
 /**
  * `POST /Users/Configuration` replaces the complete 16-property object. This test ensures
@@ -29,7 +30,7 @@ class UserConfigurationTest {
             sessions = sessionStore,
             recorder = recorder,
         )
-        val repo = AuthRepository(client, sessionStore)
+        val repo = AuthRepository(client, sessionStore, UserConfigurationStore(InMemoryPreferencesDataStore()))
 
         val result = repo.updateUserConfiguration { it.copy(subtitleMode = "Always") }
 
@@ -84,7 +85,7 @@ class UserConfigurationTest {
             sessions = sessionStore,
             recorder = recorder,
         )
-        val repo = AuthRepository(client, sessionStore)
+        val repo = AuthRepository(client, sessionStore, UserConfigurationStore(InMemoryPreferencesDataStore()))
 
         val result = repo.updateUserConfiguration { it.copy(subtitleMode = "Always") }
 

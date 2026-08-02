@@ -500,7 +500,6 @@
     <string name="tv_settings_hdr_handling">HDR handling</string>
     <string name="tv_settings_image_duration">Image duration</string>
     <string name="tv_settings_keep_audio_language_for_series">Keep audio language for series</string>
-    <string name="tv_settings_kids_mode">Kids mode</string>
     <string name="tv_settings_login_method">Login method</string>
     <string name="tv_settings_maximum_remote_bitrate">Maximum remote bitrate</string>
     <string name="tv_settings_maximum_streaming_bitrate">Maximum streaming bitrate</string>

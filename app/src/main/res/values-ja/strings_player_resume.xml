@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- §91 resume-prompt overlay; see values/strings_player_resume.xml for the source strings. -->
+    <string name="tv_player_resume_title">再生を再開しますか？</string>
+    <string name="tv_player_resume_from">%1$s から再開</string>
+    <string name="tv_player_start_over">最初から再生</string>
+</resources>

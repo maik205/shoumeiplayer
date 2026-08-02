@@ -3,6 +3,7 @@ package com.maik205.shoumeiplayer.feature.player
 import com.maik205.shoumeiplayer.di.player.JellyfinPlaybackMetadataLoader
 
 import com.maik205.shoumeiplayer.data.FakeJellyfin
+import com.maik205.shoumeiplayer.data.InMemoryPreferencesDataStore
 import com.maik205.shoumeiplayer.data.FakeRoute
 import com.maik205.shoumeiplayer.data.ImageUrlBuilder
 import com.maik205.shoumeiplayer.data.RequestRecorder
@@ -12,8 +13,14 @@ import com.maik205.shoumeiplayer.data.repo.AuthRepository
 import com.maik205.shoumeiplayer.data.repo.LibraryRepository
 import com.maik205.shoumeiplayer.data.repo.PlaybackRepository
 import com.maik205.shoumeiplayer.data.session.Session
+import com.maik205.shoumeiplayer.data.session.UserConfigurationStore
+import com.maik205.shoumeiplayer.domain.settings.ClientSettings
+import com.maik205.shoumeiplayer.domain.settings.PlayerSettingsRepository
+import com.maik205.shoumeiplayer.domain.settings.ResumeBehavior
 import com.maik205.shoumeiplayer.player.PlaybackProgressReporter
+import com.maik205.shoumeiplayer.player.PlayerTrack
 import com.maik205.shoumeiplayer.player.SimulatedPlayerEngine
+import com.maik205.shoumeiplayer.player.TrackType
 import com.maik205.shoumeiplayer.player.VideoQuality
 import androidx.lifecycle.viewModelScope
 import io.ktor.http.HttpStatusCode
@@ -188,6 +195,145 @@ class PlayerViewModelTest {
         finish(viewModel, engine)
     }
 
+    // --- §95 in-player overrides stay session-scoped ----------------------------------------------
+
+    @Test
+    fun `an in-player audio delay does not persist and does not leak into the next playback`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val settingsStore = FakePlayerSettingsRepository()
+        val engine = SimulatedPlayerEngine(scope = this)
+        val viewModel = viewModel(engine = engine, settingsStore = settingsStore)
+        backgroundScope.launch { viewModel.uiState.collect { } }
+        advanceTimeBy(5_000)
+        runCurrent()
+
+        viewModel.setAudioDelayMs(250L)
+        viewModel.setSubtitleDelayMs(-75L)
+        runCurrent()
+
+        // The correction is visible for this session...
+        assertEquals(250L, viewModel.uiState.value.audioDelayMs)
+        assertEquals(-75L, viewModel.uiState.value.subtitleDelayMs)
+        // ...but never wrote through to the global store a Settings-screen change would use.
+        assertEquals(0, settingsStore.audioDelayMs)
+        assertEquals(0, settingsStore.subtitleDelayMs)
+
+        finish(viewModel, engine)
+
+        // A fresh playback session reads the (untouched) persisted defaults, not the prior
+        // session's per-item nudge.
+        val engine2 = SimulatedPlayerEngine(scope = this)
+        val viewModel2 = viewModel(engine = engine2, settingsStore = settingsStore)
+        backgroundScope.launch { viewModel2.uiState.collect { } }
+        advanceTimeBy(5_000)
+        runCurrent()
+
+        assertEquals(0L, viewModel2.uiState.value.audioDelayMs)
+        assertEquals(0L, viewModel2.uiState.value.subtitleDelayMs)
+
+        finish(viewModel2, engine2)
+    }
+
+    @Test
+    fun `an in-player quality change does not persist the new default`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val settingsStore = FakePlayerSettingsRepository()
+        val recorder = RequestRecorder()
+        val engine = SimulatedPlayerEngine(scope = this)
+        val viewModel = viewModel(
+            engine = engine,
+            recorder = recorder,
+            playbackInfo = "playback_info_transcode.json",
+            settingsStore = settingsStore,
+        )
+        backgroundScope.launch { viewModel.uiState.collect { } }
+        advanceTimeBy(5_000)
+        runCurrent()
+
+        viewModel.setQuality(VideoQuality.HD)
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        assertEquals(VideoQuality.HD, viewModel.uiState.value.quality)
+        assertTrue("a per-item quality cap must not persist", settingsStore.preferredQualityWrites.isEmpty())
+
+        finish(viewModel, engine)
+    }
+
+    // --- §91 resume behavior -----------------------------------------------------------------------
+
+    @Test
+    fun `Restart always starts over even with a saved position`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val settingsStore = FakePlayerSettingsRepository(resumeBehavior = ResumeBehavior.Restart)
+        val engine = SimulatedPlayerEngine(scope = this)
+        val viewModel = viewModel(engine = engine, startPositionTicks = 50_000_000L, settingsStore = settingsStore)
+        backgroundScope.launch { viewModel.uiState.collect { } }
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        assertEquals(0L, engine.positionMs.value)
+        assertEquals(null, viewModel.uiState.value.resumePrompt)
+
+        finish(viewModel, engine)
+    }
+
+    @Test
+    fun `Resume always honours the saved position`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val settingsStore = FakePlayerSettingsRepository(resumeBehavior = ResumeBehavior.Resume)
+        val engine = SimulatedPlayerEngine(scope = this)
+        val viewModel = viewModel(engine = engine, startPositionTicks = 50_000_000L, settingsStore = settingsStore)
+        backgroundScope.launch { viewModel.uiState.collect { } }
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        assertEquals(5_000L, engine.positionMs.value)
+        assertEquals(null, viewModel.uiState.value.resumePrompt)
+
+        finish(viewModel, engine)
+    }
+
+    @Test
+    fun `Ask resumes immediately and surfaces a prompt the host screen can act on`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val settingsStore = FakePlayerSettingsRepository(resumeBehavior = ResumeBehavior.Ask)
+        val engine = SimulatedPlayerEngine(scope = this)
+        val viewModel = viewModel(engine = engine, startPositionTicks = 50_000_000L, settingsStore = settingsStore)
+        backgroundScope.launch { viewModel.uiState.collect { } }
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        // No blocking dialog owned here — Ask still resumes so playback is never stuck waiting.
+        assertEquals(5_000L, engine.positionMs.value)
+        assertEquals(5_000L, viewModel.uiState.value.resumePrompt?.positionMs)
+
+        // The host screen can offer "start over" without a re-resolve.
+        viewModel.confirmResumePrompt(restart = true)
+        runCurrent()
+
+        assertEquals(0L, engine.positionMs.value)
+        assertEquals(null, viewModel.uiState.value.resumePrompt)
+
+        finish(viewModel, engine)
+    }
+
+    @Test
+    fun `Ask does not surface a prompt when there is nothing to resume`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val settingsStore = FakePlayerSettingsRepository(resumeBehavior = ResumeBehavior.Ask)
+        val engine = SimulatedPlayerEngine(scope = this)
+        val viewModel = viewModel(engine = engine, startPositionTicks = 0L, settingsStore = settingsStore)
+        backgroundScope.launch { viewModel.uiState.collect { } }
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        assertEquals(0L, engine.positionMs.value)
+        assertEquals(null, viewModel.uiState.value.resumePrompt)
+
+        finish(viewModel, engine)
+    }
+
     // --- §5 episode adjacency / switchTo ---------------------------------------------------------
 
     @Test
@@ -253,6 +399,81 @@ class PlayerViewModelTest {
         advanceTimeBy(1_000)
         runCurrent()
         assertEquals(2, recorder.paths().count { it == "/Sessions/Playing/Stopped" })
+
+        finish(viewModel, engine)
+    }
+
+    @Test
+    fun `Restart also applies when switchTo resolves the target, not just the initial entry`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val recorder = RequestRecorder()
+        val settingsStore = FakePlayerSettingsRepository(resumeBehavior = ResumeBehavior.Restart)
+        val engine = SimulatedPlayerEngine(scope = this)
+        val viewModel = viewModel(
+            engine = engine,
+            recorder = recorder,
+            settingsStore = settingsStore,
+            extraRoutes = mapOf(
+                "/Shows/series-1/Episodes" to fakeRoute(EPISODES),
+                // ep-2's own item_detail.json carries a non-zero saved position (17595000000
+                // ticks); Restart must discard it exactly as it does from Detail.
+                "/Items/ep-2/PlaybackInfo" to fakeRoute(FakeJellyfin.fixture("playback_info.json")),
+            ),
+        )
+        backgroundScope.launch { viewModel.uiState.collect { } }
+        advanceTimeBy(5_000)
+        runCurrent()
+
+        // playNextEpisode() drives switchTo() — the Up Next / episode-picker path, not
+        // startInitialPlayback. Before the §91 fix this landed at ~1,759,500ms regardless.
+        viewModel.playNextEpisode()
+        // Stay under the simulated engine's ~1,300ms warm-up-plus-first-tick window (see the
+        // Restart tests above, which all advance by 1_000ms for the same reason) so this assertion
+        // observes the freshly-reset position rather than one tick of simulated playback on ep-2.
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        assertEquals(0L, engine.positionMs.value)
+        assertEquals(null, viewModel.uiState.value.resumePrompt)
+
+        finish(viewModel, engine)
+    }
+
+    @Test
+    fun `a stale resume prompt from the previous item does not survive switchTo`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val recorder = RequestRecorder()
+        val settingsStore = FakePlayerSettingsRepository(resumeBehavior = ResumeBehavior.Ask)
+        val engine = SimulatedPlayerEngine(scope = this)
+        val viewModel = viewModel(
+            engine = engine,
+            recorder = recorder,
+            startPositionTicks = 50_000_000L,
+            settingsStore = settingsStore,
+            extraRoutes = mapOf(
+                "/Shows/series-1/Episodes" to fakeRoute(EPISODES),
+                "/Items/ep-2/PlaybackInfo" to fakeRoute(FakeJellyfin.fixture("playback_info.json")),
+            ),
+        )
+        backgroundScope.launch { viewModel.uiState.collect { } }
+        advanceTimeBy(5_000)
+        runCurrent()
+
+        // Entering item-1 under Ask with a saved position records a prompt for item-1.
+        assertEquals(5_000L, viewModel.uiState.value.resumePrompt?.positionMs)
+
+        viewModel.playNextEpisode()
+        advanceTimeBy(2_000)
+        runCurrent()
+
+        // ep-2 also has a saved position, so Ask still records a prompt — but it must describe
+        // ep-2's resume point, not the stale 5,000ms carried over from item-1.
+        val prompt = viewModel.uiState.value.resumePrompt
+        assertNotNull("Ask should still record a prompt for the new item", prompt)
+        assertTrue(
+            "expected the prompt to reflect ep-2's own resume position, not item-1's stale 5,000ms",
+            prompt!!.positionMs != 5_000L,
+        )
 
         finish(viewModel, engine)
     }
@@ -380,6 +601,14 @@ class PlayerViewModelTest {
         runCurrent()
     }
 
+    /**
+     * §88 — the [TrackController] instance used by the most recently built [viewModel], so tests can
+     * inspect [TrackController.selectedAudioIndex] directly: the simulated engine's own `tracks`
+     * list is a fixed fixture that ignores `PlayRequest.preferredAudioTrackId`, so it cannot be used
+     * to observe which track the ViewModel actually asked for on a fresh attach.
+     */
+    private var lastTrackController: TrackController? = null
+
     private fun TestScope.viewModel(
         engine: SimulatedPlayerEngine,
         recorder: RequestRecorder? = null,
@@ -388,6 +617,9 @@ class PlayerViewModelTest {
         initialAudioStreamIndex: Int? = null,
         initialSubtitleStreamIndex: Int? = null,
         initialQualityLabel: String? = null,
+        startPositionTicks: Long = 0,
+        settingsStore: PlayerSettingsRepository? = null,
+        preferenceMemory: PlaybackPreferenceMemory? = null,
     ): PlayerViewModel {
         val client = FakeJellyfin.client(
             routes = mapOf(
@@ -405,16 +637,22 @@ class PlayerViewModelTest {
         )
         val playbackRepository = PlaybackRepository(client)
         val libraryRepository = LibraryRepository(client)
-        val authRepository = AuthRepository(client, FakeJellyfin.newSessionStore())
+        val authRepository = AuthRepository(
+            client,
+            FakeJellyfin.newSessionStore(),
+            UserConfigurationStore(InMemoryPreferencesDataStore()),
+        )
         val imageUrlBuilder = ImageUrlBuilder { session.serverUrl }
+        val trackController = TrackController(
+            preferenceProvider = authRepository,
+            initialAudioStreamIndex = initialAudioStreamIndex,
+            initialSubtitleStreamIndex = initialSubtitleStreamIndex,
+        )
+        lastTrackController = trackController
         return PlayerViewModel(
             engine = engine,
             playbackResolver = playbackRepository,
-            trackController = TrackController(
-                preferenceProvider = authRepository,
-                initialAudioStreamIndex = initialAudioStreamIndex,
-                initialSubtitleStreamIndex = initialSubtitleStreamIndex,
-            ),
+            trackController = trackController,
             metadataLoader = JellyfinPlaybackMetadataLoader(
                 libraryRepository = libraryRepository,
                 authRepository = authRepository,
@@ -424,9 +662,420 @@ class PlayerViewModelTest {
             ),
             reporter = PlaybackProgressReporter(playbackRepository),
             itemId = "item-1",
-            startPositionTicks = 0,
+            startPositionTicks = startPositionTicks,
             teardownScope = backgroundScope,
+            settingsStore = settingsStore,
             initialQualityLabel = initialQualityLabel,
+            preferenceMemory = preferenceMemory,
         )
+    }
+
+    /**
+     * Records what was persisted so §95's tests can assert in-player overrides never reach it, and
+     * carries settable [resumeBehavior] / [rememberSeriesAudio] / [rememberPlaybackSpeed] so §88/§91's
+     * tests can drive each branch independently of `ClientSettings`' real defaults.
+     */
+    private class FakePlayerSettingsRepository(
+        var resumeBehavior: ResumeBehavior = ResumeBehavior.Ask,
+        var rememberSeriesAudio: Boolean = true,
+        var rememberPlaybackSpeed: Boolean = false,
+    ) : PlayerSettingsRepository {
+        var audioDelayMs: Int = 0
+            private set
+        var subtitleDelayMs: Int = 0
+            private set
+        val preferredQualityWrites = mutableListOf<String>()
+
+        override suspend fun current(): ClientSettings = ClientSettings(
+            resumeBehavior = resumeBehavior,
+            rememberSeriesAudio = rememberSeriesAudio,
+            rememberPlaybackSpeed = rememberPlaybackSpeed,
+            audioDelayMs = audioDelayMs,
+            subtitleDelayMs = subtitleDelayMs,
+        )
+
+        override suspend fun setPreferredQuality(value: String) {
+            preferredQualityWrites += value
+        }
+
+        override suspend fun setAudioDelayMs(value: Int) {
+            audioDelayMs = value
+        }
+
+        override suspend fun setSubtitleDelayMs(value: Int) {
+            subtitleDelayMs = value
+        }
+    }
+
+    /**
+     * In-memory stand-in for the real `PreferenceStore`-backed [PlaybackPreferenceMemory] the DI
+     * layer supplies in production. Backing maps are exposed directly (not just through the
+     * interface) so tests can assert on exactly what was — or was not — written, the same way
+     * [FakePlayerSettingsRepository] exposes its writes.
+     */
+    private class FakePlaybackPreferenceMemory : PlaybackPreferenceMemory {
+        val seriesAudio = mutableMapOf<String, Int>()
+        val speeds = mutableMapOf<String, Float>()
+        val delays = mutableMapOf<String, ItemTrackDelays>()
+        val qualityCaps = mutableMapOf<String, String>()
+
+        override suspend fun seriesAudioTrack(seriesId: String): Int? = seriesAudio[seriesId]
+
+        override suspend fun setSeriesAudioTrack(seriesId: String, audioIndex: Int) {
+            seriesAudio[seriesId] = audioIndex
+        }
+
+        override suspend fun playbackSpeed(itemId: String): Float? = speeds[itemId]
+
+        override suspend fun setPlaybackSpeed(itemId: String, speed: Float) {
+            speeds[itemId] = speed
+        }
+
+        override suspend fun trackDelays(itemId: String): ItemTrackDelays? = delays[itemId]
+
+        override suspend fun setTrackDelays(itemId: String, delays: ItemTrackDelays?) {
+            if (delays == null) this.delays.remove(itemId) else this.delays[itemId] = delays
+        }
+
+        override suspend fun qualityCapLabel(itemId: String): String? = qualityCaps[itemId]
+
+        override suspend fun setQualityCapLabel(itemId: String, label: String?) {
+            if (label == null) qualityCaps.remove(itemId) else qualityCaps[itemId] = label
+        }
+    }
+
+    /**
+     * Same shape as `core/data`'s `playback_info.json` fixture but with two extra audio streams —
+     * Japanese (index 2) and French (index 3) — alongside the English default (index 1).
+     *
+     * `user_me.json` (shared by every test in this file) carries `PlayDefaultAudioTrack: false` and
+     * `AudioLanguagePreference: "jpn"`, so [TrackSelection]'s own server-preference default already
+     * lands on the *Japanese* track, not the English one `IsDefault`/`DefaultAudioStreamIndex` name.
+     * §88's tests deliberately pick the *French* track as the "explicit" choice — a third option
+     * that neither the default flag nor the language preference would ever land on — so a test
+     * asserting the remembered index took effect cannot pass merely because it coincides with the
+     * ordinary default.
+     */
+    private val PLAYBACK_INFO_THREE_AUDIO_TRACKS = """
+        {
+          "MediaSources": [
+            {
+              "Id": "media-1",
+              "Container": "mkv",
+              "Protocol": "File",
+              "RunTimeTicks": 72000000000,
+              "SupportsDirectPlay": true,
+              "SupportsDirectStream": true,
+              "SupportsTranscoding": true,
+              "MediaStreams": [
+                {"Index": 0, "Type": "Video", "Codec": "h264"},
+                {"Index": 1, "Type": "Audio", "Codec": "aac", "Language": "eng", "DisplayTitle": "English (AAC 5.1)", "IsDefault": true},
+                {"Index": 2, "Type": "Audio", "Codec": "aac", "Language": "jpn", "DisplayTitle": "Japanese (AAC)"},
+                {"Index": 3, "Type": "Audio", "Codec": "flac", "Language": "fre", "DisplayTitle": "French (FLAC)"},
+                {"Index": 4, "Type": "Subtitle", "Codec": "subrip", "Language": "eng", "DisplayTitle": "English (SRT)"}
+              ],
+              "DefaultAudioStreamIndex": 1
+            }
+          ],
+          "PlaySessionId": "play-session-1"
+        }
+    """.trimIndent()
+
+    // --- §88 rememberSeriesAudio ---------------------------------------------------------------
+
+    @Test
+    fun `an explicit audio pick is remembered and adopted by the next episode of the same series`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val recorder = RequestRecorder()
+        // rememberSeriesAudio defaults to true (see ClientSettings), but only the presence of a
+        // ClientSettings instance activates it -- a null settingsStore reads as "no opinion" and
+        // would leave the feature dormant regardless of that default.
+        val settingsStore = FakePlayerSettingsRepository()
+        val memory = FakePlaybackPreferenceMemory()
+        val engine = SimulatedPlayerEngine(scope = this)
+        val viewModel = viewModel(
+            engine = engine,
+            recorder = recorder,
+            settingsStore = settingsStore,
+            preferenceMemory = memory,
+            extraRoutes = mapOf(
+                "/Items/item-1/PlaybackInfo" to fakeRoute(PLAYBACK_INFO_THREE_AUDIO_TRACKS),
+                "/Items/ep-2/PlaybackInfo" to fakeRoute(PLAYBACK_INFO_THREE_AUDIO_TRACKS),
+                "/Shows/series-1/Episodes" to fakeRoute(EPISODES),
+            ),
+        )
+        backgroundScope.launch { viewModel.uiState.collect { } }
+        advanceTimeBy(5_000)
+        runCurrent()
+
+        // Without a remembered pick, episode 1 lands on the account's language preference (index 2,
+        // Japanese) — see PLAYBACK_INFO_THREE_AUDIO_TRACKS's KDoc for why that, not the "default"
+        // flag on index 1, is what TrackSelection actually picks here.
+        assertEquals(2, lastTrackController?.selectedAudioIndex)
+
+        // The viewer explicitly switches to French (index 3). A direct-play source applies the pick
+        // immediately, with no stream swap.
+        viewModel.selectTrack(PlayerTrack(id = 3, type = TrackType.AUDIO, label = "French (FLAC)"))
+        runCurrent()
+        assertEquals(3, lastTrackController?.selectedAudioIndex)
+        // Keyed by series *name* (see PlayerViewModel.rememberSeriesAudioChoice): item_detail.json's
+        // fixture is shared by every item this fake server serves, and carries "Game of Thrones" as
+        // SeriesName for both item-1 and ep-2.
+        assertEquals(3, memory.seriesAudio["Game of Thrones"])
+
+        viewModel.playNextEpisode()
+        advanceTimeBy(2_000)
+        runCurrent()
+
+        // ep-2 carries no explicit request of its own — without the remembered pick it would land
+        // back on index 2 (the language preference), exactly like episode 1 did before the viewer
+        // touched anything.
+        assertEquals(3, lastTrackController?.selectedAudioIndex)
+
+        finish(viewModel, engine)
+    }
+
+    @Test
+    fun `a track TrackController merely defaulted to is never written back as a remembered pick`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val memory = FakePlaybackPreferenceMemory()
+        val engine = SimulatedPlayerEngine(scope = this)
+        val viewModel = viewModel(
+            engine = engine,
+            preferenceMemory = memory,
+            extraRoutes = mapOf(
+                "/Items/item-1/PlaybackInfo" to fakeRoute(PLAYBACK_INFO_THREE_AUDIO_TRACKS),
+            ),
+        )
+        backgroundScope.launch { viewModel.uiState.collect { } }
+        advanceTimeBy(5_000)
+        runCurrent()
+
+        // Playing the item through to a default selection, with no explicit pick, must not plant a
+        // memory entry — a series nobody has touched keeps following TrackSelection's own logic.
+        assertEquals(2, lastTrackController?.selectedAudioIndex)
+        assertTrue(memory.seriesAudio.isEmpty())
+
+        finish(viewModel, engine)
+    }
+
+    @Test
+    fun `an explicit audio pick is not remembered when rememberSeriesAudio is off`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val settingsStore = FakePlayerSettingsRepository(rememberSeriesAudio = false)
+        val memory = FakePlaybackPreferenceMemory()
+        val engine = SimulatedPlayerEngine(scope = this)
+        val viewModel = viewModel(
+            engine = engine,
+            settingsStore = settingsStore,
+            preferenceMemory = memory,
+            extraRoutes = mapOf(
+                "/Items/item-1/PlaybackInfo" to fakeRoute(PLAYBACK_INFO_THREE_AUDIO_TRACKS),
+            ),
+        )
+        backgroundScope.launch { viewModel.uiState.collect { } }
+        advanceTimeBy(5_000)
+        runCurrent()
+
+        viewModel.selectTrack(PlayerTrack(id = 3, type = TrackType.AUDIO, label = "French (FLAC)"))
+        runCurrent()
+
+        assertTrue(memory.seriesAudio.isEmpty())
+
+        finish(viewModel, engine)
+    }
+
+    // --- §88 rememberPlaybackSpeed ----------------------------------------------------------------
+
+    @Test
+    fun `a remembered playback speed reapplies per item and does not leak to a different item`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val recorder = RequestRecorder()
+        val settingsStore = FakePlayerSettingsRepository(rememberPlaybackSpeed = true)
+        val memory = FakePlaybackPreferenceMemory()
+        val engine = SimulatedPlayerEngine(scope = this)
+        val viewModel = viewModel(
+            engine = engine,
+            recorder = recorder,
+            settingsStore = settingsStore,
+            preferenceMemory = memory,
+            extraRoutes = mapOf(
+                "/Shows/series-1/Episodes" to fakeRoute(EPISODES),
+                "/Items/ep-2/PlaybackInfo" to fakeRoute(FakeJellyfin.fixture("playback_info.json")),
+            ),
+        )
+        backgroundScope.launch { viewModel.uiState.collect { } }
+        advanceTimeBy(5_000)
+        runCurrent()
+
+        viewModel.setSpeed(1.5f)
+        runCurrent()
+        assertEquals(1.5f, engine.speed.value)
+        assertEquals(1.5f, memory.speeds["item-1"])
+
+        viewModel.playNextEpisode()
+        advanceTimeBy(2_000)
+        runCurrent()
+        // ep-2 has no memory of its own — item-1's rate must not leak onto it.
+        assertEquals(1.0f, engine.speed.value)
+
+        finish(viewModel, engine)
+
+        // A fresh session re-entering item-1 restores exactly the rate it was left at.
+        val engine2 = SimulatedPlayerEngine(scope = this)
+        val viewModel2 = viewModel(engine = engine2, settingsStore = settingsStore, preferenceMemory = memory)
+        backgroundScope.launch { viewModel2.uiState.collect { } }
+        advanceTimeBy(5_000)
+        runCurrent()
+        assertEquals(1.5f, engine2.speed.value)
+
+        finish(viewModel2, engine2)
+    }
+
+    @Test
+    fun `playback speed is not remembered when rememberPlaybackSpeed is off`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val settingsStore = FakePlayerSettingsRepository(rememberPlaybackSpeed = false)
+        val memory = FakePlaybackPreferenceMemory()
+        val engine = SimulatedPlayerEngine(scope = this)
+        val viewModel = viewModel(engine = engine, settingsStore = settingsStore, preferenceMemory = memory)
+        backgroundScope.launch { viewModel.uiState.collect { } }
+        advanceTimeBy(5_000)
+        runCurrent()
+
+        viewModel.setSpeed(1.5f)
+        runCurrent()
+
+        assertTrue(memory.speeds.isEmpty())
+
+        finish(viewModel, engine)
+    }
+
+    // --- §95 per-item delay / quality overrides ---------------------------------------------------
+
+    @Test
+    fun `an in-player audio delay persists per item, reapplies on reopen, and does not leak to a different item`() =
+        runTest {
+            Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+            val recorder = RequestRecorder()
+            val memory = FakePlaybackPreferenceMemory()
+            val engine = SimulatedPlayerEngine(scope = this)
+            val viewModel = viewModel(
+                engine = engine,
+                recorder = recorder,
+                preferenceMemory = memory,
+                extraRoutes = mapOf(
+                    "/Shows/series-1/Episodes" to fakeRoute(EPISODES),
+                    "/Items/ep-2/PlaybackInfo" to fakeRoute(FakeJellyfin.fixture("playback_info.json")),
+                ),
+            )
+            backgroundScope.launch { viewModel.uiState.collect { } }
+            advanceTimeBy(5_000)
+            runCurrent()
+
+            viewModel.setAudioDelayMs(250L)
+            runCurrent()
+            assertEquals(250L, viewModel.uiState.value.audioDelayMs)
+            assertEquals(250L, memory.delays["item-1"]?.audioDelayMs)
+
+            viewModel.playNextEpisode()
+            advanceTimeBy(2_000)
+            runCurrent()
+            // ep-2 has no override of its own — item-1's nudge must not leak onto it.
+            assertEquals(0L, viewModel.uiState.value.audioDelayMs)
+
+            finish(viewModel, engine)
+
+            // A fresh session re-entering item-1 restores exactly the delay it was left with.
+            val engine2 = SimulatedPlayerEngine(scope = this)
+            val viewModel2 = viewModel(engine = engine2, preferenceMemory = memory)
+            backgroundScope.launch { viewModel2.uiState.collect { } }
+            advanceTimeBy(5_000)
+            runCurrent()
+            assertEquals(250L, viewModel2.uiState.value.audioDelayMs)
+
+            finish(viewModel2, engine2)
+        }
+
+    @Test
+    fun `resetPlaybackDelays clears the persisted per-item override, not just the session state`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val memory = FakePlaybackPreferenceMemory()
+        val engine = SimulatedPlayerEngine(scope = this)
+        val viewModel = viewModel(engine = engine, preferenceMemory = memory)
+        backgroundScope.launch { viewModel.uiState.collect { } }
+        advanceTimeBy(5_000)
+        runCurrent()
+
+        viewModel.setAudioDelayMs(300L)
+        viewModel.setSubtitleDelayMs(-50L)
+        runCurrent()
+        assertEquals(ItemTrackDelays(300L, -50L), memory.delays["item-1"])
+
+        viewModel.resetPlaybackDelays()
+        runCurrent()
+        assertEquals(null, memory.delays["item-1"])
+
+        finish(viewModel, engine)
+
+        // A fresh session re-entering item-1 sees no override — not a persisted (0, 0) pair.
+        val engine2 = SimulatedPlayerEngine(scope = this)
+        val viewModel2 = viewModel(engine = engine2, preferenceMemory = memory)
+        backgroundScope.launch { viewModel2.uiState.collect { } }
+        advanceTimeBy(5_000)
+        runCurrent()
+        assertEquals(0L, viewModel2.uiState.value.audioDelayMs)
+        assertEquals(0L, viewModel2.uiState.value.subtitleDelayMs)
+
+        finish(viewModel2, engine2)
+    }
+
+    @Test
+    fun `an in-player quality cap persists per item and does not leak to a different item`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val recorder = RequestRecorder()
+        val memory = FakePlaybackPreferenceMemory()
+        val engine = SimulatedPlayerEngine(scope = this)
+        val viewModel = viewModel(
+            engine = engine,
+            recorder = recorder,
+            playbackInfo = "playback_info_transcode.json",
+            preferenceMemory = memory,
+            extraRoutes = mapOf(
+                "/Shows/series-1/Episodes" to fakeRoute(EPISODES),
+                "/Items/ep-2/PlaybackInfo" to fakeRoute(FakeJellyfin.fixture("playback_info_transcode.json")),
+            ),
+        )
+        backgroundScope.launch { viewModel.uiState.collect { } }
+        advanceTimeBy(5_000)
+        runCurrent()
+
+        viewModel.setQuality(VideoQuality.HD)
+        advanceTimeBy(1_000)
+        runCurrent()
+        assertEquals(VideoQuality.HD, viewModel.uiState.value.quality)
+        assertEquals("720p", memory.qualityCaps["item-1"])
+
+        viewModel.playNextEpisode()
+        advanceTimeBy(2_000)
+        runCurrent()
+        // ep-2 has no cap of its own — falls back to Auto (the global default), not item-1's pin.
+        assertEquals(VideoQuality.AUTO, viewModel.uiState.value.quality)
+
+        finish(viewModel, engine)
+
+        // A fresh session re-entering item-1 restores exactly the cap it was left at.
+        val engine2 = SimulatedPlayerEngine(scope = this)
+        val viewModel2 = viewModel(
+            engine = engine2,
+            playbackInfo = "playback_info_transcode.json",
+            preferenceMemory = memory,
+        )
+        backgroundScope.launch { viewModel2.uiState.collect { } }
+        advanceTimeBy(5_000)
+        runCurrent()
+        assertEquals(VideoQuality.HD, viewModel2.uiState.value.quality)
+
+        finish(viewModel2, engine2)
     }
 }

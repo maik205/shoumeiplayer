@@ -10,6 +10,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.maik205.shoumeiplayer.data.session.UserConfigurationStore
 
 class AuthRepositoryTest {
 
@@ -20,7 +21,7 @@ class AuthRepositoryTest {
             routes = mapOf("/System/Info/Public" to fakeRoute(FakeJellyfin.fixture("system_info_public.json"))),
             sessions = sessionStore,
         )
-        val repo = AuthRepository(client, sessionStore)
+        val repo = AuthRepository(client, sessionStore, UserConfigurationStore(InMemoryPreferencesDataStore()))
 
         val result = repo.probeServer("myserver.local:8096/")
 
@@ -39,7 +40,7 @@ class AuthRepositoryTest {
             routes = mapOf("/System/Info/Public" to fakeRoute(FakeJellyfin.fixture("system_info_public.json"))),
             sessions = sessionStore,
         )
-        val repo = AuthRepository(client, sessionStore)
+        val repo = AuthRepository(client, sessionStore, UserConfigurationStore(InMemoryPreferencesDataStore()))
 
         val result = repo.validateServer("myserver.local:8096/")
 
@@ -55,7 +56,7 @@ class AuthRepositoryTest {
             routes = mapOf("/System/Info/Public" to FakeRoute(HttpStatusCode.Unauthorized, "")),
             sessions = sessionStore,
         )
-        val repo = AuthRepository(client, sessionStore)
+        val repo = AuthRepository(client, sessionStore, UserConfigurationStore(InMemoryPreferencesDataStore()))
 
         val result = repo.validateServer("http://myserver")
 
@@ -72,7 +73,7 @@ class AuthRepositoryTest {
             routes = mapOf("/Users/AuthenticateByName" to fakeRoute(FakeJellyfin.fixture("auth_result.json"))),
             sessions = sessionStore,
         )
-        val repo = AuthRepository(client, sessionStore)
+        val repo = AuthRepository(client, sessionStore, UserConfigurationStore(InMemoryPreferencesDataStore()))
 
         val result = repo.login("alice", "secret")
 
@@ -96,7 +97,7 @@ class AuthRepositoryTest {
             routes = mapOf("/Users/AuthenticateByName" to FakeRoute(HttpStatusCode.Unauthorized, "")),
             sessions = sessionStore,
         )
-        val repo = AuthRepository(client, sessionStore)
+        val repo = AuthRepository(client, sessionStore, UserConfigurationStore(InMemoryPreferencesDataStore()))
 
         val result = repo.login("alice", "wrong")
 
@@ -110,7 +111,7 @@ class AuthRepositoryTest {
         sessionStore.setServerUrl("http://myserver")
         sessionStore.saveAuth(accessToken = "tok", userId = "u1", userName = "alice")
         val client = FakeJellyfin.client(routes = emptyMap(), sessions = sessionStore)
-        val repo = AuthRepository(client, sessionStore)
+        val repo = AuthRepository(client, sessionStore, UserConfigurationStore(InMemoryPreferencesDataStore()))
 
         repo.logout()
 
@@ -128,7 +129,7 @@ class AuthRepositoryTest {
             sessions = sessionStore,
             recorder = recorder,
         )
-        val repo = AuthRepository(client, sessionStore)
+        val repo = AuthRepository(client, sessionStore, UserConfigurationStore(InMemoryPreferencesDataStore()))
 
         val configuration = repo.userConfiguration()
 
@@ -151,6 +152,6 @@ class AuthRepositoryTest {
             sessions = sessionStore,
         )
 
-        assertNull(AuthRepository(client, sessionStore).userConfiguration())
+        assertNull(AuthRepository(client, sessionStore, UserConfigurationStore(InMemoryPreferencesDataStore())).userConfiguration())
     }
 }

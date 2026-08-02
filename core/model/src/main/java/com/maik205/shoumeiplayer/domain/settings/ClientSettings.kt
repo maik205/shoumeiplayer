@@ -1,12 +1,37 @@
 package com.maik205.shoumeiplayer.domain.settings
 
+/**
+ * Client-owned settings: everything Jellyfin does not store for us.
+ *
+ * Preferences that Jellyfin also stores per account (`UserConfiguration`) deliberately do **not**
+ * live here: audio/subtitle language, subtitle mode, "play default audio track" and next-episode
+ * autoplay are server-owned so a change made on this TV is the same change the Jellyfin web client
+ * and every other device sees. They are read and written through
+ * `AuthRepository.userConfiguration` / `AuthRepository.editUserConfiguration`.
+ *
+ * What is left splits in two, and `SettingsStore` persists the halves in different places (#85):
+ *
+ * - **Device-wide**, shared by every profile on every server, because the answer is a fact about
+ *   this television rather than about a person: [playbackBackend], [refreshRateSwitching],
+ *   [renderingProfile], [hardwareDecoding], [hardwareCodecs], [hdrMode], [toneMapping],
+ *   [deinterlaceMode], [frameInterpolation], the audio-path settings ([pitchCorrection],
+ *   [downmixStereo] and the three passthrough toggles — properties of the attached receiver), the
+ *   cache budgets ([networkCacheEnabled] through [networkTimeoutSeconds] — a RAM/bandwidth budget
+ *   for the box), the TLS trust settings ([verifyTlsCertificates], [tlsTrustSource]) and
+ *   [displayLanguage], which the launcher applies before anyone has signed in.
+ * - **Per `(serverUrl, userId)`**, because they are matters of taste and one viewer's choices
+ *   following another into their profile is the bug #85 describes: subtitle appearance and delays,
+ *   the interface block ([focusScaleEnabled] through [cacheHomeContent]), the whole screensaver
+ *   block, the resume/seek/skip habits, [rememberSeriesAudio], and the quality ceiling
+ *   ([preferredQuality], [maxStreamingBitrateMbps], [maxRemoteBitrateMbps]) a viewer is willing to
+ *   accept.
+ */
 data class ClientSettings(
     val playbackBackend: PlaybackBackend = PlaybackBackend.Mpv,
     val preferredQuality: PreferredQuality = PreferredQuality.Auto,
     val maxStreamingBitrateMbps: Int? = null,
     val maxRemoteBitrateMbps: Int = 20,
     val refreshRateSwitching: RefreshRateSwitching = RefreshRateSwitching.Disabled,
-    val autoplayNextEpisode: Boolean = true,
     val resumeBehavior: ResumeBehavior = ResumeBehavior.Ask,
     val seekIntervalSeconds: Int = 10,
     val skipIntroPrompt: Boolean = true,
@@ -20,7 +45,6 @@ data class ClientSettings(
     val deinterlaceMode: DeinterlaceMode = DeinterlaceMode.Automatic,
     val frameInterpolation: Boolean = false,
 
-    val preferredAudioLanguage: String? = null,
     val rememberSeriesAudio: Boolean = true,
     val pitchCorrection: Boolean = true,
     val downmixStereo: Boolean = false,
@@ -29,8 +53,6 @@ data class ClientSettings(
     val dtsPassthrough: Boolean = false,
     val audioDelayMs: Int = 0,
 
-    val preferredSubtitleLanguage: String? = null,
-    val subtitleMode: SubtitleMode = SubtitleMode.Smart,
     val burnSubtitles: BurnSubtitles = BurnSubtitles.Automatic,
     val subtitleSizePercent: Int = 100,
     val subtitleColor: SubtitleColor = SubtitleColor.White,
@@ -54,7 +76,7 @@ data class ClientSettings(
 
     val focusScaleEnabled: Boolean = true,
     val clockInOsd: Boolean = true,
-    val displayLanguage: DisplayLanguage = DisplayLanguage.English,
+    val displayLanguage: DisplayLanguage = DisplayLanguage.SystemDefault,
     val interfaceScale: InterfaceScale = InterfaceScale.Comfortable,
     val theme: AppTheme = AppTheme.Dark,
     val backdropImages: Boolean = true,
@@ -69,8 +91,6 @@ data class ClientSettings(
     val screensaverShuffle: Boolean = true,
     val screensaverAvoidRepeats: Boolean = true,
     val screensaverClock: Boolean = true,
-
-    val kidsMode: Boolean = false,
 )
 
 /**

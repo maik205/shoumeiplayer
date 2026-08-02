@@ -6,8 +6,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maik205.shoumeiplayer.domain.result.ApiResult
 import com.maik205.shoumeiplayer.data.cache.LibraryCacheStore
+import com.maik205.shoumeiplayer.data.session.LibraryPresentation
+import com.maik205.shoumeiplayer.data.session.PreferenceStore
 import com.maik205.shoumeiplayer.data.session.SessionStore
 import com.maik205.shoumeiplayer.data.session.SettingsStore
+import com.maik205.shoumeiplayer.data.session.UserScope
 import com.maik205.shoumeiplayer.domain.model.MediaPage
 import com.maik205.shoumeiplayer.domain.model.MediaPageRequest
 import com.maik205.shoumeiplayer.domain.model.MediaSort
@@ -41,6 +44,14 @@ data class TelevisionHomeState(
     val hero: HeroUi? = null,
     val error: UiText? = null,
     val shelfErrors: List<UiText> = emptyList(),
+    /**
+     * The library "Remember last library" (#88) says the viewer should be returned to, once
+     * validated against the libraries this account actually has right now. Populated at most once
+     * per process -- see [TelevisionHomeViewModel.restoreLibraryAttempted] -- and cleared by
+     * [TelevisionHomeViewModel.consumeRestoreLibrary] once a caller has acted on it, so a viewer who
+     * has since navigated elsewhere is never yanked back to it a second time.
+     */
+    val restoreLibrary: LibraryDestinationUi? = null,
 )
 
 class TelevisionHomeViewModel(
@@ -48,10 +59,19 @@ class TelevisionHomeViewModel(
     private val sessionStore: SessionStore,
     private val settingsStore: SettingsStore,
     private val libraryCacheStore: LibraryCacheStore,
+    private val preferenceStore: PreferenceStore,
 ) : ViewModel() {
     private val shelfRequestSemaphore = Semaphore(MAX_SHELF_REQUESTS)
     private val _state = MutableStateFlow(TelevisionHomeState())
     val state: StateFlow<TelevisionHomeState> = _state.asStateFlow()
+
+    /**
+     * Restoring the last library is a one-shot decision made from the first library list this
+     * ViewModel ever sees. Without this guard, a later pull-to-refresh would re-read the persisted
+     * id and repopulate [TelevisionHomeState.restoreLibrary] even after a caller already consumed
+     * (and acted on) the first offer, surprising a viewer who has since started browsing Home.
+     */
+    private var restoreLibraryAttempted = false
 
     init {
         viewModelScope.launch {
@@ -138,6 +158,13 @@ class TelevisionHomeViewModel(
                     ?.let { id -> freshShelves.asSequence().flatMap { it.items.asSequence() }.firstOrNull { it.id == id } }
                     ?: freshShelves.firstNotNullOfOrNull { it.items.firstOrNull() }
 
+                val restoreLibrary = if (restoreLibraryAttempted) {
+                    _state.value.restoreLibrary
+                } else {
+                    restoreLibraryAttempted = true
+                    restoreLibraryTarget(views)
+                }
+
                 val freshState = TelevisionHomeState(
                     loading = false,
                     refreshing = false,
@@ -146,6 +173,7 @@ class TelevisionHomeViewModel(
                     hero = currentHero?.let(::HeroUi),
                     error = shelfErrors.firstOrNull(),
                     shelfErrors = shelfErrors,
+                    restoreLibrary = restoreLibrary,
                 )
                 _state.value = freshState
                 try {
@@ -182,6 +210,32 @@ class TelevisionHomeViewModel(
         if (_state.value.hero?.item?.id == item.id) return
         _state.update { it.copy(hero = HeroUi(item)) }
     }
+
+    /** Called once a caller has navigated to (or otherwise acted on) [TelevisionHomeState.restoreLibrary]. */
+    fun consumeRestoreLibrary() {
+        _state.update { it.copy(restoreLibrary = null) }
+    }
+
+    /**
+     * The library "Remember last library" should send the viewer back to, or null when the toggle
+     * is off, nobody is signed in, nothing has been opened yet, or the remembered library no longer
+     * exists on the server -- a retired library must degrade to no restoration rather than crash or
+     * point at a destination [TelevisionLibraryViewModel] cannot load.
+     */
+    private suspend fun restoreLibraryTarget(libraries: List<LibraryDestinationUi>): LibraryDestinationUi? =
+        try {
+            val scope = UserScope.of(sessionStore.current())
+            if (scope != null && settingsStore.current().rememberLastLibrary) {
+                val lastLibraryId = preferenceStore.lastLibraryId(scope)
+                libraries.firstOrNull { it.id == lastLibraryId }
+            } else {
+                null
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            null
+        }
 
     fun toggleFavorite(item: MediaItemUi) {
         viewModelScope.launch {
@@ -274,6 +328,16 @@ enum class BrowseSort(
     Recent(MediaSort.Recent, "recent"),
     Premiere(MediaSort.PremiereDate, "premiere"),
     CommunityRating(MediaSort.CommunityRating, "rating"),
+    ;
+
+    companion object {
+        /**
+         * A stored [cacheKey] this build no longer knows -- an enum value retired in a later
+         * release -- must degrade to the default sort rather than crash the library screen.
+         */
+        fun fromCacheKey(cacheKey: String?): BrowseSort =
+            entries.firstOrNull { it.cacheKey == cacheKey } ?: Recent
+    }
 }
 
 @Immutable
@@ -281,6 +345,13 @@ enum class LibraryViewMode(val domain: MediaView, val cacheKey: String) {
     All(MediaView.All, "all"),
     New(MediaView.New, "new"),
     Favorites(MediaView.Favorites, "favorites"),
+    ;
+
+    companion object {
+        /** Same degrade-to-default contract as [BrowseSort.fromCacheKey]. */
+        fun fromCacheKey(cacheKey: String?): LibraryViewMode =
+            entries.firstOrNull { it.cacheKey == cacheKey } ?: All
+    }
 }
 
 @Immutable
@@ -302,6 +373,7 @@ class TelevisionLibraryViewModel(
     private val sessionStore: SessionStore,
     private val settingsStore: SettingsStore,
     private val libraryCacheStore: LibraryCacheStore,
+    private val preferenceStore: PreferenceStore,
     private val libraryId: String,
     title: String,
     private val collectionType: String?,
@@ -316,6 +388,12 @@ class TelevisionLibraryViewModel(
     private var loadMoreJob: Job? = null
     init {
         viewModelScope.launch {
+            // Restores the sort/view this library was last browsed with (#90) and records this as
+            // the last-opened library when "remember last library" (#88) is on. Runs before the
+            // cache read below, which keys its lookup off `_state.value.sort`/`.view`, so a restored
+            // presentation is what the cache is actually consulted with -- not the Recent/All
+            // default.
+            restorePresentationAndTrackLastLibrary()
             try {
                 val session = sessionStore.current()
                 if (settingsStore.current().cacheHomeContent && session != null) {
@@ -423,11 +501,62 @@ class TelevisionLibraryViewModel(
     }
 
     fun setSort(sort: BrowseSort) {
-        if (_state.value.sort != sort) reload(sort)
+        if (_state.value.sort == sort) return
+        val view = _state.value.view
+        reload(sort = sort, view = view)
+        persistPresentation(sort = sort, view = view)
     }
 
     fun setView(view: LibraryViewMode) {
-        if (_state.value.view != view) reload(view = view)
+        if (_state.value.view == view) return
+        val sort = _state.value.sort
+        reload(sort = sort, view = view)
+        persistPresentation(sort = sort, view = view)
+    }
+
+    /**
+     * Restores the sort/view this library was last browsed with, scoped per user per library
+     * (#90), and -- when the "remember last library" toggle is on -- records that this library was
+     * just opened, so [TelevisionHomeViewModel] can offer to return to it (#88). Best-effort: a
+     * store failure must not block the network reload below, which stays authoritative either way.
+     */
+    private suspend fun restorePresentationAndTrackLastLibrary() {
+        try {
+            val scope = UserScope.of(sessionStore.current()) ?: return
+            preferenceStore.libraryPresentation(scope, libraryId)?.let { presentation ->
+                _state.update {
+                    it.copy(
+                        sort = BrowseSort.fromCacheKey(presentation.sort),
+                        view = LibraryViewMode.fromCacheKey(presentation.view),
+                    )
+                }
+            }
+            if (settingsStore.current().rememberLastLibrary) {
+                preferenceStore.setLastLibraryId(scope, libraryId)
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            // Restoring presentation/last-library is best effort; reload() stays authoritative.
+        }
+    }
+
+    /** Persists a sort/view the viewer explicitly picked. Best-effort: never blocks the UI update. */
+    private fun persistPresentation(sort: BrowseSort, view: LibraryViewMode) {
+        viewModelScope.launch {
+            try {
+                val scope = UserScope.of(sessionStore.current()) ?: return@launch
+                preferenceStore.setLibraryPresentation(
+                    scope,
+                    libraryId,
+                    LibraryPresentation(sort = sort.cacheKey, view = view.cacheKey),
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                // Persisting the chosen presentation is best effort; in-memory state already reflects it.
+            }
+        }
     }
 
     fun loadMore() {

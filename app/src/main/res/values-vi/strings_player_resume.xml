@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- §91 resume-prompt overlay; see values/strings_player_resume.xml for the source strings. -->
+    <string name="tv_player_resume_title">Tiếp tục phát?</string>
+    <string name="tv_player_resume_from">Tiếp tục từ %1$s</string>
+    <string name="tv_player_start_over">Phát lại từ đầu</string>
+</resources>
