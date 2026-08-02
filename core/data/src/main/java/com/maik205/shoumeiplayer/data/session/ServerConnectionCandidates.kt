@@ -19,7 +19,7 @@ fun serverConnectionCandidates(
     val normalized = normalizeServerUrl(trimmed)
     val hasExplicitScheme = trimmed.contains("://")
     val isHttp = normalized.startsWith("http://", ignoreCase = true)
-    if (!prioritizeHttps || normalized.startsWith("https://", ignoreCase = true)) {
+    if (!prioritizeHttps || (hasExplicitScheme && !isHttp)) {
         return listOf(
             ServerConnectionCandidate(
                 url = normalized,
@@ -27,8 +27,6 @@ fun serverConnectionCandidates(
             ),
         )
     }
-    if (hasExplicitScheme && !isHttp) return listOf(ServerConnectionCandidate(normalized))
-
     val secure = if (isHttp) {
         "https://${normalized.substringAfter("://")}"
     } else {

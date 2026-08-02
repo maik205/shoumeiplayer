@@ -72,7 +72,7 @@
     <string name="settings_subtitle_mode">Chế độ phụ đề</string>
     <string name="settings_subtitle_language">Ngôn ngữ phụ đề</string>
     <string name="settings_audio_language">Ngôn ngữ âm thanh</string>
-    <string name="settings_play_default_audio">Phát bản âm thanh mặc định</string>
+    <string name="settings_play_default_audio">Phát âm thanh mặc định</string>
     <string name="settings_autoplay_next">Tự phát tập tiếp theo</string>
     <string name="settings_remember_audio_selections">Nhớ lựa chọn âm thanh</string>
     <string name="settings_remember_subtitle_selections">Nhớ lựa chọn phụ đề</string>

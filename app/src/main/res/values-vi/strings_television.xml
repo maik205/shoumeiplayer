@@ -1,5 +1,5 @@
 <resources>
-    <string name="tv_opening_shoumei">Đang mở Shoumei...</string>
+    <string name="tv_opening_shoumei">Đang mở Shoumei…</string>
     <string name="tv_startup_error">Không mở được Shoumei</string>
     <string name="tv_startup_error_detail">Mở phiên hơi lâu hoặc bị lỗi. Thử lại nha, hoặc tự nhập server.</string>
     <string name="tv_session_expired_title">Phiên hết hạn rồi</string>
@@ -19,11 +19,11 @@
     <string name="tv_no_servers_found">Không thấy server nào gần đây. Nhập địa chỉ server bên dưới nha.</string>
     <string name="tv_back">Quay lại</string>
 
-    <string name="tv_loading_home">Đang tải trang chủ...</string>
-    <string name="tv_loading_library">Đang tải thư viện...</string>
-    <string name="tv_loading_detail">Đang tải chi tiết...</string>
-    <string name="tv_loading_guide">Đang tải lịch phát...</string>
-    <string name="tv_loading_music">Đang tải nhạc...</string>
+    <string name="tv_loading_home">Đang tải trang chủ…</string>
+    <string name="tv_loading_library">Đang tải thư viện…</string>
+    <string name="tv_loading_detail">Đang tải chi tiết…</string>
+    <string name="tv_loading_guide">Đang tải lịch phát…</string>
+    <string name="tv_loading_music">Đang tải nhạc…</string>
     <string name="tv_home_error_title">Không tải được thư viện</string>
     <string name="tv_home_empty_detail">Có nội dung mới thì nó sẽ hiện ở đây nha.</string>
 
@@ -39,16 +39,16 @@
     <string name="tv_live_empty_title">Chưa có kênh trực tiếp</string>
     <string name="tv_live_label">Trực tiếp</string>
     <string name="tv_watch">Xem</string>
-    <string name="tv_refreshing">Đang làm mới...</string>
+    <string name="tv_refreshing">Đang làm mới…</string>
     <string name="tv_connected">Đã kết nối</string>
     <string name="tv_not_connected">Chưa kết nối</string>
     <string name="tv_settings_connection_failed">Kiểm tra kết nối thất bại rồi</string>
     <string name="tv_settings_save_failed">Không lưu được cài đặt.</string>
     <string name="tv_settings_error_title">Không lưu được cài đặt</string>
 
-    <string name="tv_player_loading">Đang chuẩn bị phát...</string>
-    <string name="tv_player_buffering">Đang nạp thêm...</string>
-    <string name="tv_player_buffer_waiting">Đợi nạp thêm xíu...</string>
+    <string name="tv_player_loading">Đang chuẩn bị phát…</string>
+    <string name="tv_player_buffering">Đang nạp thêm…</string>
+    <string name="tv_player_buffer_waiting">Đợi nạp thêm xíu…</string>
 
     <string name="tv_details">Chi tiết</string>
     <string name="tv_audio">Âm thanh</string>

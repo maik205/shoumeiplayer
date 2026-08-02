@@ -47,6 +47,7 @@ import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -73,11 +74,11 @@ import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 @Composable
 internal fun DetailAbout(state: TelevisionDetailState) {
     val item = state.item ?: return
+    val locale = LocalConfiguration.current.locales[0]
     val facts = when (state.kind) {
         DetailKind.Series -> buildList {
             item.people.firstOrNull {
@@ -117,7 +118,7 @@ internal fun DetailAbout(state: TelevisionDetailState) {
             }
             item.officialRating?.let { add(R.string.tv_detail_rating to it) }
             item.communityRating?.let {
-                add(R.string.tv_detail_community to String.format(Locale.getDefault(), "%.1f", it))
+                add(R.string.tv_detail_community to String.format(locale, "%.1f", it))
             }
             item.status?.let { add(R.string.tv_detail_status to it) }
         }

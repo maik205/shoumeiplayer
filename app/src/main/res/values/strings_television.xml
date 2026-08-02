@@ -120,8 +120,6 @@
     <string name="tv_player_music_context_failed">Couldn’t load queue and suggestions.</string>
     <string name="tv_player_adjacency_failed">Episode navigation is unavailable.</string>
     <string name="tv_player_network_paused">Network connection lost; playback is paused.</string>
-    <string name="tv_player_shelves_error_title">Extras unavailable</string>
-    <string name="tv_player_context_error_title">Music context unavailable</string>
     <string name="tv_player_lyrics_unavailable">Lyrics are not available for this track.</string>
     <string name="tv_player_lyrics_label">Lyrics</string>
     <string name="tv_player_lyrics_loading">Loading lyrics…</string>
@@ -168,7 +166,10 @@
     <string name="tv_player_resolution">%1$d×%2$d</string>
     <string name="tv_episode">Episode</string>
     <string name="tv_episodes">Episodes</string>
-    <string name="tv_episodes_count">%1$d episodes</string>
+    <plurals name="tv_episodes_count">
+        <item quantity="one">%1$d episode</item>
+        <item quantity="other">%1$d episodes</item>
+    </plurals>
     <string name="tv_season_episode">S%1$d E%2$d</string>
     <string name="tv_channels_count">%1$d ch</string>
     <string name="tv_metadata_separator" translatable="false"> · </string>
@@ -229,13 +230,17 @@
     <string name="tv_detail_media_kind">Media</string>
     <string name="tv_value_mbps">%1$s Mbps</string>
     <string name="tv_value_auto_mbps">Auto · %1$s Mbps</string>
-    <string name="tv_value_seconds">%1$d seconds</string>
+    <plurals name="tv_value_seconds">
+        <item quantity="one">%1$d second</item>
+        <item quantity="other">%1$d seconds</item>
+    </plurals>
     <string name="tv_value_percent">%1$d%%</string>
     <string name="tv_value_mib">%1$d MiB</string>
-    <string name="tv_value_second">%1$d second</string>
-    <string name="tv_value_seconds_plural">%1$d seconds</string>
     <string name="tv_value_never">Never</string>
-    <string name="tv_value_after_minutes">After %1$d minutes</string>
+    <plurals name="tv_value_after_minutes">
+        <item quantity="one">After %1$d minute</item>
+        <item quantity="other">After %1$d minutes</item>
+    </plurals>
     <string name="tv_value_auto_up_to_mib">Automatic · up to 250 MiB</string>
     <string name="tv_value_clearing">Clearing…</string>
     <string name="tv_settings_unavailable">Unavailable</string>
@@ -262,7 +267,7 @@
     <string name="tv_settings_software">Software</string>
     <string name="tv_settings_automatic">Automatic</string>
     <string name="tv_settings_h264_hevc">H.264 / HEVC</string>
-    <string name="tv_settings_av1">AV1</string>
+    <string name="tv_settings_av1" translatable="false">AV1</string>
     <string name="tv_settings_passthrough">Passthrough</string>
     <string name="tv_settings_tone_map">Tone map</string>
     <string name="tv_settings_force_sdr">Force SDR</string>
@@ -321,8 +326,14 @@
     <string name="tv_player_repeat">Repeat</string>
     <string name="tv_player_queue">Queue</string>
     <string name="tv_player_exit">Exit?</string>
-    <string name="tv_player_rewind">Rewind %1$d seconds</string>
-    <string name="tv_player_forward">Forward %1$d seconds</string>
+    <plurals name="tv_player_rewind">
+        <item quantity="one">Rewind %1$d second</item>
+        <item quantity="other">Rewind %1$d seconds</item>
+    </plurals>
+    <plurals name="tv_player_forward">
+        <item quantity="one">Forward %1$d second</item>
+        <item quantity="other">Forward %1$d seconds</item>
+    </plurals>
     <string name="tv_player_options">Options</string>
     <string name="tv_player_more">More</string>
     <string name="tv_player_playback_speed">Playback speed</string>
@@ -344,7 +355,6 @@
     <string name="tv_player_output">Output</string>
     <string name="tv_player_mpv_hardware">mpv / hardware</string>
     <string name="tv_player_legacy_timing">Legacy timing controls</string>
-    <string name="tv_player_no_alternate_tracks">No alternate tracks</string>
     <string name="tv_player_no_audio_tracks">No audio tracks are available</string>
     <string name="tv_player_no_chapters">No chapters are available</string>
     <string name="tv_player_still_watching">Still watching?</string>

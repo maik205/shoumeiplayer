@@ -61,6 +61,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.player.PlayerState
@@ -225,8 +226,9 @@ internal fun VideoPlayerChrome(
                 },
             )
             PlayerCompactActionButton(
-                label = stringResource(
-                    R.string.tv_player_rewind,
+                label = pluralStringResource(
+                    R.plurals.tv_player_rewind,
+                    state.seekIntervalSeconds,
                     state.seekIntervalSeconds,
                 ),
                 icon = Icons.Default.Replay10,
@@ -252,8 +254,9 @@ internal fun VideoPlayerChrome(
                 },
             )
             PlayerCompactActionButton(
-                label = stringResource(
-                    R.string.tv_player_forward,
+                label = pluralStringResource(
+                    R.plurals.tv_player_forward,
+                    state.seekIntervalSeconds,
                     state.seekIntervalSeconds,
                 ),
                 icon = Icons.Default.Forward10,

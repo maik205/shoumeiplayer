@@ -1,5 +1,6 @@
 package com.maik205.shoumeiplayer.ui.television.screens.settings
 
+import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.domain.settings.ClientSettings
 import com.maik205.shoumeiplayer.domain.settings.DevicePlaybackCapabilities
 import org.junit.Assert.assertEquals
@@ -93,7 +94,7 @@ class TelevisionSettingsCatalogTest {
         state: TelevisionSettingsState = TelevisionSettingsState(),
         update: (((ClientSettings) -> ClientSettings) -> Unit) = {},
         onTestConnection: () -> Unit = {},
-    ): List<SettingRowModel> = settingsRows(
+    ): List<SettingRowModel> = settingsRowsForStrings(
         section = section,
         state = state,
         update = update,
@@ -105,5 +106,12 @@ class TelevisionSettingsCatalogTest {
         onRefreshLibraries = {},
         onQuickConnect = {},
         onClearArtworkCache = {},
+        resolve = { id, _ -> id.toString() },
+        resolvePlural = { id, quantity, args ->
+            when (id) {
+                R.plurals.tv_value_seconds -> "${args.single()} ${if (quantity == 1) "second" else "seconds"}"
+                else -> id.toString()
+            }
+        },
     )
 }

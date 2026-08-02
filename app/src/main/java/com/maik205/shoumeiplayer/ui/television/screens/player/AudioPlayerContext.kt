@@ -215,7 +215,6 @@ internal fun AudioContextColumns(
     upNext: List<AudioQueueItemUi>,
     suggested: List<AudioQueueItemUi>,
     loading: Boolean,
-    errorMessage: String? = null,
     upNextCoverMode: Boolean,
     suggestedCoverMode: Boolean,
     firstItemFocus: FocusRequester,
@@ -225,6 +224,7 @@ internal fun AudioContextColumns(
     onInteraction: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    errorMessage: String? = null,
 ) {
     Row(
         modifier = modifier,
@@ -277,9 +277,9 @@ private fun AudioQueueColumn(
     onToggleCoverMode: () -> Unit,
     onPlayItem: (String) -> Unit,
     onInteraction: () -> Unit,
+    modifier: Modifier = Modifier,
     errorMessage: String? = null,
     onRetry: () -> Unit = {},
-    modifier: Modifier = Modifier,
 ) {
     val coverFocusRequesters = remember(items.map(AudioQueueItemUi::itemId), firstItemFocus) {
         List(items.size) { index ->

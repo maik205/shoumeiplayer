@@ -1,8 +1,9 @@
 package com.maik205.shoumeiplayer.ui.television.screens.settings
 
+import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalResources
 import com.maik205.shoumeiplayer.BuildConfig
 import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.domain.settings.ClientSettings
@@ -27,7 +28,10 @@ import com.maik205.shoumeiplayer.domain.settings.SubtitleMode
 import com.maik205.shoumeiplayer.domain.settings.SubtitleStroke
 import com.maik205.shoumeiplayer.domain.settings.ToneMapping
 import com.maik205.shoumeiplayer.domain.settings.TlsTrustSource
-import com.maik205.shoumeiplayer.ui.i18n.resolve
+import com.maik205.shoumeiplayer.ui.i18n.UiText
+
+internal typealias SettingsStringResolver = (Int, Array<out Any>) -> String
+internal typealias SettingsPluralResolver = (Int, Int, Array<out Any>) -> String
 
 @Composable
 internal fun settingsRows(
@@ -43,6 +47,98 @@ internal fun settingsRows(
     onQuickConnect: () -> Unit,
     onClearArtworkCache: () -> Unit,
 ): List<SettingRowModel> {
+    val resources = LocalResources.current
+    return settingsRowsForStrings(
+        section = section,
+        state = state,
+        update = update,
+        onSignOut = onSignOut,
+        onChangeServer = onChangeServer,
+        onForgetServer = onForgetServer,
+        onSwitchProfile = onSwitchProfile,
+        onTestConnection = onTestConnection,
+        onRefreshLibraries = onRefreshLibraries,
+        onQuickConnect = onQuickConnect,
+        onClearArtworkCache = onClearArtworkCache,
+        resolve = { id, args -> resources.getString(id, *args) },
+        resolvePlural = { id, quantity, args -> resources.getQuantityString(id, quantity, *args) },
+    )
+}
+
+internal fun settingsRowsForStrings(
+    section: SettingsSection,
+    state: TelevisionSettingsState,
+    update: ((ClientSettings) -> ClientSettings) -> Unit,
+    onSignOut: () -> Unit,
+    onChangeServer: () -> Unit,
+    onForgetServer: () -> Unit,
+    onSwitchProfile: () -> Unit,
+    onTestConnection: () -> Unit,
+    onRefreshLibraries: () -> Unit,
+    onQuickConnect: () -> Unit,
+    onClearArtworkCache: () -> Unit,
+    resolve: SettingsStringResolver,
+    resolvePlural: SettingsPluralResolver,
+): List<SettingRowModel> {
+    fun stringResource(@StringRes id: Int, vararg args: Any): String = resolve(id, args)
+
+    fun pluralResource(@PluralsRes id: Int, quantity: Int, vararg args: Any): String =
+        resolvePlural(id, quantity, args)
+
+    fun UiText.resolve(): String = when (this) {
+        is UiText.Resource -> stringResource(id, *formatArgs.toTypedArray())
+        is UiText.Dynamic -> value
+    }
+
+    fun StoredOption.localizedLabel(): String = stringResource(localizedLabelRes())
+
+    fun <T> choiceRow(
+        key: String,
+        @StringRes labelRes: Int,
+        current: T,
+        values: List<T>,
+        display: (T) -> String = { it.toString() },
+        requiredCapability: SettingCapability? = null,
+        onSelect: (T) -> Unit,
+    ): SettingRowModel = buildChoiceRow(
+        key = key,
+        labelRes = labelRes,
+        current = current,
+        values = values,
+        display = display,
+        requiredCapability = requiredCapability,
+        onSelect = onSelect,
+    )
+
+    fun toggleRow(
+        key: String,
+        @StringRes labelRes: Int,
+        value: Boolean,
+        requiredCapability: SettingCapability? = null,
+        onClick: () -> Unit,
+    ): SettingRowModel = buildToggleRow(
+        key = key,
+        labelRes = labelRes,
+        value = value,
+        valueLabel = stringResource(if (value) R.string.on else R.string.off),
+        requiredCapability = requiredCapability,
+        onClick = onClick,
+    )
+
+    fun languageRow(
+        key: String,
+        @StringRes labelRes: Int,
+        current: String?,
+        onSelect: (String?) -> Unit,
+    ): SettingRowModel = choiceRow(
+        key = key,
+        labelRes = labelRes,
+        current = current,
+        values = SettingsChoices.preferredLanguages,
+        display = { it ?: stringResource(R.string.settings_language_system_default) },
+        onSelect = onSelect,
+    )
+
     val settings = state.settings
     val rows = when (section) {
         SettingsSection.Playback -> listOf(
@@ -89,7 +185,7 @@ internal fun settingsRows(
                 labelRes = R.string.tv_settings_seek_interval,
                 current = settings.seekIntervalSeconds,
                 values = SettingsChoices.seekIntervalsSeconds,
-                display = { stringResource(R.string.tv_value_seconds, it) },
+                display = { pluralResource(R.plurals.tv_value_seconds, it, it) },
             ) { update { current -> current.copy(seekIntervalSeconds = it) } },
             toggleRow("remember-speed", R.string.tv_settings_remember_playback_speed, settings.rememberPlaybackSpeed) {
                 update { it.copy(rememberPlaybackSpeed = !it.rememberPlaybackSpeed) }
@@ -289,7 +385,7 @@ internal fun settingsRows(
                 labelRes = R.string.tv_settings_backdrop_rotation,
                 current = settings.backdropRotationSeconds,
                 values = SettingsChoices.backdropRotationSeconds,
-                display = { stringResource(R.string.tv_value_seconds, it) },
+                display = { pluralResource(R.plurals.tv_value_seconds, it, it) },
             ) { update { current -> current.copy(backdropRotationSeconds = it) } },
             toggleRow("watched", R.string.tv_settings_watched_indicators, settings.watchedIndicators) {
                 update { it.copy(watchedIndicators = !it.watchedIndicators) }
@@ -321,14 +417,14 @@ internal fun settingsRows(
                 labelRes = R.string.tv_settings_cache_duration,
                 current = settings.cacheDurationSeconds,
                 values = SettingsChoices.cacheDurationsSeconds,
-                display = { stringResource(R.string.tv_value_seconds, it) },
+                display = { pluralResource(R.plurals.tv_value_seconds, it, it) },
             ) { update { current -> current.copy(cacheDurationSeconds = it) } },
             choiceRow(
                 key = "read-ahead",
                 labelRes = R.string.tv_settings_read_ahead,
                 current = settings.readAheadSeconds,
                 values = SettingsChoices.readAheadSeconds,
-                display = { stringResource(R.string.tv_value_seconds, it) },
+                display = { pluralResource(R.plurals.tv_value_seconds, it, it) },
             ) { update { current -> current.copy(readAheadSeconds = it) } },
             choiceRow(
                 key = "forward-cache",
@@ -349,19 +445,14 @@ internal fun settingsRows(
                 labelRes = R.string.tv_settings_resume_buffer,
                 current = settings.resumeBufferSeconds,
                 values = SettingsChoices.resumeBufferSeconds,
-                display = {
-                    stringResource(
-                        if (it == 1) R.string.tv_value_second else R.string.tv_value_seconds_plural,
-                        it,
-                    )
-                },
+                display = { pluralResource(R.plurals.tv_value_seconds, it, it) },
             ) { update { current -> current.copy(resumeBufferSeconds = it) } },
             choiceRow(
                 key = "network-timeout",
                 labelRes = R.string.tv_settings_network_timeout,
                 current = settings.networkTimeoutSeconds,
                 values = SettingsChoices.networkTimeoutSeconds,
-                display = { stringResource(R.string.tv_value_seconds, it) },
+                display = { pluralResource(R.plurals.tv_value_seconds, it, it) },
             ) { update { current -> current.copy(networkTimeoutSeconds = it) } },
             toggleRow("tls", R.string.tv_settings_verify_tls_certificates, settings.verifyTlsCertificates) {
                 update { it.copy(verifyTlsCertificates = !it.verifyTlsCertificates) }
@@ -398,7 +489,7 @@ internal fun settingsRows(
                 values = SettingsChoices.screensaverTimeoutMinutes,
                 display = {
                     if (it == 0) stringResource(R.string.tv_value_never)
-                    else stringResource(R.string.tv_value_after_minutes, it)
+                    else pluralResource(R.plurals.tv_value_after_minutes, it, it)
                 },
             ) { update { current -> current.copy(screensaverTimeoutMinutes = it) } },
             choiceRow(
@@ -413,7 +504,7 @@ internal fun settingsRows(
                 labelRes = R.string.tv_settings_image_duration,
                 current = settings.screensaverImageDurationSeconds,
                 values = SettingsChoices.screensaverImageDurationSeconds,
-                display = { stringResource(R.string.tv_value_seconds, it) },
+                display = { pluralResource(R.plurals.tv_value_seconds, it, it) },
             ) { update { current -> current.copy(screensaverImageDurationSeconds = it) } },
             toggleRow("screensaver-shuffle", R.string.tv_settings_shuffle_images, settings.screensaverShuffle) {
                 update { it.copy(screensaverShuffle = !it.screensaverShuffle) }
@@ -552,9 +643,6 @@ private fun com.maik205.shoumeiplayer.domain.settings.DevicePlaybackCapabilities
     SettingCapability.DtsPassthrough -> supportsDtsPassthrough
 }
 
-@Composable
-private fun StoredOption.localizedLabel(): String = stringResource(localizedLabelRes())
-
 @StringRes
 private fun StoredOption.localizedLabelRes(): Int = when (this) {
     is PlaybackBackend -> when (this) {
@@ -689,45 +777,29 @@ private fun actionRow(
     onClick = onClick,
 )
 
-@Composable
-private fun toggleRow(
+private fun buildToggleRow(
     key: String,
     @StringRes labelRes: Int,
     value: Boolean,
+    valueLabel: String,
     requiredCapability: SettingCapability? = null,
     onClick: () -> Unit,
 ) = SettingRowModel(
     key = key,
     labelRes = labelRes,
-    value = stringResource(if (value) R.string.on else R.string.off),
+    value = valueLabel,
     control = SettingControl.Toggle,
     checked = value,
     requiredCapability = requiredCapability,
     onClick = onClick,
 )
 
-@Composable
-private fun languageRow(
-    key: String,
-    @StringRes labelRes: Int,
-    current: String?,
-    onSelect: (String?) -> Unit,
-) = choiceRow(
-    key = key,
-    labelRes = labelRes,
-    current = current,
-    values = SettingsChoices.preferredLanguages,
-    display = { it ?: stringResource(R.string.settings_language_system_default) },
-    onSelect = onSelect,
-)
-
-@Composable
-private fun <T> choiceRow(
+private fun <T> buildChoiceRow(
     key: String,
     @StringRes labelRes: Int,
     current: T,
     values: List<T>,
-    display: @Composable (T) -> String = { it.toString() },
+    display: (T) -> String = { it.toString() },
     requiredCapability: SettingCapability? = null,
     onSelect: (T) -> Unit,
 ): SettingRowModel {

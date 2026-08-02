@@ -116,6 +116,12 @@ android {
             )
         }
     }
+    bundle {
+        language {
+            // AppLocaleManager switches languages at runtime; keep every locale in the base APK.
+            enableSplit = false
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

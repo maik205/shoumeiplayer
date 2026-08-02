@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -307,7 +308,7 @@ private fun detailMetadata(state: TelevisionDetailState): List<String> {
             item.productionYear?.let { metadata += it.toString() }
             val episodeCount = item.episodeCount?.takeIf { it > 0 }
             if (episodeCount != null) {
-                metadata += stringResource(R.string.tv_episodes_count, episodeCount)
+                metadata += pluralStringResource(R.plurals.tv_episodes_count, episodeCount, episodeCount)
             }
             val quality = playbackQualityLabel(state.playbackItem?.mediaStreams.orEmpty())
             if (quality != null) metadata += quality

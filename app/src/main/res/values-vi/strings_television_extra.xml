@@ -4,13 +4,13 @@
     <string name="tv_search_failed">Tìm kiếm lỗi rồi. Thử lại nha.</string>
     <string name="tv_search_limit">Đang hiện 40 kết quả đầu tiên.</string>
     <string name="tv_search_unavailable">Tìm kiếm hiện chưa dùng được</string>
-    <string name="tv_loading_episodes">Đang tải tập...</string>
+    <string name="tv_loading_episodes">Đang tải tập…</string>
     <string name="tv_home_load_failed">Không tải được thư viện của bạn.</string>
     <string name="tv_library_load_failed">Không mở được thư viện này.</string>
     <string name="tv_library_load_more_failed">Không tải thêm được mục nào.</string>
     <string name="tv_library_error_title">Không mở được %1$s</string>
     <string name="tv_library_filter_detail">Thử bộ lọc khác hoặc xóa bộ lọc hiện tại nha.</string>
-    <string name="tv_loading_more">Đang tải thêm...</string>
+    <string name="tv_loading_more">Đang tải thêm…</string>
     <string name="tv_home_partial_error_title">Một vài hàng trên trang chủ chưa dùng được</string>
     <string name="tv_home_action_failed">Không lưu được thay đổi đó.</string>
 
@@ -33,15 +33,15 @@
     <string name="tv_live_load_failed">Không tải được kênh trực tiếp.</string>
     <string name="tv_live_guide_failed">Không tải được lịch chương trình.</string>
 
-    <string name="tv_cache_calculating">Đang tính...</string>
+    <string name="tv_cache_calculating">Đang tính…</string>
     <string name="tv_cache_empty">Trống</string>
     <string name="tv_cache_bytes">%1$d B</string>
     <string name="tv_cache_kib">%1$s KiB</string>
     <string name="tv_cache_mib">%1$s MiB</string>
     <string name="tv_cache_gib">%1$s GiB</string>
     <string name="tv_cache_size_failed">Chưa xem được dung lượng bộ đệm</string>
-    <string name="tv_cache_cleared">Đã xóa %1$s bộ đệm ảnh</string>
-    <string name="tv_cache_already_empty">Bộ đệm ảnh đã trống rồi</string>
+    <string name="tv_cache_cleared">Đã xóa %1$s bộ nhớ đệm ảnh</string>
+    <string name="tv_cache_already_empty">Bộ nhớ đệm ảnh đã trống rồi</string>
     <string name="tv_cache_clear_failed">Không xóa được bộ đệm ảnh</string>
     <string name="tv_cache_clear_value">Xóa · %1$s</string>
     <string name="tv_test">Kiểm tra</string>
@@ -51,23 +51,23 @@
     <string name="tv_quick_connect_timed_out">Hết thời gian chờ rồi. Thử lại nha.</string>
     <string name="tv_session_verified">Đã xác minh phiên</string>
     <string name="tv_session_replaced">Đã thay phiên</string>
-    <string name="tv_session_replaced_pending">Đã thay; đang chờ thu hồi phiên cũ</string>
+    <string name="tv_session_replaced_pending">Đã thay phiên; đang chờ thu hồi phiên cũ</string>
 
     <string name="tv_player_loading_description">%1$s · %2$s</string>
     <string name="tv_player_buffer_ahead">%1$s sẵn sàng</string>
     <string name="tv_player_buffer_ahead_seconds">%1$ds sẵn sàng</string>
-    <string name="tv_player_buffer_seeking">Đang tua...</string>
-    <string name="tv_player_buffer_catching_up">Đang bắt kịp...</string>
-    <string name="tv_player_buffer_fetching">Đang tải dữ liệu...</string>
-    <string name="tv_player_buffer_rate_bytes">Đã đọc %1$.0f B/s</string>
-    <string name="tv_player_buffer_rate_kilobytes">Đã đọc %1$.1f KB/s</string>
-    <string name="tv_player_buffer_rate_megabytes">Đã đọc %1$.1f MB/s</string>
+    <string name="tv_player_buffer_seeking">Đang tua…</string>
+    <string name="tv_player_buffer_catching_up">Đang bắt kịp…</string>
+    <string name="tv_player_buffer_fetching">Đang tải dữ liệu…</string>
+    <string name="tv_player_buffer_rate_bytes">Đang đọc %1$.0f B/s</string>
+    <string name="tv_player_buffer_rate_kilobytes">Đang đọc %1$.1f KB/s</string>
+    <string name="tv_player_buffer_rate_megabytes">Đang đọc %1$.1f MB/s</string>
     <string name="tv_player_buffer_bitrate_kilobits">Luồng phát %1$.0f kbps</string>
     <string name="tv_player_buffer_bitrate_megabits">Luồng phát %1$.1f Mbps</string>
     <string name="tv_player_buffer_detail_separator"> · </string>
     <string name="tv_player_playback_stopped">Đã dừng phát</string>
     <string name="tv_player_playback_complete">Phát xong rồi</string>
-    <string name="tv_player_swapping">Đang đổi luồng...</string>
+    <string name="tv_player_swapping">Đang đổi luồng…</string>
     <string name="tv_player_metadata_failed">Không tải được nội dung này.</string>
     <string name="tv_player_playback_failed">Không bắt đầu phát được.</string>
     <string name="tv_player_swap_failed">Không đổi được luồng. Nội dung đang phát vẫn giữ nguyên.</string>
@@ -75,16 +75,14 @@
     <string name="tv_player_music_context_failed">Không tải được hàng đợi và gợi ý.</string>
     <string name="tv_player_adjacency_failed">Không chuyển tập được lúc này.</string>
     <string name="tv_player_network_paused">Mất kết nối mạng; đã tạm dừng phát.</string>
-    <string name="tv_player_shelves_error_title">Phần thêm chưa dùng được</string>
-    <string name="tv_player_context_error_title">Ngữ cảnh nhạc chưa dùng được</string>
     <string name="tv_player_lyrics_unavailable">Bài này chưa có lời.</string>
     <string name="tv_player_lyrics_label">Lời bài hát</string>
-    <string name="tv_player_lyrics_loading">Đang tải lời bài hát...</string>
+    <string name="tv_player_lyrics_loading">Đang tải lời bài hát…</string>
     <string name="tv_player_up_next">Tiếp theo</string>
     <string name="tv_player_suggested">Gợi ý</string>
-    <string name="tv_player_loading_queue">Đang tải hàng đợi...</string>
+    <string name="tv_player_loading_queue">Đang tải hàng đợi…</string>
     <string name="tv_player_end_queue">Hết hàng đợi rồi</string>
-    <string name="tv_player_finding_tracks">Đang tìm bài...</string>
+    <string name="tv_player_finding_tracks">Đang tìm bài…</string>
     <string name="tv_player_no_suggestions">Chưa có gợi ý</string>
     <string name="tv_player_tracks">Bài</string>
     <string name="tv_player_covers">Ảnh bìa</string>
@@ -118,10 +116,11 @@
     <string name="tv_player_resolution">%1$d×%2$d</string>
     <string name="tv_episode">Tập</string>
     <string name="tv_episodes">Các tập</string>
-    <string name="tv_episodes_count">%1$d tập</string>
+    <plurals name="tv_episodes_count">
+        <item quantity="other">%1$d tập</item>
+    </plurals>
     <string name="tv_season_episode">M%1$d T%2$d</string>
     <string name="tv_channels_count">%1$d kênh</string>
-    <string name="tv_metadata_separator" translatable="false"> · </string>
     <string name="tv_audio_route_hdmi_earc">HDMI eARC</string>
     <string name="tv_audio_route_hdmi_arc">HDMI ARC</string>
     <string name="tv_audio_route_hdmi">HDMI</string>
@@ -175,15 +174,17 @@
 
     <string name="tv_value_mbps">%1$s Mbps</string>
     <string name="tv_value_auto_mbps">Tự động · %1$s Mbps</string>
-    <string name="tv_value_seconds">%1$d giây</string>
+    <plurals name="tv_value_seconds">
+        <item quantity="other">%1$d giây</item>
+    </plurals>
     <string name="tv_value_percent">%1$d%%</string>
     <string name="tv_value_mib">%1$d MiB</string>
-    <string name="tv_value_second">%1$d giây</string>
-    <string name="tv_value_seconds_plural">%1$d giây</string>
     <string name="tv_value_never">Không bao giờ</string>
-    <string name="tv_value_after_minutes">Sau %1$d phút</string>
+    <plurals name="tv_value_after_minutes">
+        <item quantity="other">Sau %1$d phút</item>
+    </plurals>
     <string name="tv_value_auto_up_to_mib">Tự động · tối đa 250 MiB</string>
-    <string name="tv_value_clearing">Đang xóa...</string>
+    <string name="tv_value_clearing">Đang xóa…</string>
 
     <string name="tv_settings_unavailable">Chưa dùng được</string>
     <string name="tv_server_name_version">%1$s · %2$s</string>
@@ -209,7 +210,6 @@
     <string name="tv_settings_software">Phần mềm</string>
     <string name="tv_settings_automatic">Tự động</string>
     <string name="tv_settings_h264_hevc">H.264 / HEVC</string>
-    <string name="tv_settings_av1">AV1</string>
     <string name="tv_settings_passthrough">Chuyển thẳng</string>
     <string name="tv_settings_tone_map">Chuyển tông</string>
     <string name="tv_settings_force_sdr">Ép SDR</string>
@@ -247,8 +247,8 @@
     <string name="tv_action_switch">Đổi</string>
     <string name="tv_action_sign_out">Đăng xuất</string>
     <string name="tv_password">Mật khẩu</string>
-    <string name="tv_generating">Đang tạo...</string>
-    <string name="tv_testing">Đang kiểm tra...</string>
+    <string name="tv_generating">Đang tạo…</string>
+    <string name="tv_testing">Đang kiểm tra…</string>
     <string name="tv_unknown">Không rõ</string>
     <string name="tv_close_label">Đóng %1$s</string>
 
@@ -259,8 +259,12 @@
     <string name="tv_player_repeat">Lặp lại</string>
     <string name="tv_player_queue">Hàng đợi</string>
     <string name="tv_player_exit">Thoát?</string>
-    <string name="tv_player_rewind">Tua lại %1$d giây</string>
-    <string name="tv_player_forward">Tua tới %1$d giây</string>
+    <plurals name="tv_player_rewind">
+        <item quantity="other">Tua lùi %1$d giây</item>
+    </plurals>
+    <plurals name="tv_player_forward">
+        <item quantity="other">Tua tới %1$d giây</item>
+    </plurals>
     <string name="tv_player_options">Tùy chọn</string>
     <string name="tv_player_more">Thêm</string>
     <string name="tv_player_playback_speed">Tốc độ phát</string>
@@ -282,7 +286,6 @@
     <string name="tv_player_output">Đầu ra</string>
     <string name="tv_player_mpv_hardware">mpv / phần cứng</string>
     <string name="tv_player_legacy_timing">Điều khiển thời gian cũ</string>
-    <string name="tv_player_no_alternate_tracks">Không có bản âm thanh/phụ đề khác</string>
     <string name="tv_player_no_audio_tracks">Không có bản âm thanh nào</string>
     <string name="tv_player_no_chapters">Không có chương nào</string>
     <string name="tv_player_still_watching">Vẫn đang xem chứ?</string>
@@ -328,15 +331,12 @@
     <string name="tv_player_unknown_language">Ngôn ngữ không rõ</string>
 
     <plurals name="tv_library_item_count">
-        <item quantity="one">%1$d mục</item>
         <item quantity="other">%1$d mục</item>
     </plurals>
 
-    <string name="tv_looking_nearby">Đang tìm quanh đây...</string>
+    <string name="tv_looking_nearby">Đang tìm quanh đây…</string>
     <string name="tv_server">Server</string>
     <string name="tv_server_default_name">Server media</string>
-    <string name="tv_server_scheme_hint" translatable="false">http(s)://</string>
-    <string name="tv_server_address_hint" translatable="false">server-address:8096</string>
     <string name="tv_whos_watching">Ai đang\nxem vậy?</string>
     <string name="tv_use_another_account">Dùng tài khoản khác</string>
     <string name="tv_no_accounts">Chưa có tài khoản trên server này</string>
@@ -414,7 +414,7 @@
     <string name="tv_settings_hardware_decoding">Giải mã phần cứng</string>
     <string name="tv_settings_hdr_handling">Xử lý HDR</string>
     <string name="tv_settings_image_duration">Thời lượng ảnh</string>
-    <string name="tv_settings_keep_audio_language_for_series">Giữ ngôn ngữ âm thanh cho series</string>
+    <string name="tv_settings_keep_audio_language_for_series">Giữ ngôn ngữ âm thanh cho loạt phim</string>
     <string name="tv_settings_kids_mode">Chế độ trẻ em</string>
     <string name="tv_settings_login_method">Cách đăng nhập</string>
     <string name="tv_settings_maximum_remote_bitrate">Bitrate từ xa tối đa</string>

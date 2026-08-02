@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
 import android.os.LocaleList
+import androidx.annotation.RequiresApi
 import com.maik205.shoumeiplayer.domain.settings.DisplayLanguage
 import java.util.Locale
 
@@ -18,6 +19,7 @@ object AppLocaleManager {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private fun applyModern(context: Context, language: DisplayLanguage) {
         val localeManager = context.getSystemService(android.app.LocaleManager::class.java)
         val requested = LocaleList.forLanguageTags(language.storageId)
