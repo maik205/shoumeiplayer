@@ -67,6 +67,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -105,6 +106,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionBackground
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionAppTopNavigation
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionEmptyState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionErrorState
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusHandoff
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingState
@@ -163,6 +165,9 @@ fun TelevisionLibraryScreen(
     val entryFocus = remember { FocusRequester() }
     val topNavigationFocus = remember { FocusRequester() }
     val selectedNavigationKey = "library:$libraryId"
+    // Set while the content is putting the viewer back where they were, so the navigation bar's
+    // own resume claim stands down instead of racing it.
+    var contentRestoringFocus by remember { mutableStateOf(false) }
 
     TelevisionBackground(
         imageUrl = if (isMusic) resolveBackdropUrl(focused.value?.backdropUrl, settings.backdropImages) else null,
@@ -198,6 +203,7 @@ fun TelevisionLibraryScreen(
                 onLoadMore = onLoadMore,
                 entryFocus = entryFocus,
                 topNavigationFocus = topNavigationFocus,
+                restoreFocusRequested = { contentRestoringFocus = it },
             )
         } else {
             StandardLibraryContent(
@@ -210,6 +216,7 @@ fun TelevisionLibraryScreen(
                 entryFocus = entryFocus,
                 topNavigationFocus = topNavigationFocus,
                 watchedIndicatorsEnabled = settings.watchedIndicators,
+                restoreFocusRequested = { contentRestoringFocus = it },
             )
         }
 
@@ -226,6 +233,7 @@ fun TelevisionLibraryScreen(
             contentFocusRequester = entryFocus,
             selectedFocusRequester = topNavigationFocus,
             navigationState = navigationState,
+            restoreFocusOnResume = !contentRestoringFocus,
         )
       }
     }
@@ -243,17 +251,69 @@ private fun StandardLibraryContent(
     entryFocus: FocusRequester,
     topNavigationFocus: FocusRequester,
     watchedIndicatorsEnabled: Boolean = true,
+    restoreFocusRequested: (Boolean) -> Unit = {},
 ) {
     var focusedMediaId by remember { mutableStateOf<String?>(null) }
+    var errorRetryFocused by remember { mutableStateOf(false) }
+    var emptyActionFocused by remember { mutableStateOf(false) }
+    var loadMoreRetryFocused by remember { mutableStateOf(false) }
     var snapTopTick by remember { mutableIntStateOf(0) }
     val gridState = rememberLazyGridState()
     val count = maxOf(state.totalCount, state.items.size)
     val countLabel = pluralStringResource(R.plurals.tv_library_item_count, count, count)
     val sortingByTitle = state.sort == BrowseSort.Name
 
+    // The card the viewer opened, kept separately from `focusedMediaId` above: that one clears on
+    // blur so the resting dim can lift, while this one has to survive the whole trip to Detail.
+    var restoreMediaId by rememberSaveable { mutableStateOf<String?>(null) }
+    var restoreMediaIndex by rememberSaveable { mutableIntStateOf(0) }
+    var restorePending by remember { mutableStateOf(true) }
+    val showingItems = !state.loading && state.items.isNotEmpty()
+    val restoreTargetId = restoreMediaId.takeIf { restorePending && showingItems }
+    val itemFocusRequesters = remember(state.items.size) {
+        List(state.items.size) { FocusRequester() }
+    }
+    val firstItemFocus = itemFocusRequesters.firstOrNull()
+
+    LaunchedEffect(restoreTargetId) { restoreFocusRequested(restoreTargetId != null) }
+
+    // Sorting, filtering, and pagination all rebuild this grid. Prefer the same card, fall back to
+    // whatever now sits where it was, so a card that no longer matches the filter leaves the
+    // viewer next to its old neighbours rather than with a dead remote.
+    LaunchedEffect(restoreTargetId, state.items) {
+        if (restoreTargetId == null || state.items.isEmpty()) return@LaunchedEffect
+        val exact = state.items.indexOfFirst { it.id == restoreTargetId }
+        val target = if (exact >= 0) exact else restoreMediaIndex.coerceIn(0, state.items.lastIndex)
+        gridState.scrollToItem(target)
+        withFrameNanos { }
+        runCatching { itemFocusRequesters[target].requestFocus() }
+        restorePending = false
+    }
+
+    // Every Retry and Clear Filter on this screen removes itself the moment it is pressed. Send
+    // focus to the content that replaces it, or back to the view filters when there is none.
+    TelevisionFocusHandoff(
+        present = state.error != null && state.items.isEmpty(),
+        focused = errorRetryFocused,
+        firstItemFocus,
+        entryFocus,
+    )
+    TelevisionFocusHandoff(
+        present = state.items.isEmpty() && state.error == null && !state.loading,
+        focused = emptyActionFocused,
+        firstItemFocus,
+        entryFocus,
+    )
+    TelevisionFocusHandoff(
+        present = state.error != null && state.items.isNotEmpty(),
+        focused = loadMoreRetryFocused,
+        itemFocusRequesters.lastOrNull(),
+        entryFocus,
+    )
+
     CompositionLocalProvider(LocalBringIntoViewSpec provides LibraryBringIntoViewSpec) {
         LazyVerticalGrid(
-            columns = GridCells.Fixed(7),
+            columns = GridCells.Fixed(LibraryGridColumns),
             state = gridState,
             modifier = Modifier
                 .fillMaxSize()
@@ -320,6 +380,7 @@ private fun StandardLibraryContent(
                             selected = state.view == LibraryViewMode.All,
                             focusRequester = entryFocus,
                             upFocusRequester = topNavigationFocus,
+                            downFocusRequester = firstItemFocus,
                             onClick = { onSetView(LibraryViewMode.All) },
                             onFocused = {
                                 focusedMediaId = null
@@ -331,6 +392,7 @@ private fun StandardLibraryContent(
                             icon = Icons.Default.Schedule,
                             selected = state.view == LibraryViewMode.New,
                             upFocusRequester = topNavigationFocus,
+                            downFocusRequester = firstItemFocus,
                             onClick = { onSetView(LibraryViewMode.New) },
                             onFocused = {
                                 focusedMediaId = null
@@ -342,6 +404,7 @@ private fun StandardLibraryContent(
                             icon = Icons.Default.Favorite,
                             selected = state.view == LibraryViewMode.Favorites,
                             upFocusRequester = topNavigationFocus,
+                            downFocusRequester = firstItemFocus,
                             onClick = { onSetView(LibraryViewMode.Favorites) },
                             onFocused = {
                                 focusedMediaId = null
@@ -373,7 +436,10 @@ private fun StandardLibraryContent(
                                 snapTopTick++
                             }
                         },
-                        modifier = Modifier.focusProperties { up = topNavigationFocus },
+                        modifier = Modifier.focusProperties {
+                            up = topNavigationFocus
+                            firstItemFocus?.let { down = it }
+                        },
                     )
                 }
             }
@@ -399,7 +465,10 @@ private fun StandardLibraryContent(
                         message = state.error.resolve(),
                         onRetry = onRetry,
                         retryLabel = stringResource(R.string.retry),
-                        modifier = Modifier.padding(top = 12.dp),
+                        onRetryFocusChanged = { errorRetryFocused = it },
+                        modifier = Modifier
+                            .padding(top = 12.dp)
+                            .focusProperties { up = entryFocus },
                     )
                 }
 
@@ -429,12 +498,18 @@ private fun StandardLibraryContent(
                             { onSetView(LibraryViewMode.All) }
                         },
                         requestInitialFocus = true,
-                        modifier = Modifier.padding(top = 12.dp),
+                        onActionFocusChanged = { emptyActionFocused = it },
+                        modifier = Modifier
+                            .padding(top = 12.dp)
+                            .focusProperties { up = entryFocus },
                     )
                 }
 
                 else -> {
-                    itemsIndexed(state.items, key = { index, media -> "${media.id}:$index" }) { _, media ->
+                    itemsIndexed(
+                        state.items,
+                        key = { index, media -> "${media.id}:$index" },
+                    ) { index, media ->
                         TelevisionMediaTile(
                             // Only the badge/dimming this tile draws reads the toggle; onClick,
                             // onFocusChanged and the pagination check below all keep using the real
@@ -454,14 +529,25 @@ private fun StandardLibraryContent(
                             focusedTranslationY = (-2.5).dp,
                             focusAnimationMillis = 240,
                             restingAlpha = if (focusedMediaId != null) 0.5f else 1f,
+                            focusRequester = itemFocusRequesters.getOrNull(index),
                             onFocusChanged = { focused ->
                                 if (focused) {
                                     focusedMediaId = media.id
+                                    restoreMediaId = media.id
+                                    restoreMediaIndex = index
                                 } else if (focusedMediaId == media.id) {
                                     focusedMediaId = null
                                 }
                             },
                             onClick = { onOpenItem(media) },
+                            // The top row's Up belongs to the view filters. Without it, leaving
+                            // the grid upward was a spatial guess that could land on the heading
+                            // text or skip the filter row entirely.
+                            modifier = if (index < LibraryGridColumns) {
+                                Modifier.focusProperties { up = entryFocus }
+                            } else {
+                                Modifier
+                            },
                         )
                         if (media == state.items.lastOrNull()) {
                             LaunchedEffect(media.id) { onLoadMore() }
@@ -496,6 +582,7 @@ private fun StandardLibraryContent(
                                 onRetry = onLoadMore,
                                 retryLabel = stringResource(R.string.retry),
                                 requestInitialFocus = false,
+                                onRetryFocusChanged = { loadMoreRetryFocused = it },
                                 modifier = Modifier.padding(vertical = 12.dp),
                             )
                         }
@@ -519,6 +606,9 @@ private fun StandardLibraryContent(
     }
 }
 
+/** Kept as a named value so the top grid row can be given an explicit Up target. */
+private const val LibraryGridColumns = 7
+
 @Composable
 private fun LibraryViewButton(
     label: String,
@@ -527,6 +617,7 @@ private fun LibraryViewButton(
     onClick: () -> Unit,
     focusRequester: FocusRequester? = null,
     upFocusRequester: FocusRequester? = null,
+    downFocusRequester: FocusRequester? = null,
     onFocused: () -> Unit = {},
 ) {
     TelevisionFocusSurface(
@@ -538,11 +629,10 @@ private fun LibraryViewButton(
         onFocusChanged = { if (it) onFocused() },
         modifier = Modifier
             .height(21.dp)
-            .then(
-                upFocusRequester?.let { target ->
-                    Modifier.focusProperties { up = target }
-                } ?: Modifier,
-            ),
+            .focusProperties {
+                upFocusRequester?.let { up = it }
+                downFocusRequester?.let { down = it }
+            },
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

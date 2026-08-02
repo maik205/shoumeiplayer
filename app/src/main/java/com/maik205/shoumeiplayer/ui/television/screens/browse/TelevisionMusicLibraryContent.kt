@@ -65,6 +65,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -100,6 +101,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionBackground
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionAppTopNavigation
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionEmptyState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionErrorState
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusHandoff
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionLoadingState
@@ -129,7 +131,19 @@ internal fun MusicLibraryContent(
     onLoadMore: () -> Unit,
     entryFocus: FocusRequester,
     topNavigationFocus: FocusRequester,
+    restoreFocusRequested: (Boolean) -> Unit = {},
 ) {
+    // Retry and the empty-state action are the only focusable things on this screen while it has
+    // no content, so they have to be what the navigation bar's Down target resolves to. Before,
+    // `entryFocus` was created only in the content branch below and these early returns left it
+    // attached to nothing at all.
+    var recoveryActionFocused by remember { mutableStateOf(false) }
+    TelevisionFocusHandoff(
+        present = state.items.isEmpty() && !state.loading,
+        focused = recoveryActionFocused,
+        entryFocus,
+    )
+
     if (state.loading && state.items.isEmpty()) {
         TelevisionLoadingState(
             label = stringResource(R.string.tv_loading_music),
@@ -147,6 +161,8 @@ internal fun MusicLibraryContent(
             message = state.error.resolve(),
             onRetry = onRetry,
             retryLabel = stringResource(R.string.retry),
+            focusRequester = entryFocus,
+            onRetryFocusChanged = { recoveryActionFocused = it },
             modifier = Modifier.padding(
                 start = TelevisionDimensions.SafeHorizontal,
                 top = 190.dp,
@@ -161,6 +177,8 @@ internal fun MusicLibraryContent(
             actionLabel = stringResource(R.string.retry),
             onAction = onRetry,
             requestInitialFocus = true,
+            focusRequester = entryFocus,
+            onActionFocusChanged = { recoveryActionFocused = it },
             modifier = Modifier.padding(
                 start = TelevisionDimensions.SafeHorizontal,
                 top = 190.dp,
@@ -172,7 +190,7 @@ internal fun MusicLibraryContent(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val heroActionFocus = remember { FocusRequester() }
-    val firstShelfFocus = remember { FocusRequester() }
+    var loadMoreRetryFocused by remember { mutableStateOf(false) }
     val overviewLabel = stringResource(R.string.tv_music_overview)
     val albumsLabel = stringResource(R.string.tv_music_albums)
     val artistsLabel = stringResource(R.string.tv_music_artists)
@@ -187,14 +205,53 @@ internal fun MusicLibraryContent(
         ).filter { it.second.isNotEmpty() }
     }
 
+    // One requester per shelf's first tile. These carry the vertical graph between shelves and are
+    // also where a filter press sends focus, so the control it scrolls off screen is not left
+    // holding it.
+    val shelfFirstFocus = remember(grouped.size) {
+        List(grouped.size) { FocusRequester() }
+    }
+
+    // The tile the viewer opened. Music opens both Detail and the audio player, and both used to
+    // come back to the navigation bar.
+    var restoreShelf by rememberSaveable(state.title) { mutableStateOf<String?>(null) }
+    var restoreItemId by rememberSaveable(state.title) { mutableStateOf<String?>(null) }
+    var restoreItemIndex by rememberSaveable(state.title) { mutableIntStateOf(0) }
+    var restorePending by remember { mutableStateOf(true) }
+    val restoreTargetId = restoreItemId.takeIf { restorePending && grouped.isNotEmpty() }
+    LaunchedEffect(restoreTargetId) { restoreFocusRequested(restoreTargetId != null) }
+
+    LaunchedEffect(restoreTargetId, grouped) {
+        val shelfIndex = grouped.indexOfFirst { it.first == restoreShelf }
+        if (restoreTargetId == null || shelfIndex < 0) {
+            if (restoreTargetId != null) restorePending = false
+            return@LaunchedEffect
+        }
+        listState.scrollToItem(shelfIndex + 2)
+    }
+
+    // Pagination Retry is removed as soon as it runs; send focus to the last shelf it was under.
+    TelevisionFocusHandoff(
+        present = state.error != null,
+        focused = loadMoreRetryFocused,
+        shelfFirstFocus.lastOrNull(),
+        heroActionFocus,
+    )
+
     fun selectView(label: String, sectionTitle: String? = null) {
         selectedView = label
-        val targetIndex = sectionTitle
+        val sectionIndex = sectionTitle
             ?.let { title -> grouped.indexOfFirst { it.first == title } }
             ?.takeIf { it >= 0 }
-            ?.plus(2)
-            ?: 0
-        scope.launch { listState.animateScrollToItem(targetIndex) }
+        val targetIndex = sectionIndex?.plus(2) ?: 0
+        scope.launch {
+            listState.animateScrollToItem(targetIndex)
+            // Choosing a filter scrolls the filter row itself out of view. Move focus to what the
+            // viewer asked to see rather than leaving it on a control that is no longer on screen
+            // and letting focus restoration fight the scroll.
+            val target = sectionIndex?.let { shelfFirstFocus.getOrNull(it) } ?: heroActionFocus
+            runCatching { target.requestFocus() }
+        }
     }
 
     LazyColumn(
@@ -359,21 +416,37 @@ internal fun MusicLibraryContent(
                             expandedWidth = 96.dp,
                             modifier = Modifier.focusProperties {
                                 up = entryFocus
-                                if (grouped.isNotEmpty()) down = firstShelfFocus
+                                shelfFirstFocus.firstOrNull()?.let { down = it }
                             },
                         )
                     }
                 }
             }
         }
-        items(grouped, key = { it.first }) { (title, media) ->
+        itemsIndexed(grouped, key = { _, shelf -> shelf.first }) { shelfIndex, (title, media) ->
             MusicShelf(
                 title = title,
                 items = media,
-                firstItemFocusRequester = firstShelfFocus.takeIf { title == grouped.first().first },
-                upFocusRequester = heroActionFocus.takeIf { title == grouped.first().first },
-                onFocused = onFocused,
+                firstItemFocusRequester = shelfFirstFocus[shelfIndex],
+                // Every shelf gets a defined Up target, not just the first: the hero above for
+                // shelf one, the shelf above for the rest. Deeper shelves used to fall back to
+                // spatial guessing.
+                upFocusRequester = if (shelfIndex == 0) {
+                    heroActionFocus
+                } else {
+                    shelfFirstFocus[shelfIndex - 1]
+                },
+                downFocusRequester = shelfFirstFocus.getOrNull(shelfIndex + 1),
+                onFocused = { item, itemIndex ->
+                    restoreShelf = title
+                    restoreItemId = item.id
+                    restoreItemIndex = itemIndex
+                    onFocused(item)
+                },
                 onOpenItem = onOpenItem,
+                restoreItemId = restoreTargetId.takeIf { title == restoreShelf },
+                restoreItemIndex = restoreItemIndex,
+                onRestored = { restorePending = false },
             )
         }
         item("music-end") {
@@ -400,6 +473,7 @@ internal fun MusicLibraryContent(
                     onRetry = onLoadMore,
                     retryLabel = stringResource(R.string.retry),
                     requestInitialFocus = false,
+                    onRetryFocusChanged = { loadMoreRetryFocused = it },
                     modifier = Modifier.padding(
                         start = TelevisionDimensions.SafeHorizontal,
                         end = TelevisionDimensions.SafeHorizontal,
@@ -431,8 +505,12 @@ private fun MusicShelf(
     items: List<MediaItemUi>,
     firstItemFocusRequester: FocusRequester?,
     upFocusRequester: FocusRequester?,
-    onFocused: (MediaItemUi) -> Unit,
+    onFocused: (MediaItemUi, Int) -> Unit,
     onOpenItem: (MediaItemUi) -> Unit,
+    downFocusRequester: FocusRequester? = null,
+    restoreItemId: String? = null,
+    restoreItemIndex: Int = 0,
+    onRestored: () -> Unit = {},
 ) {
     var focusedItemId by remember(title) { mutableStateOf<String?>(null) }
     val itemIdentity = items.fold(1) { hash, item -> 31 * hash + item.id.hashCode() }
@@ -453,6 +531,16 @@ private fun MusicShelf(
         tileHeight = 146.dp,
         shapeForItem = { ArtworkShape.Square },
     )
+
+    LaunchedEffect(restoreItemId, items) {
+        if (restoreItemId == null || items.isEmpty()) return@LaunchedEffect
+        val exact = items.indexOfFirst { it.id == restoreItemId }
+        val target = if (exact >= 0) exact else restoreItemIndex.coerceIn(0, items.lastIndex)
+        railState.scrollToItem(target)
+        withFrameNanos { }
+        runCatching { railFocusRequesters[target].requestFocus() }
+        onRestored()
+    }
 
     Column(
         modifier = Modifier.padding(
@@ -512,19 +600,19 @@ private fun MusicShelf(
                         lineHeight = 10.sp,
                     ),
                     focusRequester = railFocusRequesters.getOrNull(index),
+                    // Every tile in the shelf shares the shelf's vertical relationships, not just
+                    // the first: leaving a rail upward from the middle of it used to be a spatial
+                    // guess that depended on how far the rail had been scrolled.
                     modifier = Modifier
                         .televisionHorizontalWrap(index, railFocusRequesters, railState)
-                        .then(
-                            if (index == 0 && upFocusRequester != null) {
-                                Modifier.focusProperties { up = upFocusRequester }
-                            } else {
-                                Modifier
-                            },
-                        ),
+                        .focusProperties {
+                            upFocusRequester?.let { up = it }
+                            downFocusRequester?.let { down = it }
+                        },
                     onFocusChanged = { focused ->
                         if (focused) {
                             focusedItemId = item.id
-                            onFocused(item)
+                            onFocused(item, index)
                         } else if (focusedItemId == item.id) {
                             focusedItemId = null
                         }
