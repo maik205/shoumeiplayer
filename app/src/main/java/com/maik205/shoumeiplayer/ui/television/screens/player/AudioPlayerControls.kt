@@ -276,9 +276,10 @@ internal fun AudioMainTransport(
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onInteraction: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().height(38.dp).focusGroup(),
+        modifier = modifier.fillMaxWidth().height(38.dp).focusGroup(),
         horizontalArrangement = Arrangement.spacedBy(18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

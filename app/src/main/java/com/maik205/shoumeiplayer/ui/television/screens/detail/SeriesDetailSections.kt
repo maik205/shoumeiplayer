@@ -90,6 +90,8 @@ internal fun SeriesDetailSection(
     entryFocusRequester: FocusRequester? = null,
     /** The hero, so the topmost row has somewhere defined to go Up to. */
     upFocusRequester: FocusRequester? = null,
+    restoreItemId: String? = null,
+    onRestored: () -> Unit = {},
 ) {
     val ownNextUpFocus = remember { FocusRequester() }
     val ownSeasonFocus = remember { FocusRequester() }
@@ -155,6 +157,8 @@ internal fun SeriesDetailSection(
             },
             onSelectSeason = onSelect,
             onPlay = onPlay,
+            restoreItemId = restoreItemId,
+            onRestored = onRestored,
         )
     }
 }
@@ -301,6 +305,8 @@ internal fun EpisodeRail(
     episodeUpFocusRequester: FocusRequester? = null,
     onSelectSeason: (String) -> Unit = {},
     onPlay: (MediaItemUi) -> Unit,
+    restoreItemId: String? = null,
+    onRestored: () -> Unit = {},
 ) {
     val currentEpisodeIndex = episodes.indexOfFirst { it.id == currentEpisodeId }.coerceAtLeast(0)
     val entryEpisodeIndex = if (currentEpisodeId != null) currentEpisodeIndex else 0
@@ -321,6 +327,19 @@ internal fun EpisodeRail(
     val rowState = rememberLazyListState(initialFirstVisibleItemIndex = currentEpisodeIndex)
     LaunchedEffect(selectedSeasonId, episodes.firstOrNull()?.id) {
         if (episodes.isNotEmpty()) rowState.scrollToItem(currentEpisodeIndex)
+    }
+
+    // Playing an episode from here leaves for the player; coming back belongs on that episode,
+    // not on the hero (DETAIL-007). The season may have been reloaded in the meantime, so a
+    // missing episode simply declines the restore and lets the hero fallback stand.
+    LaunchedEffect(restoreItemId, episodes) {
+        if (restoreItemId == null) return@LaunchedEffect
+        val target = episodes.indexOfFirst { it.id == restoreItemId }
+        if (target < 0 || target !in railFocusRequesters.indices) return@LaunchedEffect
+        rowState.scrollToItem(target)
+        withFrameNanos { }
+        runCatching { railFocusRequesters[target].requestFocus() }
+        onRestored()
     }
 
     Column(

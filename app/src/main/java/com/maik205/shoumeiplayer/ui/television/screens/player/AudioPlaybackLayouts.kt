@@ -57,6 +57,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
@@ -110,6 +111,8 @@ internal fun AudioNormalPlayback(
     onInteraction: () -> Unit,
     /** First focusable target in the queue columns below, so Down out of the tools row lands. */
     contextEntryFocus: FocusRequester? = null,
+    /** The Exit control above, so Up out of the transport is defined (PLAYER-022). */
+    exitFocus: FocusRequester? = null,
 ) {
     val density = LocalDensity.current
     val coverScale by animateFloatAsState(
@@ -173,6 +176,9 @@ internal fun AudioNormalPlayback(
             onPrevious = onPrevious,
             onNext = onNext,
             onInteraction = onInteraction,
+            modifier = Modifier.focusProperties {
+                exitFocus?.let { up = it }
+            },
         )
         Spacer(Modifier.height(10.dp))
         AudioTools(

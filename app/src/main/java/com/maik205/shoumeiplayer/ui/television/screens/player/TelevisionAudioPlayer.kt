@@ -60,6 +60,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
@@ -138,6 +139,7 @@ internal fun TelevisionAudioPlayer(
     val lyricsPlayPauseFocus = remember { FocusRequester() }
     val normalLyricsFocus = remember { FocusRequester() }
     val firstQueueItemFocus = remember { FocusRequester() }
+    val exitFocus = remember { FocusRequester() }
     var hasShownLyrics by remember { mutableStateOf(false) }
     val currentQueueIndex = state.queue.indexOfFirst { it.playing }
     val upNext = if (currentQueueIndex >= 0) state.queue.drop(currentQueueIndex + 1) else state.queue
@@ -223,7 +225,16 @@ internal fun TelevisionAudioPlayer(
             },
             expandedWidth = 58.dp,
             focusedScale = 1f,
-            modifier = Modifier.offset(x = 47.dp, y = 20.dp),
+            focusRequester = exitFocus,
+            // Exit sits above the transport with nothing joining it to the rest of the screen,
+            // so reaching it or leaving it was pure geometry (PLAYER-022).
+            modifier = Modifier
+                .offset(x = 47.dp, y = 20.dp)
+                .focusProperties {
+                    up = FocusRequester.Cancel
+                    left = FocusRequester.Cancel
+                    down = playPauseFocus
+                },
         )
 
         Box(
@@ -253,6 +264,7 @@ internal fun TelevisionAudioPlayer(
                 onToggleLyrics = onToggleLyrics,
                 onInteraction = onInteraction,
                 contextEntryFocus = firstQueueItemFocus,
+                exitFocus = exitFocus,
             )
             AudioLyricsPlayback(
                 state = state,

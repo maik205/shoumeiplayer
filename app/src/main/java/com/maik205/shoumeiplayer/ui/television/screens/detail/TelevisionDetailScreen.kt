@@ -442,6 +442,8 @@ fun TelevisionDetailScreen(
                                 episodeTitle = stringResource(R.string.tv_episodes),
                                 entryFocusRequester = firstSectionFocus,
                                 upFocusRequester = playFocus,
+                                restoreItemId = restoreChildId,
+                                onRestored = { childRestorePending = false },
                                 onPlay = { episode ->
                                     playbackLaunch.launch {
                                         openChild(episode.id)
@@ -469,6 +471,8 @@ fun TelevisionDetailScreen(
                                 episodeTitle = stringResource(R.string.tv_detail_more_episodes),
                                 entryFocusRequester = firstSectionFocus,
                                 upFocusRequester = playFocus,
+                                restoreItemId = restoreChildId,
+                                onRestored = { childRestorePending = false },
                                 currentEpisodeId = item.id,
                                 onPlay = { episode ->
                                     playbackLaunch.launch {

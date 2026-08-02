@@ -548,16 +548,10 @@ fun TelevisionNavGraph(
                     // stacked a second copy when the viewer pressed twice. Replacing the player
                     // entry in a single call is atomic and idempotent.
                     onNavigateToItem = { itemId ->
-                        navController.navigate(DetailRoute(itemId)) {
-                            popUpTo<PlayerRoute> { inclusive = true }
-                            launchSingleTop = true
-                        }
+                        navController.replacePlayerWith(DetailRoute(itemId))
                     },
                     onNavigateToPerson = { personId, name ->
-                        navController.navigate(PersonRoute(personId, name)) {
-                            popUpTo<PlayerRoute> { inclusive = true }
-                            launchSingleTop = true
-                        }
+                        navController.replacePlayerWith(PersonRoute(personId, name))
                     },
                 )
             }
@@ -624,6 +618,13 @@ internal fun NavHostController.backOrReplaceWith(replacement: Any) {
  * card while the transition runs, would otherwise stack duplicate copies of the same destination
  * and make the viewer press Back once per stray press to escape.
  */
+internal fun NavHostController.replacePlayerWith(route: Any) {
+    navigate(route) {
+        popUpTo<PlayerRoute> { inclusive = true }
+        launchSingleTop = true
+    }
+}
+
 internal fun NavHostController.pushSingleTop(route: Any) {
     navigate(route) { launchSingleTop = true }
 }

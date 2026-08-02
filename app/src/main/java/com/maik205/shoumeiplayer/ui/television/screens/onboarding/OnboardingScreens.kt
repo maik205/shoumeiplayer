@@ -830,8 +830,12 @@ fun LoginScreen(
                         value = state.password,
                         onValueChange = onPasswordChange,
                         placeholder = stringResource(R.string.password),
+                        // Clearing focus here left the screen with no selected control at all
+                        // the moment the IME closed, and nothing brought it back if the attempt
+                        // failed without producing an error (ONB-012). Land on Sign In instead,
+                        // which is both the action that just ran and where a retry lives.
                         onDone = {
-                            focusManager.clearFocus()
+                            runCatching { signInFocus.requestFocus() }
                             onSignIn()
                         },
                         focusRequester = passwordFocus,

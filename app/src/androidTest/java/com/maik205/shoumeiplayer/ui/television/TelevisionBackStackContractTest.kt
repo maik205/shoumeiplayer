@@ -14,7 +14,9 @@ import com.maik205.shoumeiplayer.ui.television.navigation.SearchRoute
 import com.maik205.shoumeiplayer.ui.television.navigation.SettingsRoute
 import com.maik205.shoumeiplayer.ui.television.navigation.backOrReplaceWith
 import com.maik205.shoumeiplayer.ui.television.navigation.navigateTop
+import com.maik205.shoumeiplayer.ui.television.navigation.PlayerRoute
 import com.maik205.shoumeiplayer.ui.television.navigation.pushSingleTop
+import com.maik205.shoumeiplayer.ui.television.navigation.replacePlayerWith
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -46,6 +48,7 @@ class TelevisionBackStackContractTest {
                 composable<SearchRoute> { Text("search") }
                 composable<SettingsRoute> { Text("settings") }
                 composable<DetailRoute> { Text("detail") }
+                composable<PlayerRoute> { Text("player") }
             }
         }
         compose.waitForIdle()
@@ -103,6 +106,44 @@ class TelevisionBackStackContractTest {
         compose.runOnUiThread { navController.pushSingleTop(DetailRoute("item-2")) }
         compose.waitForIdle()
         assertEquals(afterFirst + 1, backStackSize())
+    }
+
+    /**
+     * NAV-007: leaving the player for another item replaces the player entry rather than popping
+     * whatever happens to be on top and pushing a second copy on a double press.
+     */
+    @Test
+    fun leavingThePlayerForAnItemReplacesThePlayerEntry() {
+        startAt(HomeRoute)
+        compose.runOnUiThread { navController.pushSingleTop(DetailRoute("origin")) }
+        compose.waitForIdle()
+        compose.runOnUiThread { navController.pushSingleTop(PlayerRoute("origin")) }
+        compose.waitForIdle()
+        val withPlayer = backStackSize()
+
+        compose.runOnUiThread { navController.replacePlayerWith(DetailRoute("extra")) }
+        compose.waitForIdle()
+        assertEquals("Detail replaces the player, it does not stack on it", withPlayer, backStackSize())
+        assertTrue(currentRoute()?.contains("DetailRoute") == true)
+
+        // And the player is genuinely gone: Back returns to the Detail it was launched from.
+        compose.runOnUiThread { navController.popBackStack() }
+        compose.waitForIdle()
+        assertTrue(currentRoute()?.contains("DetailRoute") == true)
+    }
+
+    /** Pressing the same extras target twice must not stack it either. */
+    @Test
+    fun repeatedPlayerCrossNavigationDoesNotStack() {
+        startAt(HomeRoute)
+        compose.runOnUiThread { navController.pushSingleTop(PlayerRoute("origin")) }
+        compose.waitForIdle()
+        compose.runOnUiThread {
+            navController.replacePlayerWith(DetailRoute("extra"))
+            navController.replacePlayerWith(DetailRoute("extra"))
+        }
+        compose.waitForIdle()
+        assertEquals("Home plus one Detail", 2, backStackSize())
     }
 
     /** NAV-002: a top-navigation switch pops back to Home rather than growing the stack. */
