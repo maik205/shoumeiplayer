@@ -24,6 +24,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +44,7 @@ import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.domain.settings.ClientSettings
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionAppTopNavigation
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionErrorState
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusHandoff
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusScale
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
@@ -76,15 +78,50 @@ fun TelevisionSettingsScreen(
     onNavigateProfile: () -> Unit,
     navigationState: LazyListState,
 ) {
-    var section by remember { mutableStateOf(SettingsSection.Playback) }
+    // The selected section is saved, not just remembered: switching to another top-navigation tab
+    // and back recreates this route above Home, and losing the section every time made Settings
+    // the one destination that never remembered where the viewer was.
+    var sectionName by rememberSaveable { mutableStateOf(SettingsSection.Playback.name) }
+    val section = SettingsSection.entries
+        .firstOrNull { it.name == sectionName }
+        ?: SettingsSection.Playback
     var activeChoice by remember { mutableStateOf<SettingRowModel?>(null) }
     var choiceReturnFocus by remember { mutableStateOf<FocusRequester?>(null) }
+    var settingsRetryFocused by remember { mutableStateOf(false) }
+    var libraryRetryFocused by remember { mutableStateOf(false) }
     val settingsTopFocus = remember { FocusRequester() }
+    val settingsErrorFocus = remember { FocusRequester() }
+    val libraryErrorFocus = remember { FocusRequester() }
+    val firstRowFocus = remember { FocusRequester() }
     val sectionFocus = remember {
         SettingsSection.entries.associateWith { FocusRequester() }
     }
     val sectionRailFocus = SettingsSection.entries.map(sectionFocus::getValue)
     val sectionRailState = rememberLazyListState()
+
+    // The banners sit between the section tabs and the rows, so they are what Down from a tab has
+    // to reach while they are showing -- otherwise the only way onto a Retry button is a spatial
+    // guess past it.
+    val belowSectionTabs = when {
+        state.error != null -> settingsErrorFocus
+        libraryRefreshError != null -> libraryErrorFocus
+        else -> firstRowFocus
+    }
+
+    // Both Retry buttons disappear the moment their retry starts. Send focus down into the rows
+    // rather than leaving it on a control that no longer exists.
+    TelevisionFocusHandoff(
+        present = state.error != null,
+        focused = settingsRetryFocused,
+        firstRowFocus,
+        sectionFocus.getValue(section),
+    )
+    TelevisionFocusHandoff(
+        present = libraryRefreshError != null,
+        focused = libraryRetryFocused,
+        firstRowFocus,
+        sectionFocus.getValue(section),
+    )
 
     LaunchedEffect(activeChoice) {
         if (activeChoice == null) {
@@ -146,19 +183,22 @@ fun TelevisionSettingsScreen(
                     key = { _, destination -> destination.name },
                 ) { index, destination ->
                     TelevisionFocusSurface(
-                        onClick = { section = destination },
+                        onClick = { sectionName = destination.name },
                         restingAlpha = if (section == destination) 0.82f else 0.4f,
                         scaleTo = TelevisionFocusScale.Navigation,
                         focusRequester = sectionFocus.getValue(destination),
                         onFocusChanged = { focused ->
                             if (focused) {
-                                section = destination
+                                sectionName = destination.name
                             }
                         },
                         modifier = Modifier
                             .height(30.dp)
                             .televisionHorizontalWrap(index, sectionRailFocus, sectionRailState)
-                            .focusProperties { up = settingsTopFocus }
+                            .focusProperties {
+                                up = settingsTopFocus
+                                down = belowSectionTabs
+                            }
                             .televisionBringIntoViewOnFocus(),
                     ) {
                         Row(
@@ -189,7 +229,14 @@ fun TelevisionSettingsScreen(
                     onRetry = onRetrySettings,
                     retryLabel = stringResource(R.string.retry),
                     requestInitialFocus = false,
-                    modifier = Modifier.padding(bottom = 8.dp),
+                    focusRequester = settingsErrorFocus,
+                    onRetryFocusChanged = { settingsRetryFocused = it },
+                    modifier = Modifier
+                        .padding(bottom = 8.dp)
+                        .focusProperties {
+                            up = sectionFocus.getValue(section)
+                            down = if (libraryRefreshError != null) libraryErrorFocus else firstRowFocus
+                        },
                 )
             }
             if (libraryRefreshError != null) {
@@ -199,7 +246,14 @@ fun TelevisionSettingsScreen(
                     onRetry = onRefreshLibraries,
                     retryLabel = stringResource(R.string.retry),
                     requestInitialFocus = false,
-                    modifier = Modifier.padding(bottom = 8.dp),
+                    focusRequester = libraryErrorFocus,
+                    onRetryFocusChanged = { libraryRetryFocused = it },
+                    modifier = Modifier
+                        .padding(bottom = 8.dp)
+                        .focusProperties {
+                            up = if (state.error != null) settingsErrorFocus else sectionFocus.getValue(section)
+                            down = firstRowFocus
+                        },
                 )
             }
             if (libraryRefreshing) {
@@ -230,11 +284,14 @@ fun TelevisionSettingsScreen(
                     choiceReturnFocus = returnFocus
                     activeChoice = row
                 },
+                firstRowFocus = firstRowFocus,
+                upFocus = belowSectionTabs.takeIf { it != firstRowFocus }
+                    ?: sectionFocus.getValue(section),
                 onMoveSection = { offset ->
                     val destination = SettingsSection.entries.getOrNull(section.ordinal + offset)
-                    destination?.let { target ->
-                        runCatching { sectionFocus.getValue(target).requestFocus() }
-                    }
+                    destination
+                        ?.let { target -> runCatching { sectionFocus.getValue(target).requestFocus() } }
+                        ?.isSuccess == true
                 },
                 modifier = Modifier
                     .widthIn(max = 560.dp)
