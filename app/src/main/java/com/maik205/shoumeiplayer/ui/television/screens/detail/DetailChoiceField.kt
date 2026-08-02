@@ -69,8 +69,8 @@ import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWr
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.domain.model.ArtworkShape
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -133,7 +133,7 @@ internal fun DetailChoiceField(
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelSmall,
-                    color = TelevisionColors.PaperMuted,
+                    color = TelevisionTheme.colors.PaperMuted,
                 )
                 Text(
                     text = value,
@@ -161,9 +161,9 @@ internal fun DetailChoiceField(
                     .fillMaxSize()
                     .background(
                         Brush.horizontalGradient(
-                            0f to TelevisionColors.Black.copy(alpha = 0f),
-                            0.58f to TelevisionColors.Black.copy(alpha = 0.74f),
-                            1f to TelevisionColors.Black,
+                            0f to TelevisionTheme.colors.Black.copy(alpha = 0f),
+                            0.58f to TelevisionTheme.colors.Black.copy(alpha = 0.74f),
+                            1f to TelevisionTheme.colors.Black,
                         ),
                     ),
             ) {
@@ -174,9 +174,9 @@ internal fun DetailChoiceField(
                         .width(330.dp)
                         .background(
                             Brush.horizontalGradient(
-                                0f to TelevisionColors.Black.copy(alpha = 0f),
-                                0.20f to TelevisionColors.Black.copy(alpha = 0.96f),
-                                1f to TelevisionColors.Black,
+                                0f to TelevisionTheme.colors.Black.copy(alpha = 0f),
+                                0.20f to TelevisionTheme.colors.Black.copy(alpha = 0.96f),
+                                1f to TelevisionTheme.colors.Black,
                             ),
                         )
                         .focusProperties { onExit = { cancelFocusChange() } }

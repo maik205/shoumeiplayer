@@ -50,8 +50,8 @@ import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWr
 import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
 import com.maik205.shoumeiplayer.ui.i18n.UiText
 import com.maik205.shoumeiplayer.ui.i18n.resolve
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 
 @Composable
 fun TelevisionSettingsScreen(
@@ -99,15 +99,16 @@ fun TelevisionSettingsScreen(
         activeChoice = null
     }
 
+    val colors = TelevisionTheme.colors
     Box(
         modifier = Modifier
             .fillMaxSize()
             .drawBehind {
-                drawRect(TelevisionColors.LibraryBackground)
+                drawRect(colors.LibraryBackground)
                 drawRect(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            TelevisionColors.Paper.copy(alpha = 0.07f),
+                            colors.Paper.copy(alpha = 0.07f),
                             androidx.compose.ui.graphics.Color.Transparent,
                         ),
                         center = Offset(size.width * 0.16f, 0f),
@@ -205,7 +206,7 @@ fun TelevisionSettingsScreen(
                 Text(
                     text = stringResource(R.string.tv_refreshing),
                     style = MaterialTheme.typography.bodySmall,
-                    color = TelevisionColors.PaperMuted,
+                    color = TelevisionTheme.colors.PaperMuted,
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
             }

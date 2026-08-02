@@ -87,7 +87,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealB
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 
@@ -109,6 +109,7 @@ internal fun LyricsPane(
     }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val colors = TelevisionTheme.colors
 
     LaunchedEffect(activeIndex) {
         if (activeIndex != null) listState.animateScrollToItem((activeIndex - 1).coerceAtLeast(0))
@@ -119,7 +120,7 @@ internal fun LyricsPane(
             stringResource(R.string.tv_player_lyrics_label),
             style = MaterialTheme.typography.labelMedium.copy(fontSize = 8.sp),
             fontWeight = FontWeight.SemiBold,
-            color = TelevisionColors.PaperMuted,
+            color = colors.PaperMuted,
         )
         Spacer(Modifier.height(7.dp))
         if (lyrics.isEmpty()) {
@@ -130,7 +131,7 @@ internal fun LyricsPane(
             }
             Text(
                 message,
-                color = TelevisionColors.PaperMuted,
+                color = colors.PaperMuted,
                 modifier = Modifier.focusRequester(focusRequester).focusable(),
             )
         } else {
@@ -172,7 +173,7 @@ internal fun LyricsPane(
                                 lineHeight = 25.sp,
                             ),
                             fontWeight = FontWeight.Bold,
-                            color = TelevisionColors.Paper,
+                            color = colors.Paper,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.alpha(
@@ -287,6 +288,7 @@ private fun AudioQueueColumn(
         }
     }
     val coverRailState = rememberLazyListState()
+    val colors = TelevisionTheme.colors
     Column(modifier) {
         Row(
             modifier = Modifier.fillMaxWidth().height(19.dp),
@@ -296,7 +298,7 @@ private fun AudioQueueColumn(
                 title,
                 style = MaterialTheme.typography.titleSmall.copy(fontSize = 9.sp),
                 fontWeight = FontWeight.SemiBold,
-                color = TelevisionColors.PaperMuted,
+                color = colors.PaperMuted,
             )
             Spacer(Modifier.weight(1f))
             TelevisionFocusRevealButton(
@@ -322,7 +324,7 @@ private fun AudioQueueColumn(
         when {
             items.isEmpty() -> if (errorMessage != null) {
                 Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text(emptyMessage, fontSize = 8.sp, color = TelevisionColors.PaperSoft)
+                    Text(emptyMessage, fontSize = 8.sp, color = colors.PaperSoft)
                     TelevisionFocusRevealButton(
                         label = stringResource(R.string.retry),
                         icon = Icons.Default.Repeat,
@@ -334,7 +336,7 @@ private fun AudioQueueColumn(
                     )
                 }
             } else {
-                Text(emptyMessage, fontSize = 8.sp, color = TelevisionColors.PaperSoft)
+                Text(emptyMessage, fontSize = 8.sp, color = colors.PaperSoft)
             }
             coverMode -> LazyRow(
                 state = coverRailState,
@@ -383,6 +385,7 @@ private fun AudioTrackRow(
     focusRequester: FocusRequester?,
     onClick: () -> Unit,
 ) {
+    val colors = TelevisionTheme.colors
     TelevisionFocusSurface(
         onClick = onClick,
         focusRequester = focusRequester,
@@ -400,14 +403,14 @@ private fun AudioTrackRow(
             Text(
                 (index + 1).toString().padStart(2, '0'),
                 fontSize = 6.sp,
-                color = TelevisionColors.PaperMuted,
+                color = colors.PaperMuted,
                 modifier = Modifier.width(17.dp),
             )
             Text(
                 item.title,
                 style = MaterialTheme.typography.titleSmall.televisionItemTitle(),
                 fontWeight = FontWeight.SemiBold,
-                color = if (focused) TelevisionColors.Paper else TelevisionColors.PaperMuted,
+                color = if (focused) colors.Paper else colors.PaperMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -416,7 +419,7 @@ private fun AudioTrackRow(
                 Text(
                     formatAudioTime(it),
                     fontSize = 6.sp,
-                    color = TelevisionColors.PaperMuted,
+                    color = colors.PaperMuted,
                 )
             }
         }
@@ -430,6 +433,7 @@ private fun AudioCoverItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val colors = TelevisionTheme.colors
     TelevisionFocusSurface(
         onClick = onClick,
         focusRequester = focusRequester,
@@ -445,14 +449,14 @@ private fun AudioCoverItem(
                 modifier = Modifier
                     .size(89.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(TelevisionColors.ImagePlaceholder),
+                    .background(colors.ImagePlaceholder),
             )
             Spacer(Modifier.height(4.dp))
             Text(
                 item.title,
                 style = MaterialTheme.typography.titleSmall.televisionItemTitle(),
                 fontWeight = FontWeight.SemiBold,
-                color = if (focused) TelevisionColors.Paper else TelevisionColors.PaperMuted,
+                color = if (focused) colors.Paper else colors.PaperMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -461,7 +465,7 @@ private fun AudioCoverItem(
                     it,
                     fontSize = 6.sp,
                     lineHeight = 7.sp,
-                    color = TelevisionColors.PaperMuted,
+                    color = colors.PaperMuted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

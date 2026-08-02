@@ -15,6 +15,7 @@ import com.maik205.shoumeiplayer.domain.settings.ClientSettings
 import com.maik205.shoumeiplayer.domain.settings.AppTheme
 import com.maik205.shoumeiplayer.domain.settings.AssSsaDirectPlay
 import com.maik205.shoumeiplayer.domain.settings.BurnSubtitles
+import com.maik205.shoumeiplayer.domain.settings.ColorPalette
 import com.maik205.shoumeiplayer.domain.settings.DisplayLanguage
 import com.maik205.shoumeiplayer.domain.settings.HardwareCodecs
 import com.maik205.shoumeiplayer.domain.settings.HardwareDecoding
@@ -161,6 +162,7 @@ private class UserKeys private constructor(prefix: String) {
     val CLOCK_IN_OSD = booleanPreferencesKey("${prefix}clock_in_osd")
     val INTERFACE_SCALE = stringPreferencesKey("${prefix}interface_scale")
     val THEME = stringPreferencesKey("${prefix}theme")
+    val COLOR_PALETTE = stringPreferencesKey("${prefix}color_palette")
     val BACKDROP_IMAGES = booleanPreferencesKey("${prefix}backdrop_images")
     val BACKDROP_ROTATION_SECONDS = intPreferencesKey("${prefix}backdrop_rotation_seconds")
     val WATCHED_INDICATORS = booleanPreferencesKey("${prefix}watched_indicators")
@@ -519,6 +521,11 @@ private fun Preferences.toClientSettings(user: UserKeys): ClientSettings = Clien
         AppTheme.Dark,
         AppTheme.entries.toTypedArray(),
     ),
+    colorPalette = storedOption(
+        this[user.COLOR_PALETTE],
+        ColorPalette.Midnight,
+        ColorPalette.entries.toTypedArray(),
+    ),
     backdropImages = this[user.BACKDROP_IMAGES] ?: true,
     backdropRotationSeconds = this[user.BACKDROP_ROTATION_SECONDS] ?: 20,
     watchedIndicators = this[user.WATCHED_INDICATORS] ?: true,
@@ -585,6 +592,7 @@ private fun MutablePreferences.write(settings: ClientSettings, user: UserKeys) {
     this[SettingsKeys.DISPLAY_LANGUAGE] = settings.displayLanguage.storageId
     this[user.INTERFACE_SCALE] = settings.interfaceScale.storageId
     this[user.THEME] = settings.theme.storageId
+    this[user.COLOR_PALETTE] = settings.colorPalette.storageId
     this[user.BACKDROP_IMAGES] = settings.backdropImages
     this[user.BACKDROP_ROTATION_SECONDS] = settings.backdropRotationSeconds
     this[user.WATCHED_INDICATORS] = settings.watchedIndicators

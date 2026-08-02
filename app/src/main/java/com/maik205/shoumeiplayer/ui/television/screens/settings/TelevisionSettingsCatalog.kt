@@ -10,6 +10,7 @@ import com.maik205.shoumeiplayer.domain.settings.ClientSettings
 import com.maik205.shoumeiplayer.domain.settings.AppTheme
 import com.maik205.shoumeiplayer.domain.settings.AssSsaDirectPlay
 import com.maik205.shoumeiplayer.domain.settings.BurnSubtitles
+import com.maik205.shoumeiplayer.domain.settings.ColorPalette
 import com.maik205.shoumeiplayer.domain.settings.DeinterlaceMode
 import com.maik205.shoumeiplayer.domain.settings.DisplayLanguage
 import com.maik205.shoumeiplayer.domain.settings.HardwareCodecs
@@ -157,7 +158,9 @@ internal fun settingsRowsForStrings(
             display = { raw ->
                 when (raw) {
                     null -> stringResource(R.string.settings_language_system_default)
-                    else -> ServerLanguage.fromStored(raw)?.localizedLabel() ?: raw
+                    // Rendered from ICU data rather than a string resource, so adding a language
+                    // costs no new key in any locale. See ServerLanguage.displayName.
+                    else -> ServerLanguage.fromStored(raw)?.displayName() ?: raw
                 }
             },
             onSelect = onSelect,
@@ -392,7 +395,15 @@ internal fun settingsRowsForStrings(
                 labelRes = R.string.tv_settings_display_language,
                 current = settings.displayLanguage,
                 values = DisplayLanguage.entries,
-                display = { it.localizedLabel() },
+                // Each language in its own script -- see DisplayLanguage.endonym. Someone stranded in
+                // a language they cannot read has to be able to find their way back out.
+                display = {
+                    if (it == DisplayLanguage.SystemDefault) {
+                        stringResource(R.string.settings_language_system_default)
+                    } else {
+                        it.endonym()
+                    }
+                },
             ) { update { current -> current.copy(displayLanguage = it) } },
             choiceRow(
                 key = "interface-scale",
@@ -408,6 +419,13 @@ internal fun settingsRowsForStrings(
                 values = AppTheme.entries,
                 display = { it.localizedLabel() },
             ) { update { current -> current.copy(theme = it) } },
+            choiceRow(
+                key = "color-palette",
+                labelRes = R.string.tv_settings_color_palette,
+                current = settings.colorPalette,
+                values = ColorPalette.entries,
+                display = { it.localizedLabel() },
+            ) { update { current -> current.copy(colorPalette = it) } },
             toggleRow("backdrops", R.string.tv_settings_backdrop_images, settings.backdropImages) {
                 update { it.copy(backdropImages = !it.backdropImages) }
             },
@@ -751,13 +769,6 @@ private fun StoredOption.localizedLabelRes(): Int = when (this) {
         SubtitleMode.OnlyForced -> R.string.tv_settings_only_forced
         SubtitleMode.None -> R.string.tv_settings_none
     }
-    is ServerLanguage -> when (this) {
-        ServerLanguage.English -> R.string.tv_settings_english
-        ServerLanguage.Vietnamese -> R.string.tv_settings_vietnamese
-        ServerLanguage.Japanese -> R.string.tv_settings_japanese
-        ServerLanguage.French -> R.string.tv_settings_french
-        ServerLanguage.German -> R.string.tv_settings_german
-    }
     is BurnSubtitles -> when (this) {
         BurnSubtitles.Automatic -> R.string.tv_settings_automatic
         BurnSubtitles.ImageFormats -> R.string.tv_settings_only_image_formats
@@ -769,14 +780,6 @@ private fun StoredOption.localizedLabelRes(): Int = when (this) {
         AssSsaDirectPlay.Enabled -> R.string.tv_settings_enabled
         AssSsaDirectPlay.Disabled -> R.string.tv_settings_disabled
     }
-    is DisplayLanguage -> when (this) {
-        DisplayLanguage.SystemDefault -> R.string.settings_language_system_default
-        DisplayLanguage.English -> R.string.tv_settings_english
-        DisplayLanguage.Vietnamese -> R.string.tv_settings_vietnamese
-        DisplayLanguage.Japanese -> R.string.tv_settings_japanese
-        DisplayLanguage.French -> R.string.tv_settings_french
-        DisplayLanguage.German -> R.string.tv_settings_german
-    }
     is InterfaceScale -> when (this) {
         InterfaceScale.Compact -> R.string.tv_settings_compact
         InterfaceScale.Comfortable -> R.string.tv_settings_comfortable
@@ -785,6 +788,12 @@ private fun StoredOption.localizedLabelRes(): Int = when (this) {
     is AppTheme -> when (this) {
         AppTheme.Dark -> R.string.tv_settings_dark
         AppTheme.System -> R.string.tv_settings_system
+    }
+    is ColorPalette -> when (this) {
+        ColorPalette.Midnight -> R.string.tv_settings_palette_midnight
+        ColorPalette.Ember -> R.string.tv_settings_palette_ember
+        ColorPalette.Daylight -> R.string.tv_settings_palette_daylight
+        ColorPalette.Sunrise -> R.string.tv_settings_palette_sunrise
     }
     is ScreensaverContent -> when (this) {
         ScreensaverContent.AllLibraries -> R.string.tv_settings_all_libraries

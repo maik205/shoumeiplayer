@@ -48,8 +48,8 @@ import androidx.tv.material3.Text
 import com.maik205.shoumeiplayer.R
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 
 @Composable
 internal fun SettingsSectionContent(
@@ -128,7 +128,7 @@ private fun SettingsValueRow(
         Text(
             text = row.value,
             style = MaterialTheme.typography.bodyMedium,
-            color = TelevisionColors.PaperMuted,
+            color = TelevisionTheme.colors.PaperMuted,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -198,7 +198,7 @@ private fun SettingsInteractiveRow(
                     Text(
                         text = row.value,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = if (focused) TelevisionColors.Paper else TelevisionColors.PaperMuted,
+                        color = if (focused) TelevisionTheme.colors.Paper else TelevisionTheme.colors.PaperMuted,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -236,7 +236,7 @@ internal fun SettingsChoiceDrawer(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(TelevisionColors.Black.copy(alpha = 0.54f)),
+            .background(TelevisionTheme.colors.Black.copy(alpha = 0.54f)),
         contentAlignment = Alignment.CenterEnd,
     ) {
         Column(
@@ -246,10 +246,10 @@ internal fun SettingsChoiceDrawer(
                 .background(
                     Brush.horizontalGradient(
                         0f to androidx.compose.ui.graphics.Color.Transparent,
-                        0.18f to TelevisionColors.Black.copy(alpha = 0.18f),
-                        0.5f to TelevisionColors.Black.copy(alpha = 0.68f),
-                        0.78f to TelevisionColors.Black.copy(alpha = 0.94f),
-                        1f to TelevisionColors.Black.copy(alpha = 0.99f),
+                        0.18f to TelevisionTheme.colors.Black.copy(alpha = 0.18f),
+                        0.5f to TelevisionTheme.colors.Black.copy(alpha = 0.68f),
+                        0.78f to TelevisionTheme.colors.Black.copy(alpha = 0.94f),
+                        1f to TelevisionTheme.colors.Black.copy(alpha = 0.99f),
                     ),
                 )
                 .padding(
@@ -374,9 +374,9 @@ private fun SettingsToggle(
             .clip(CircleShape)
             .background(
                 if (checked) {
-                    TelevisionColors.Paper
+                    TelevisionTheme.colors.Paper
                 } else {
-                    TelevisionColors.Paper.copy(alpha = if (focused) 0.28f else 0.18f)
+                    TelevisionTheme.colors.Paper.copy(alpha = if (focused) 0.28f else 0.18f)
                 },
             )
             .padding(2.dp),
@@ -386,7 +386,7 @@ private fun SettingsToggle(
             modifier = Modifier
                 .size(11.dp)
                 .clip(CircleShape)
-                .background(if (checked) TelevisionColors.Black else TelevisionColors.Paper),
+                .background(if (checked) TelevisionTheme.colors.Black else TelevisionTheme.colors.Paper),
         )
     }
 }

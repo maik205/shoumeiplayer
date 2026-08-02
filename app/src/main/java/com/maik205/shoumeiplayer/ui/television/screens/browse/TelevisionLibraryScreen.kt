@@ -59,6 +59,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -97,6 +98,8 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.R
+import com.maik205.shoumeiplayer.di.LocalAppContainer
+import com.maik205.shoumeiplayer.domain.settings.ClientSettings
 import com.maik205.shoumeiplayer.ui.i18n.resolve
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionBackground
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionAppTopNavigation
@@ -115,8 +118,9 @@ import com.maik205.shoumeiplayer.ui.television.model.HeroUi
 import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import com.maik205.shoumeiplayer.domain.model.MediaShelf as MediaShelfUi
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
+import com.maik205.shoumeiplayer.ui.television.theme.televisionTypography
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -139,6 +143,12 @@ fun TelevisionLibraryScreen(
     onNavigateProfile: () -> Unit,
     navigationState: LazyListState,
 ) {
+    // Same seam as TelevisionHomeScreen: read straight from the store instead of growing
+    // TelevisionLibraryState with a ClientSettings field (#89).
+    val settingsStore = LocalAppContainer.current.settingsStore
+    val settingsDefaults = remember { ClientSettings() }
+    val settings by settingsStore.settings.collectAsState(initial = settingsDefaults)
+
     val isMusic = state.collectionType.equals("music", ignoreCase = true)
     val focused = remember(state.items, isMusic) {
         mutableStateOf(
@@ -155,18 +165,20 @@ fun TelevisionLibraryScreen(
     val selectedNavigationKey = "library:$libraryId"
 
     TelevisionBackground(
-        imageUrl = if (isMusic) focused.value?.backdropUrl else null,
+        imageUrl = if (isMusic) resolveBackdropUrl(focused.value?.backdropUrl, settings.backdropImages) else null,
     ) {
+      MaterialTheme(typography = televisionTypography(settings.interfaceScale)) {
         if (!isMusic) {
+            val colors = TelevisionTheme.colors
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .drawBehind {
-                        drawRect(TelevisionColors.LibraryBackground)
+                        drawRect(colors.LibraryBackground)
                         drawRect(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    TelevisionColors.Paper.copy(alpha = 0.035f),
+                                    colors.Paper.copy(alpha = 0.035f),
                                     androidx.compose.ui.graphics.Color.Transparent,
                                 ),
                                 center = Offset(size.width * 0.18f, 0f),
@@ -197,6 +209,7 @@ fun TelevisionLibraryScreen(
                 onOpenItem = onOpenItem,
                 entryFocus = entryFocus,
                 topNavigationFocus = topNavigationFocus,
+                watchedIndicatorsEnabled = settings.watchedIndicators,
             )
         }
 
@@ -214,6 +227,7 @@ fun TelevisionLibraryScreen(
             selectedFocusRequester = topNavigationFocus,
             navigationState = navigationState,
         )
+      }
     }
 }
 
@@ -228,6 +242,7 @@ private fun StandardLibraryContent(
     onOpenItem: (MediaItemUi) -> Unit,
     entryFocus: FocusRequester,
     topNavigationFocus: FocusRequester,
+    watchedIndicatorsEnabled: Boolean = true,
 ) {
     var focusedMediaId by remember { mutableStateOf<String?>(null) }
     var snapTopTick by remember { mutableIntStateOf(0) }
@@ -278,7 +293,7 @@ private fun StandardLibraryContent(
                             fontSize = 7.sp,
                             lineHeight = 9.sp,
                         ),
-                        color = TelevisionColors.PaperSoft,
+                        color = TelevisionTheme.colors.PaperSoft,
                         modifier = Modifier.padding(top = 8.5.dp),
                     )
                 }
@@ -421,7 +436,10 @@ private fun StandardLibraryContent(
                 else -> {
                     itemsIndexed(state.items, key = { index, media -> "${media.id}:$index" }) { _, media ->
                         TelevisionMediaTile(
-                            item = media,
+                            // Only the badge/dimming this tile draws reads the toggle; onClick,
+                            // onFocusChanged and the pagination check below all keep using the real
+                            // `media` (#89).
+                            item = media.withWatchedIndicatorPreference(watchedIndicatorsEnabled),
                             shape = ArtworkShape.Poster,
                             tileWidth = 115.5.dp,
                             tileHeight = 173.25.dp,
@@ -431,7 +449,7 @@ private fun StandardLibraryContent(
                                 fontSize = 6.5.sp,
                                 lineHeight = 8.5.sp,
                             ),
-                            subtitleColor = TelevisionColors.Paper.copy(alpha = 0.75f),
+                            subtitleColor = TelevisionTheme.colors.Paper.copy(alpha = 0.75f),
                             showUnfocusedVeil = false,
                             focusedTranslationY = (-2.5).dp,
                             focusAnimationMillis = 240,
@@ -465,7 +483,7 @@ private fun StandardLibraryContent(
                                 Spacer(Modifier.width(10.dp))
                                 Text(
                                     text = stringResource(R.string.tv_loading_more),
-                                    color = TelevisionColors.PaperMuted,
+                                    color = TelevisionTheme.colors.PaperMuted,
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             }

@@ -70,8 +70,8 @@ import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWr
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.domain.model.ArtworkShape
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -109,7 +109,7 @@ internal fun TrackRail(
                     Text(
                         text = (index + 1).toString().padStart(2, '0'),
                         style = MaterialTheme.typography.labelMedium,
-                        color = TelevisionColors.PaperMuted,
+                        color = TelevisionTheme.colors.PaperMuted,
                         modifier = Modifier.width(42.dp),
                     )
                     Text(
@@ -123,7 +123,7 @@ internal fun TrackRail(
                         Text(
                             text = it,
                             style = MaterialTheme.typography.bodySmall,
-                            color = TelevisionColors.PaperMuted,
+                            color = TelevisionTheme.colors.PaperMuted,
                             modifier = Modifier.padding(start = 18.dp),
                         )
                     }
@@ -131,7 +131,7 @@ internal fun TrackRail(
                         Text(
                             text = it,
                             style = MaterialTheme.typography.bodySmall,
-                            color = TelevisionColors.PaperMuted,
+                            color = TelevisionTheme.colors.PaperMuted,
                             modifier = Modifier.padding(start = 22.dp),
                         )
                     }
@@ -253,7 +253,7 @@ internal fun PeopleRail(
                             modifier = Modifier
                                 .size(112.dp)
                                 .clip(CircleShape)
-                                .background(TelevisionColors.ImagePlaceholder),
+                                .background(TelevisionTheme.colors.ImagePlaceholder),
                         ) {
                             person.imageUrl?.let {
                                 AsyncImage(
@@ -275,7 +275,7 @@ internal fun PeopleRail(
                             Text(
                                 text = it,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = TelevisionColors.PaperMuted,
+                                color = TelevisionTheme.colors.PaperMuted,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )

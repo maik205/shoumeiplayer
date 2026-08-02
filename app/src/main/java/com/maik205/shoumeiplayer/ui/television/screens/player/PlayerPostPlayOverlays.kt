@@ -71,7 +71,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import java.util.Locale
 
@@ -82,6 +82,7 @@ internal fun PlayerErrorOverlay(
     onBack: () -> Unit,
 ) {
     val retry = remember { FocusRequester() }
+    val colors = TelevisionTheme.colors
     LaunchedEffect(Unit) { runCatching { retry.requestFocus() } }
     Box(
         Modifier
@@ -89,9 +90,9 @@ internal fun PlayerErrorOverlay(
             .fillMaxSize()
             .background(
                 Brush.horizontalGradient(
-                    0f to TelevisionColors.Black.copy(alpha = 0.98f),
-                    0.58f to TelevisionColors.Black.copy(alpha = 0.72f),
-                    1f to TelevisionColors.Black.copy(alpha = 0.34f),
+                    0f to colors.Black.copy(alpha = 0.98f),
+                    0.58f to colors.Black.copy(alpha = 0.72f),
+                    1f to colors.Black.copy(alpha = 0.34f),
                 ),
             ),
     ) {
@@ -110,7 +111,7 @@ internal fun PlayerErrorOverlay(
             Text(
                 message,
                 style = MaterialTheme.typography.bodyLarge,
-                color = TelevisionColors.PaperMuted,
+                color = colors.PaperMuted,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 PlayerCompactActionButton(
@@ -138,6 +139,7 @@ internal fun StillWatchingOverlay(
     onStop: () -> Unit,
 ) {
     val continueFocus = remember { FocusRequester() }
+    val colors = TelevisionTheme.colors
     LaunchedEffect(Unit) { runCatching { continueFocus.requestFocus() } }
     Box(
         Modifier
@@ -145,9 +147,9 @@ internal fun StillWatchingOverlay(
             .fillMaxSize()
             .background(
                 Brush.horizontalGradient(
-                    0f to TelevisionColors.Black.copy(alpha = 0.94f),
-                    0.62f to TelevisionColors.Black.copy(alpha = 0.58f),
-                    1f to TelevisionColors.Black.copy(alpha = 0.2f),
+                    0f to colors.Black.copy(alpha = 0.94f),
+                    0.62f to colors.Black.copy(alpha = 0.58f),
+                    1f to colors.Black.copy(alpha = 0.2f),
                 ),
             ),
     ) {
@@ -199,6 +201,7 @@ internal fun ResumePromptOverlay(
     onStartOver: () -> Unit,
 ) {
     val resumeFocus = remember { FocusRequester() }
+    val colors = TelevisionTheme.colors
     LaunchedEffect(Unit) { runCatching { resumeFocus.requestFocus() } }
     Box(
         Modifier
@@ -206,9 +209,9 @@ internal fun ResumePromptOverlay(
             .fillMaxSize()
             .background(
                 Brush.horizontalGradient(
-                    0f to TelevisionColors.Black.copy(alpha = 0.94f),
-                    0.62f to TelevisionColors.Black.copy(alpha = 0.58f),
-                    1f to TelevisionColors.Black.copy(alpha = 0.2f),
+                    0f to colors.Black.copy(alpha = 0.94f),
+                    0.62f to colors.Black.copy(alpha = 0.58f),
+                    1f to colors.Black.copy(alpha = 0.2f),
                 ),
             ),
     ) {
@@ -257,12 +260,13 @@ internal fun PostPlayOverlay(
     val primary = remember { FocusRequester() }
     var browsingEpisodes by remember { mutableStateOf(false) }
     var preview by remember(upNext?.itemId, episodes) { mutableStateOf(upNext ?: episodes.firstOrNull()) }
+    val colors = TelevisionTheme.colors
     LaunchedEffect(upNext?.itemId, browsingEpisodes) { runCatching { primary.requestFocus() } }
     Box(
         modifier = Modifier
             .playerModalFocusTrap()
             .fillMaxSize()
-            .background(TelevisionColors.Black),
+            .background(colors.Black),
     ) {
         preview?.thumbUrl?.let { artwork ->
             AsyncImage(
@@ -277,15 +281,15 @@ internal fun PostPlayOverlay(
                 .fillMaxSize()
                 .background(
                     Brush.horizontalGradient(
-                        0f to TelevisionColors.Black.copy(alpha = 0.97f),
-                        0.52f to TelevisionColors.Black.copy(alpha = 0.68f),
-                        1f to TelevisionColors.Black.copy(alpha = 0.14f),
+                        0f to colors.Black.copy(alpha = 0.97f),
+                        0.52f to colors.Black.copy(alpha = 0.68f),
+                        1f to colors.Black.copy(alpha = 0.14f),
                     ),
                 )
                 .background(
                     Brush.verticalGradient(
                         0f to Color.Transparent,
-                        1f to TelevisionColors.Black.copy(alpha = 0.9f),
+                        1f to colors.Black.copy(alpha = 0.9f),
                     ),
                 ),
         )
@@ -326,7 +330,7 @@ internal fun PostPlayOverlay(
                                     Text(
                                         episode.subtitle ?: stringResource(R.string.tv_player_next),
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = TelevisionColors.PaperMuted,
+                                        color = colors.PaperMuted,
                                         modifier = Modifier.width(64.dp),
                                     )
                                     Text(
@@ -336,7 +340,7 @@ internal fun PostPlayOverlay(
                                         } else {
                                             MaterialTheme.typography.bodyLarge
                                         },
-                                        color = if (focused) TelevisionColors.Paper else TelevisionColors.PaperMuted,
+                                        color = if (focused) colors.Paper else colors.PaperMuted,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.weight(1f),
@@ -361,7 +365,7 @@ internal fun PostPlayOverlay(
                     Text(
                         preview?.subtitle ?: stringResource(R.string.tv_episode),
                         style = MaterialTheme.typography.labelLarge,
-                        color = TelevisionColors.PaperMuted,
+                        color = colors.PaperMuted,
                     )
                     Text(
                         preview?.title.orEmpty(),
@@ -384,7 +388,7 @@ internal fun PostPlayOverlay(
                     stringResource(R.string.tv_player_playback_complete)
                 },
                     style = MaterialTheme.typography.labelLarge,
-                    color = TelevisionColors.PaperMuted,
+                    color = colors.PaperMuted,
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -396,7 +400,7 @@ internal fun PostPlayOverlay(
                 )
                 upNext?.subtitle?.let {
                     Spacer(Modifier.height(10.dp))
-                    Text(it, style = MaterialTheme.typography.bodyLarge, color = TelevisionColors.PaperMuted)
+                    Text(it, style = MaterialTheme.typography.bodyLarge, color = colors.PaperMuted)
                 }
                 Spacer(Modifier.height(20.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -446,13 +450,13 @@ internal fun PostPlayOverlay(
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
                         .height(2.dp)
-                        .background(TelevisionColors.ProgressTrack),
+                        .background(colors.ProgressTrack),
                 ) {
                     Box(
                         Modifier
                             .fillMaxWidth((countdownSeconds / 10f).coerceIn(0f, 1f))
                             .height(2.dp)
-                            .background(TelevisionColors.PaperMuted),
+                            .background(colors.PaperMuted),
                     )
                 }
             }
@@ -469,6 +473,7 @@ private fun LegacyPostPlayOverlay(
     onBack: () -> Unit,
 ) {
     val primary = remember { FocusRequester() }
+    val colors = TelevisionTheme.colors
     LaunchedEffect(upNext?.itemId) { runCatching { primary.requestFocus() } }
     ModalScrim {
         if (upNext != null) {
@@ -480,7 +485,7 @@ private fun LegacyPostPlayOverlay(
         Text(
             stringResource(R.string.tv_player_up_next),
             style = MaterialTheme.typography.titleMedium,
-            color = TelevisionColors.PaperMuted,
+            color = colors.PaperMuted,
         )
             AsyncImage(
                 model = upNext.thumbUrl,
@@ -489,7 +494,7 @@ private fun LegacyPostPlayOverlay(
                 modifier = Modifier
                     .width(420.dp)
                     .height(236.dp)
-                    .background(TelevisionColors.ImagePlaceholder),
+                    .background(colors.ImagePlaceholder),
             )
             Text(
                 upNext.title,
@@ -497,7 +502,7 @@ private fun LegacyPostPlayOverlay(
                 maxLines = 2,
             )
             upNext.subtitle?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = TelevisionColors.PaperMuted)
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.PaperMuted)
             }
         PlayerTextButton(
             label = playNextLabel,
@@ -529,11 +534,12 @@ private fun LegacyPostPlayOverlay(
 
 @Composable
 private fun ModalScrim(content: @Composable ColumnScope.() -> Unit) {
+    val colors = TelevisionTheme.colors
     Box(
         modifier = Modifier
             .playerModalFocusTrap()
             .fillMaxSize()
-            .background(TelevisionColors.Black.copy(alpha = 0.94f)),
+            .background(colors.Black.copy(alpha = 0.94f)),
         contentAlignment = Alignment.Center,
     ) {
         Column(

@@ -1,5 +1,7 @@
 package com.maik205.shoumeiplayer.domain.settings
 
+import java.util.Locale
+
 interface StoredOption {
     val storageId: String
     val label: String
@@ -187,11 +189,54 @@ enum class ServerLanguage(
     override val label: String,
     override val legacyValues: Set<String> = emptySet(),
 ) : StoredOption {
+    // storageId is ISO 639-2/B, which is what Jellyfin's own clients write. legacyValues carries the
+    // 639-1 tag and the 639-2/T form where they differ, so an account configured by any other client
+    // resolves here instead of falling through to "no preference".
+    Arabic("ara", "Arabic", setOf("ar")),
+    Chinese("chi", "Chinese", setOf("zh", "zho")),
+    Czech("cze", "Czech", setOf("cs", "ces")),
+    Danish("dan", "Danish", setOf("da")),
+    Dutch("dut", "Dutch", setOf("nl", "nld")),
     English("eng", "English", setOf("en")),
-    Japanese("jpn", "Japanese", setOf("ja")),
-    Vietnamese("vie", "Vietnamese", setOf("vi")),
+    Finnish("fin", "Finnish", setOf("fi")),
     French("fre", "French", setOf("fr", "fra")),
-    German("ger", "German", setOf("de", "deu"));
+    German("ger", "German", setOf("de", "deu")),
+    Greek("gre", "Greek", setOf("el", "ell")),
+    Hebrew("heb", "Hebrew", setOf("he")),
+    Hindi("hin", "Hindi", setOf("hi")),
+    Hungarian("hun", "Hungarian", setOf("hu")),
+    Indonesian("ind", "Indonesian", setOf("id")),
+    Italian("ita", "Italian", setOf("it")),
+    Japanese("jpn", "Japanese", setOf("ja")),
+    Korean("kor", "Korean", setOf("ko")),
+    Norwegian("nor", "Norwegian", setOf("no", "nob", "nb")),
+    Polish("pol", "Polish", setOf("pl")),
+    Portuguese("por", "Portuguese", setOf("pt")),
+    Romanian("rum", "Romanian", setOf("ro", "ron")),
+    Russian("rus", "Russian", setOf("ru")),
+    Spanish("spa", "Spanish", setOf("es")),
+    Swedish("swe", "Swedish", setOf("sv")),
+    Thai("tha", "Thai", setOf("th")),
+    Turkish("tur", "Turkish", setOf("tr")),
+    Ukrainian("ukr", "Ukrainian", setOf("uk")),
+    Vietnamese("vie", "Vietnamese", setOf("vi")),
+    ;
+
+    /**
+     * The language's name in [locale]'s own language — "Spanish", "Spanisch", "スペイン語" — resolved
+     * from the ICU data already on the device.
+     *
+     * Deliberately not a string resource. Routing these through `R.string` would mean a new key for
+     * every language times every UI locale, so each added language taxed every translation and each
+     * added locale taxed every language. [label] stays as the English fallback for the rare device
+     * whose ICU data does not know a code.
+     */
+    fun displayName(locale: Locale = Locale.getDefault()): String =
+        Locale.forLanguageTag(legacyValues.firstOrNull { it.length == 2 } ?: storageId)
+            .getDisplayLanguage(locale)
+            .takeIf(String::isNotBlank)
+            ?.replaceFirstChar { if (it.isLowerCase()) it.titlecase(locale) else it.toString() }
+            ?: label
 
     companion object {
         /** Resolves a server/legacy value, or null when the account expresses no preference. */
@@ -236,10 +281,33 @@ enum class DisplayLanguage(
     // locale instead of forcing English.
     SystemDefault("system_default", "System default"),
     English("en", "English"),
-    Vietnamese("vi", "Vietnamese"),
-    Japanese("ja", "Japanese"),
-    French("fr", "French"),
     German("de", "German"),
+    Spanish("es", "Spanish"),
+    French("fr", "French"),
+    Japanese("ja", "Japanese"),
+    Korean("ko", "Korean"),
+    Portuguese("pt-BR", "Portuguese (Brazil)"),
+    Vietnamese("vi", "Vietnamese"),
+    Chinese("zh-CN", "Chinese (Simplified)"),
+    ;
+
+    /**
+     * The language's own name — "Deutsch", "日本語", "Português (Brasil)".
+     *
+     * A language picker is the one list that should NOT follow the current UI language: someone who
+     * has landed in a language they cannot read needs to recognise their own entry to escape. Uses
+     * the locale as its own display locale for exactly that reason, unlike [ServerLanguage.displayName]
+     * which is read in the surrounding UI's language.
+     *
+     * [SystemDefault] has no locale of its own and keeps a translated string resource instead.
+     */
+    fun endonym(): String {
+        val locale = Locale.forLanguageTag(storageId)
+        val language = locale.getDisplayLanguage(locale).takeIf(String::isNotBlank) ?: return label
+        val region = locale.getDisplayCountry(locale).takeIf(String::isNotBlank)
+        return (if (region == null) language else "$language ($region)")
+            .replaceFirstChar { if (it.isLowerCase()) it.titlecase(locale) else it.toString() }
+    }
 }
 
 enum class InterfaceScale(
@@ -257,6 +325,24 @@ enum class AppTheme(
 ) : StoredOption {
     Dark("dark", "Dark"),
     System("system", "System"),
+}
+
+/**
+ * The colour palette the television UI is painted with (#101).
+ *
+ * Each entry is a complete palette rather than an accent hue, and each has a counterpart in the
+ * other light/dark mode ([Midnight]/[Daylight] achromatic, [Ember]/[Sunrise] accented) so
+ * [AppTheme.System] has something real to switch between. [Midnight] is the look every install has
+ * today and stays the default: an upgrade must not repaint anybody's television.
+ */
+enum class ColorPalette(
+    override val storageId: String,
+    override val label: String,
+) : StoredOption {
+    Midnight("midnight", "Midnight"),
+    Ember("ember", "Ember"),
+    Daylight("daylight", "Daylight"),
+    Sunrise("sunrise", "Sunrise"),
 }
 
 enum class ScreensaverContent(

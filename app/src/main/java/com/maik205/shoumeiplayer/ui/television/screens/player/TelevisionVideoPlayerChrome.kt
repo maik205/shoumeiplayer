@@ -70,7 +70,7 @@ import com.maik205.shoumeiplayer.player.TrackType
 import com.maik205.shoumeiplayer.feature.player.ChapterMark
 import com.maik205.shoumeiplayer.feature.player.PlayerTimelineState
 import com.maik205.shoumeiplayer.feature.player.PlayerUiState
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
@@ -134,16 +134,17 @@ internal fun VideoPlayerChrome(
 ) {
     val playing = state.state == PlayerState.Playing || state.state == PlayerState.Buffering
     val whileWatchingFocus = remember { FocusRequester() }
+    val colors = TelevisionTheme.colors
     Column(
         modifier = modifier
             .fillMaxWidth()
             .graphicsLayer { alpha = if (dimmed) 0.26f else 1f }
             .background(
                 Brush.verticalGradient(
-                    0f to TelevisionColors.Black.copy(alpha = 0f),
-                    0.28f to TelevisionColors.Black.copy(alpha = 0f),
-                    0.62f to TelevisionColors.Black.copy(alpha = 0.56f),
-                    1f to TelevisionColors.Black.copy(alpha = 0.97f),
+                    0f to colors.Black.copy(alpha = 0f),
+                    0.28f to colors.Black.copy(alpha = 0f),
+                    0.62f to colors.Black.copy(alpha = 0.56f),
+                    1f to colors.Black.copy(alpha = 0.97f),
                 ),
             )
             .padding(
@@ -168,7 +169,7 @@ internal fun VideoPlayerChrome(
             Text(
                 text = it,
                 style = MaterialTheme.typography.bodyMedium,
-                color = TelevisionColors.PaperMuted,
+                color = colors.PaperMuted,
                 maxLines = 1,
             )
         }

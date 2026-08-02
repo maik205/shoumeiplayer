@@ -21,7 +21,8 @@ package com.maik205.shoumeiplayer.domain.settings
  *   [displayLanguage], which the launcher applies before anyone has signed in.
  * - **Per `(serverUrl, userId)`**, because they are matters of taste and one viewer's choices
  *   following another into their profile is the bug #85 describes: subtitle appearance and delays,
- *   the interface block ([focusScaleEnabled] through [cacheHomeContent]), the whole screensaver
+ *   the interface block ([focusScaleEnabled] through [cacheHomeContent], including [colorPalette] --
+ *   which colours the UI is a matter of taste, not a fact about the panel), the whole screensaver
  *   block, the resume/seek/skip habits, [rememberSeriesAudio], and the quality ceiling
  *   ([preferredQuality], [maxStreamingBitrateMbps], [maxRemoteBitrateMbps]) a viewer is willing to
  *   accept.
@@ -79,6 +80,7 @@ data class ClientSettings(
     val displayLanguage: DisplayLanguage = DisplayLanguage.SystemDefault,
     val interfaceScale: InterfaceScale = InterfaceScale.Comfortable,
     val theme: AppTheme = AppTheme.Dark,
+    val colorPalette: ColorPalette = ColorPalette.Midnight,
     val backdropImages: Boolean = true,
     val backdropRotationSeconds: Int = 20,
     val watchedIndicators: Boolean = true,

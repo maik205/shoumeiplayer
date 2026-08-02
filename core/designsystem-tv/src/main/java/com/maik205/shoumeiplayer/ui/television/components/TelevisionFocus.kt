@@ -33,8 +33,8 @@ import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Glow
 import androidx.tv.material3.Surface
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import kotlinx.coroutines.launch
 
 object TelevisionFocusScale {
@@ -92,6 +92,7 @@ fun TelevisionFocusSurface(
     onFocusChanged: (Boolean) -> Unit = {},
     content: @Composable BoxScope.(focused: Boolean) -> Unit,
 ) {
+    val colors = TelevisionTheme.colors
     var focused by remember { mutableStateOf(false) }
     val density = LocalDensity.current
     val scale by animateFloatAsState(
@@ -110,7 +111,7 @@ fun TelevisionFocusSurface(
     )
     val alpha by animateFloatAsState(
         targetValue = when {
-            !enabled -> TelevisionColors.PaperDisabled.alpha
+            !enabled -> colors.PaperDisabled.alpha
             focused -> focusedAlpha
             else -> restingAlpha
         },
@@ -148,13 +149,13 @@ fun TelevisionFocusSurface(
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(TelevisionDimensions.FocusRadius)),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.Transparent,
-            contentColor = TelevisionColors.Paper,
+            contentColor = colors.Paper,
             focusedContainerColor = Color.Transparent,
-            focusedContentColor = TelevisionColors.Paper,
+            focusedContentColor = colors.Paper,
             pressedContainerColor = Color.Transparent,
-            pressedContentColor = TelevisionColors.Paper,
+            pressedContentColor = colors.Paper,
             disabledContainerColor = Color.Transparent,
-            disabledContentColor = TelevisionColors.PaperDisabled,
+            disabledContentColor = colors.PaperDisabled,
         ),
         scale = ClickableSurfaceDefaults.scale(
             scale = 1f,

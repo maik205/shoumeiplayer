@@ -111,8 +111,8 @@ import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDesti
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import com.maik205.shoumeiplayer.domain.model.MediaShelf as MediaShelfUi
 import com.maik205.shoumeiplayer.R
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -211,7 +211,7 @@ internal fun EndOfLibraryMessage(
     Text(
         text = stringResource(R.string.tv_end_of_library),
         style = MaterialTheme.typography.titleMedium,
-        color = TelevisionColors.PaperSoft,
+        color = TelevisionTheme.colors.PaperSoft,
         textAlign = TextAlign.Center,
         modifier = modifier.fillMaxWidth(),
     )
