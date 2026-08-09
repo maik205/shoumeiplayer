@@ -90,6 +90,7 @@ needs_exe_wrapper = true
 
 [built-in options]
 c_args = ['-fPIC']
+c_link_args = ['-lc++_shared']
 cpp_args = ['-fPIC']
 EOF
 }
