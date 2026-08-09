@@ -119,7 +119,7 @@ val provisionMpvNativeLibraries = tasks.register("provisionMpvNativeLibraries") 
             "libswresample.so",
             "libswscale.so",
         )
-        for (abi in listOf("armeabi-v7a", "arm64-v8a", "x86_64")) {
+        for (abi in listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")) {
             for (library in requiredLibraries) {
                 val nativeLibrary = generatedMpvJniLibs.get().file("$abi/$library").asFile
                 check(nativeLibrary.isFile && nativeLibrary.length() > 0L) {
@@ -143,7 +143,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
         ndk {
-            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
         }
         externalNativeBuild {
             cmake {
