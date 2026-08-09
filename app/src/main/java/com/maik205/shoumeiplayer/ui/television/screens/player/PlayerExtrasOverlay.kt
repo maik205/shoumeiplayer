@@ -177,9 +177,10 @@ internal fun PlayerWhileWatchingRail(
     val railState = rememberLazyListState()
     val shelvesError = state.shelvesError
 
-    LaunchedEffect(itemIds) {
-        if (itemIds.isNotEmpty()) {
-            runCatching { focusRequester.requestFocus() }
+    LaunchedEffect(itemIds, shelvesError, state.shelvesLoading) {
+        when {
+            itemIds.isNotEmpty() || shelvesError != null -> focusRequester.requestFocus()
+            !state.shelvesLoading -> upFocusRequester.requestFocus()
         }
     }
 
@@ -238,6 +239,7 @@ internal fun PlayerWhileWatchingRail(
                         label = stringResource(R.string.retry),
                         icon = Icons.Default.Refresh,
                         onClick = onRetry,
+                        focusRequester = focusRequester,
                     )
                 }
             }

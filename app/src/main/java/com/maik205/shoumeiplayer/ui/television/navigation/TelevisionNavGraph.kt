@@ -226,9 +226,10 @@ fun TelevisionNavGraph(
                 onRetry = viewModel::retry,
                 onAnotherAccount = viewModel::useAnotherAccount,
                 onBack = {
-                    navController.navigate(ConnectRoute) {
-                        popUpTo(0) { inclusive = true }
-                        launchSingleTop = true
+                    if (!navController.popBackStack()) {
+                        navController.navigate(ConnectRoute) {
+                            launchSingleTop = true
+                        }
                     }
                 },
             )

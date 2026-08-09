@@ -99,6 +99,7 @@ fun TelevisionDetailScreen(
     val listState = rememberLazyListState()
     val playbackLaunch = rememberPlaybackLaunchState(item?.id)
     var heroFocusTick by remember { mutableIntStateOf(0) }
+    val heroListIndex = (if (loadError != null) 1 else 0) + (if (actionError != null) 1 else 0)
     var initialFocusAssigned by rememberSaveable(item?.id) { mutableStateOf(false) }
     val audioStreams = remember(playbackItem?.id, playbackItem?.mediaStreams) {
         playbackItem?.mediaStreams.orEmpty().filter { it.type.equals("Audio", ignoreCase = true) }
@@ -139,8 +140,8 @@ fun TelevisionDetailScreen(
             initialFocusAssigned = true
         }
     }
-    LaunchedEffect(heroFocusTick) {
-        if (heroFocusTick > 0) listState.animateScrollToItem(0)
+    LaunchedEffect(heroFocusTick, heroListIndex) {
+        if (heroFocusTick > 0) listState.animateScrollToItem(heroListIndex)
     }
 
     TelevisionBackground(imageUrl = hero?.backdropUrl) {

@@ -326,6 +326,8 @@
     <string name="tv_player_repeat">Repeat</string>
     <string name="tv_player_queue">Queue</string>
     <string name="tv_player_exit">Exit?</string>
+    <string name="tv_player_exit_message">Playback will stop and your position will be saved.</string>
+    <string name="tv_player_confirm_exit">Exit player</string>
     <plurals name="tv_player_rewind">
         <item quantity="one">Rewind %1$d second</item>
         <item quantity="other">Rewind %1$d seconds</item>

@@ -188,13 +188,14 @@ internal fun PostPlayOverlay(
     upNext: UpNextUi?,
     episodes: List<UpNextUi>,
     countdownSeconds: Int?,
+    browsingEpisodes: Boolean,
+    onBrowsingEpisodesChange: (Boolean) -> Unit,
     onPlayNext: () -> Unit,
     onPlayEpisode: (String) -> Unit,
     onReplay: () -> Unit,
     onBack: () -> Unit,
 ) {
     val primary = remember { FocusRequester() }
-    var browsingEpisodes by remember { mutableStateOf(false) }
     var preview by remember(upNext?.itemId, episodes) { mutableStateOf(upNext ?: episodes.firstOrNull()) }
     LaunchedEffect(upNext?.itemId, browsingEpisodes) { runCatching { primary.requestFocus() } }
     Box(
@@ -240,7 +241,7 @@ internal fun PostPlayOverlay(
                     TelevisionFocusRevealButton(
                         label = stringResource(R.string.tv_back),
                         icon = Icons.AutoMirrored.Filled.ArrowBack,
-                        onClick = { browsingEpisodes = false },
+                        onClick = { onBrowsingEpisodesChange(false) },
                         focusRequester = primary,
                         expandedWidth = 54.dp,
                     )
@@ -357,7 +358,7 @@ internal fun PostPlayOverlay(
                             PlayerCompactActionButton(
                                 label = stringResource(R.string.tv_episodes),
                                 icon = Icons.Default.VideoLibrary,
-                                onClick = { browsingEpisodes = true },
+                                onClick = { onBrowsingEpisodesChange(true) },
                                 expandedWidth = 118.dp,
                             )
                         }
@@ -463,6 +464,39 @@ private fun LegacyPostPlayOverlay(
             onClick = onBack,
             modifier = Modifier.width(160.dp),
         )
+    }
+}
+
+@Composable
+internal fun PlayerExitConfirmationOverlay(
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val confirmFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { confirmFocus.requestFocus() }
+    ModalScrim {
+        Text(
+            text = stringResource(R.string.tv_player_exit),
+            style = MaterialTheme.typography.displaySmall,
+        )
+        Text(
+            text = stringResource(R.string.tv_player_exit_message),
+            style = MaterialTheme.typography.bodyLarge,
+            color = TelevisionColors.PaperMuted,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            PlayerTextButton(
+                label = stringResource(R.string.tv_player_confirm_exit),
+                onClick = onConfirm,
+                focusRequester = confirmFocus,
+                modifier = Modifier.width(180.dp),
+            )
+            PlayerTextButton(
+                label = stringResource(R.string.cancel),
+                onClick = onCancel,
+                modifier = Modifier.width(140.dp),
+            )
+        }
     }
 }
 

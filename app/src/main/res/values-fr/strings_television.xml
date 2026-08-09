@@ -352,6 +352,8 @@
     <string name="tv_player_repeat">Repeat</string>
     <string name="tv_player_queue">Queue</string>
     <string name="tv_player_exit">Exit?</string>
+    <string name="tv_player_exit_message">La lecture s’arrêtera et votre position sera enregistrée.</string>
+    <string name="tv_player_confirm_exit">Quitter le lecteur</string>
     <plurals name="tv_player_rewind">
         <item quantity="one">Reculer de %1$d seconde</item>
         <item quantity="other">Reculer de %1$d secondes</item>

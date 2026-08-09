@@ -259,6 +259,8 @@
     <string name="tv_player_repeat">Lặp lại</string>
     <string name="tv_player_queue">Hàng đợi</string>
     <string name="tv_player_exit">Thoát?</string>
+    <string name="tv_player_exit_message">Quá trình phát sẽ dừng và vị trí của bạn sẽ được lưu.</string>
+    <string name="tv_player_confirm_exit">Thoát trình phát</string>
     <plurals name="tv_player_rewind">
         <item quantity="other">Tua lùi %1$d giây</item>
     </plurals>

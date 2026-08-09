@@ -63,6 +63,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -819,11 +820,13 @@ fun RecoveryScreen(
     BackHandler(onBack = onBack)
 
     val usernameFocus = remember { FocusRequester() }
-    val resultFocus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { usernameFocus.requestFocus() }
+    val requestFocus = remember { FocusRequester() }
+    val backFocus = remember { FocusRequester() }
     LaunchedEffect(state.result, state.error) {
         if (state.result != null || state.error != null) {
-            runCatching { resultFocus.requestFocus() }
+            if (state.userName.isNotBlank()) requestFocus.requestFocus() else backFocus.requestFocus()
+        } else {
+            usernameFocus.requestFocus()
         }
     }
 
@@ -833,6 +836,7 @@ fun RecoveryScreen(
                 label = stringResource(R.string.sign_in),
                 icon = Icons.AutoMirrored.Filled.ArrowBack,
                 onClick = onBack,
+                focusRequester = backFocus,
                 expandedWidth = 106.dp,
                 modifier = Modifier
                     .align(Alignment.TopStart)
@@ -868,11 +872,14 @@ fun RecoveryScreen(
                         placeholder = stringResource(R.string.username),
                         onDone = onRequestReset,
                         focusRequester = usernameFocus,
+                        modifier = Modifier.testTag("recovery_username"),
                     )
                     Spacer(Modifier.height(24.dp))
                     TelevisionFocusRevealButton(
                         label = stringResource(
-                            if (state.result == null) {
+                            if (state.error != null) {
+                                R.string.retry
+                            } else if (state.result == null) {
                                 R.string.tv_request_reset
                             } else {
                                 R.string.tv_request_again
@@ -885,7 +892,9 @@ fun RecoveryScreen(
                         },
                         onClick = onRequestReset,
                         enabled = state.userName.isNotBlank() && !state.requesting,
+                        focusRequester = requestFocus,
                         expandedWidth = 154.dp,
+                        modifier = Modifier.testTag("recovery_action"),
                     )
                     if (state.requesting) {
                         Spacer(Modifier.height(16.dp))
@@ -899,15 +908,13 @@ fun RecoveryScreen(
                         Spacer(Modifier.height(18.dp))
                         Text(
                             text = recoveryMessage.resolve(),
+                            modifier = Modifier.testTag("recovery_message"),
                             style = MaterialTheme.typography.bodyLarge,
                             color = if (state.error == null) {
                                 TelevisionColors.Paper
                             } else {
                                 TelevisionColors.PaperMuted
                             },
-                            modifier = Modifier
-                                .focusRequester(resultFocus)
-                                .focusable(),
                         )
                     }
                 }

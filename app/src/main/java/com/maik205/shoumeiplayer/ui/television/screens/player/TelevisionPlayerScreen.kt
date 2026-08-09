@@ -81,7 +81,6 @@ import kotlinx.coroutines.flow.StateFlow
 
 private const val PLAYER_OSD_TIMEOUT_MS = 5_000L
 private const val MINI_SEEK_TIMEOUT_MS = 1_500L
-private const val EXIT_ARM_TIMEOUT_MS = 2_000L
 private const val STILL_WATCHING_TIMEOUT_MS = 2L * 60L * 60L * 1_000L
 private const val POST_PLAY_SECONDS = 10
 
@@ -210,7 +209,7 @@ internal fun TelevisionPlayerContent(
     var interactionTick by remember { mutableIntStateOf(0) }
     var timelineFocusTick by remember { mutableIntStateOf(0) }
     var playPauseFocusTick by remember { mutableIntStateOf(0) }
-    var exitArmed by remember { mutableStateOf(false) }
+    var exitConfirmationVisible by remember { mutableStateOf(false) }
     var stillWatching by remember { mutableStateOf(false) }
     var lyricsVisible by remember { mutableStateOf(false) }
     var audioQueueVisible by remember { mutableStateOf(false) }
@@ -220,6 +219,7 @@ internal fun TelevisionPlayerContent(
     var repeatEnabled by remember { mutableStateOf(false) }
     var playRequestPending by remember { mutableStateOf(false) }
     var postPlaySeconds by remember { mutableStateOf<Int?>(null) }
+    var postPlayBrowsing by remember(state.upNext?.itemId) { mutableStateOf(false) }
     var frameMode by remember { mutableStateOf(FrameMode.Fit) }
     var hdrMode by remember { mutableStateOf(HdrMode.Automatic) }
     var videoTrack by remember { mutableStateOf("") }
@@ -234,6 +234,14 @@ internal fun TelevisionPlayerContent(
     LaunchedEffect(state.state, state.error) {
         if (state.state != PlayerState.Paused && state.state != PlayerState.Ended) {
             playRequestPending = false
+        }
+        if (playbackError != null || state.state == PlayerState.Ended) {
+            panel = null
+            panelBackStack = emptyList()
+            whileWatchingVisible = false
+            lyricsVisible = false
+            audioQueueVisible = false
+            stillWatching = false
         }
     }
 
@@ -292,17 +300,22 @@ internal fun TelevisionPlayerContent(
 
     fun exitPlayer() = leavePlayer(onExit)
 
-    fun handleExitButton() {
-        if (exitArmed) {
-            exitPlayer()
-        } else {
-            exitArmed = true
-            noteInteraction()
-        }
+    fun requestExit() {
+        exitConfirmationVisible = true
+        panel = null
+        panelBackStack = emptyList()
+        whileWatchingVisible = false
+        lyricsVisible = false
+        audioQueueVisible = false
+        stillWatching = false
+        postPlayBrowsing = false
+        noteInteraction()
     }
 
     fun openPanel(target: TelevisionPlayerPanel) {
         whileWatchingVisible = false
+        lyricsVisible = false
+        audioQueueVisible = false
         val current = panel
         if (current == null) {
             panelBackStack = emptyList()
@@ -357,28 +370,28 @@ internal fun TelevisionPlayerContent(
         }
     }
 
-    LaunchedEffect(exitArmed) {
-        if (exitArmed) {
-            delay(EXIT_ARM_TIMEOUT_MS)
-            exitArmed = false
-        }
-    }
-
     LaunchedEffect(interactionTick, state.state) {
         if (state.state == PlayerState.Playing || state.state == PlayerState.Buffering) {
             delay(STILL_WATCHING_TIMEOUT_MS)
             controller.pause()
+            panel = null
+            panelBackStack = emptyList()
+            whileWatchingVisible = false
+            lyricsVisible = false
+            audioQueueVisible = false
             stillWatching = true
         }
     }
 
-    LaunchedEffect(state.state, state.upNext?.itemId, sleepTimer) {
+    LaunchedEffect(state.state, state.upNext?.itemId, sleepTimer, postPlayBrowsing) {
         if (state.state == PlayerState.Ended && sleepTimer == SleepTimer.EndOfEpisode) {
             exitPlayer()
             return@LaunchedEffect
         }
         if (!audio && state.state == PlayerState.Ended && state.upNext?.autoPlay == true) {
-            for (remaining in POST_PLAY_SECONDS downTo 1) {
+            if (postPlayBrowsing) return@LaunchedEffect
+            val startingSeconds = postPlaySeconds ?: POST_PLAY_SECONDS
+            for (remaining in startingSeconds downTo 1) {
                 postPlaySeconds = remaining
                 delay(1_000L)
             }
@@ -433,9 +446,11 @@ internal fun TelevisionPlayerContent(
 
     BackHandler {
         when {
-            stillWatching -> exitPlayer()
-            playbackError != null -> exitPlayer()
-            state.state == PlayerState.Ended -> exitPlayer()
+            exitConfirmationVisible -> exitConfirmationVisible = false
+            postPlayBrowsing -> postPlayBrowsing = false
+            stillWatching -> requestExit()
+            playbackError != null -> requestExit()
+            state.state == PlayerState.Ended -> requestExit()
             panel != null -> {
                 closePanel()
             }
@@ -458,7 +473,7 @@ internal fun TelevisionPlayerContent(
             }
             !audio && osdVisible -> hideOsd()
             !audio && miniSeekVisible -> miniSeekVisible = false
-            else -> exitPlayer()
+            else -> requestExit()
         }
     }
 
@@ -568,14 +583,14 @@ internal fun TelevisionPlayerContent(
                 playLoading = playControlLoading,
                 timelineFocus = timelineFocus,
                 playPauseFocus = playPauseFocus,
-                exitArmed = exitArmed,
+                exitArmed = false,
                 lyricsVisible = lyricsVisible,
                 queueVisible = audioQueueVisible,
                 upNextCoverMode = upNextCoverMode,
                 suggestedCoverMode = suggestedCoverMode,
                 shuffleEnabled = shuffleEnabled,
                 repeatEnabled = repeatEnabled,
-                onExitButton = ::handleExitButton,
+                onExitButton = ::requestExit,
                 onSeekBy = controller::seekBy,
                 onTogglePlayPause = ::togglePlayPauseWithFeedback,
                 onPrevious = controller::playPreviousAudio,
@@ -597,6 +612,8 @@ internal fun TelevisionPlayerContent(
                     lyricsVisible = showingLyrics
                     if (showingLyrics) {
                         audioQueueVisible = false
+                        panel = null
+                        panelBackStack = emptyList()
                     }
                 },
                 onToggleQueue = {
@@ -604,6 +621,8 @@ internal fun TelevisionPlayerContent(
                     audioQueueVisible = openingQueue
                     if (openingQueue) {
                         lyricsVisible = false
+                        panel = null
+                        panelBackStack = emptyList()
                     } else {
                         requestPlayPause()
                     }
@@ -645,13 +664,15 @@ internal fun TelevisionPlayerContent(
                     whileWatchingVisible = whileWatchingVisible,
                     onOpenWhileWatching = {
                         whileWatchingVisible = true
+                        panel = null
+                        panelBackStack = emptyList()
                         noteInteraction()
                         controller.loadShelves()
                     },
                     onOpenItem = { target -> leavePlayer { onNavigateToItem(target) } },
                     onRetryWhileWatching = controller::loadShelves,
-                    exitArmed = exitArmed,
-                    onExitButton = ::handleExitButton,
+                    exitArmed = false,
+                    onExitButton = ::requestExit,
                     onSeekBy = controller::seekBy,
                     onTogglePlayPause = ::togglePlayPauseWithFeedback,
                     onHideOsd = ::hideOsd,
@@ -1053,7 +1074,7 @@ internal fun TelevisionPlayerContent(
             null -> Unit
         }
 
-        if (playbackError != null) {
+        if (playbackError != null && !exitConfirmationVisible) {
             PlayerErrorOverlay(
                 message = playbackError,
                 onRetry = {
@@ -1061,9 +1082,10 @@ internal fun TelevisionPlayerContent(
                     panelBackStack = emptyList()
                     controller.retryPlayback()
                 },
-                onBack = ::exitPlayer,
+                onBack = ::requestExit,
             )
         } else if (
+            !exitConfirmationVisible &&
             state.state == PlayerState.Ended &&
             (!audio || (!state.musicContextLoading && !hasQueuedAudioNext))
         ) {
@@ -1071,14 +1093,21 @@ internal fun TelevisionPlayerContent(
                 upNext = state.upNext,
                 episodes = state.postPlayEpisodes,
                 countdownSeconds = postPlaySeconds,
+                browsingEpisodes = postPlayBrowsing,
+                onBrowsingEpisodesChange = { postPlayBrowsing = it },
                 onPlayNext = controller::playUpNext,
                 onPlayEpisode = controller::switchTo,
                 onReplay = controller::togglePlayPause,
-                onBack = ::exitPlayer,
+                onBack = ::requestExit,
             )
         }
 
-        if (stillWatching) {
+        if (
+            stillWatching &&
+            playbackError == null &&
+            state.state != PlayerState.Ended &&
+            !exitConfirmationVisible
+        ) {
             StillWatchingOverlay(
                 onContinue = {
                     stillWatching = false
@@ -1086,6 +1115,12 @@ internal fun TelevisionPlayerContent(
                     controller.play()
                 },
                 onStop = ::exitPlayer,
+            )
+        }
+        if (exitConfirmationVisible) {
+            PlayerExitConfirmationOverlay(
+                onConfirm = ::exitPlayer,
+                onCancel = { exitConfirmationVisible = false },
             )
         }
     }
