@@ -14,7 +14,17 @@ The `native/mpv/upstream` submodule pins mpv `v0.41.0`. The Android libraries us
 | libass | `f9fd3d20dff1cd84b7c74c8ae7f79711ad7736fa` |
 | libplacebo | `4c426e466814536def653cb23f1d1c287ea7a7f5` |
 
-The native bundle uses Android Native Development Kit (NDK) r29 and supports `armeabi-v7a`, `arm64-v8a`, and `x86_64`.
+The native bundle uses Android Native Development Kit (NDK) r29 and supports `armeabi-v7a`, `arm64-v8a`, `x86`, and `x86_64`.
+
+No third-party player AAR or prebuilt media library is accepted. `build-android.sh` compiles the pinned official mpv source and each required codec, TLS, text-shaping, and subtitle dependency from its original upstream source. `sources.env` is the immutable source/toolchain lock.
+
+From the repository root inside Linux or WSL2:
+
+```bash
+./native/mpv/build-android.sh
+```
+
+Pass one or more ABI names to perform an incremental targeted build, for example `./native/mpv/build-android.sh x86`.
 
 ## Provision native libraries
 

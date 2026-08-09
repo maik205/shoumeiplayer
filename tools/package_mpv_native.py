@@ -58,6 +58,12 @@ def main() -> int:
     parser.add_argument("--ffmpeg-commit", required=True)
     parser.add_argument("--ndk-version", required=True)
     parser.add_argument(
+        "--source-lock",
+        required=True,
+        type=Path,
+        help="Path to native/mpv/sources.env used for this build",
+    )
+    parser.add_argument(
         "--abi-source",
         action="append",
         required=True,
@@ -87,12 +93,27 @@ def main() -> int:
                 "size": path.stat().st_size,
             }
 
+    source_lock = args.source_lock.resolve()
+    if not source_lock.is_file():
+        parser.error(f"Source lock does not exist: {source_lock}")
+    locked_sources: dict[str, str] = {}
+    for raw_line in source_lock.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        try:
+            key, value = line.split("=", 1)
+        except ValueError:
+            parser.error(f"Invalid source-lock line: {raw_line}")
+        locked_sources[key] = value
+
     manifest = {
         "schemaVersion": 1,
         "mpvVersion": args.mpv_version,
         "mpvCommit": args.mpv_commit,
         "ffmpegCommit": args.ffmpeg_commit,
         "ndkVersion": args.ndk_version,
+        "sourceLock": locked_sources,
         "abis": manifest_files,
     }
     manifest_data = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
