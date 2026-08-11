@@ -64,6 +64,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -92,6 +93,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -118,6 +120,7 @@ import com.maik205.shoumeiplayer.domain.model.MediaShelf as MediaShelfUi
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 import kotlin.math.abs
 
 @Composable
@@ -153,6 +156,11 @@ fun TelevisionLibraryScreen(
     val entryFocus = remember { FocusRequester() }
     val topNavigationFocus = remember { FocusRequester() }
     val selectedNavigationKey = "library:$libraryId"
+    var restoreMediaId by rememberSaveable(libraryId) { mutableStateOf<String?>(null) }
+    val openItem: (MediaItemUi) -> Unit = { item ->
+        restoreMediaId = item.id
+        onOpenItem(item)
+    }
 
     TelevisionBackground(
         imageUrl = if (isMusic) focused.value?.backdropUrl else null,
@@ -181,11 +189,12 @@ fun TelevisionLibraryScreen(
                 state = state,
                 focused = focused.value,
                 onFocused = { focused.value = it },
-                onOpenItem = onOpenItem,
+                onOpenItem = openItem,
                 onRetry = onRetry,
                 onLoadMore = onLoadMore,
                 entryFocus = entryFocus,
                 topNavigationFocus = topNavigationFocus,
+                restoreMediaId = restoreMediaId,
             )
         } else {
             StandardLibraryContent(
@@ -194,9 +203,10 @@ fun TelevisionLibraryScreen(
                 onLoadMore = onLoadMore,
                 onSetSort = onSetSort,
                 onSetView = onSetView,
-                onOpenItem = onOpenItem,
+                onOpenItem = openItem,
                 entryFocus = entryFocus,
                 topNavigationFocus = topNavigationFocus,
+                restoreMediaId = restoreMediaId,
             )
         }
 
@@ -228,10 +238,31 @@ private fun StandardLibraryContent(
     onOpenItem: (MediaItemUi) -> Unit,
     entryFocus: FocusRequester,
     topNavigationFocus: FocusRequester,
+    restoreMediaId: String?,
 ) {
     var focusedMediaId by remember { mutableStateOf<String?>(null) }
     var snapTopTick by remember { mutableIntStateOf(0) }
     val gridState = rememberLazyGridState()
+    val itemFocusRequesters = remember { mutableMapOf<String, FocusRequester>() }
+    val currentRestoreMediaId by rememberUpdatedState(restoreMediaId)
+    val restoreScope = rememberCoroutineScope()
+    LifecycleResumeEffect(Unit) {
+        val job = restoreScope.launch {
+            val mediaId = currentRestoreMediaId ?: return@launch
+            val itemIndex = state.items.indexOfFirst { it.id == mediaId }
+            if (itemIndex < 0) return@launch
+            val gridIndex = itemIndex + 2
+            gridState.scrollToItem(gridIndex)
+            while (isActive) {
+                val requester = itemFocusRequesters[mediaId]
+                if (requester != null && runCatching { requester.requestFocus() }.getOrDefault(false)) {
+                    break
+                }
+                androidx.compose.runtime.withFrameNanos { }
+            }
+        }
+        onPauseOrDispose { job.cancel() }
+    }
     val count = maxOf(state.totalCount, state.items.size)
     val countLabel = pluralStringResource(R.plurals.tv_library_item_count, count, count)
     val sortingByTitle = state.sort == BrowseSort.Name
@@ -419,7 +450,7 @@ private fun StandardLibraryContent(
                 }
 
                 else -> {
-                    itemsIndexed(state.items, key = { index, media -> "${media.id}:$index" }) { _, media ->
+                    itemsIndexed(state.items, key = { _, media -> media.id }) { _, media ->
                         TelevisionMediaTile(
                             item = media,
                             shape = ArtworkShape.Poster,
@@ -435,6 +466,7 @@ private fun StandardLibraryContent(
                             showUnfocusedVeil = false,
                             focusedTranslationY = (-2.5).dp,
                             focusAnimationMillis = 240,
+                            focusRequester = itemFocusRequesters.getOrPut(media.id) { FocusRequester() },
                             restingAlpha = if (focusedMediaId != null) 0.5f else 1f,
                             onFocusChanged = { focused ->
                                 if (focused) {

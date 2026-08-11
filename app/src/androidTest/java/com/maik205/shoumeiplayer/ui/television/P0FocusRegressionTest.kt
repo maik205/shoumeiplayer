@@ -8,7 +8,18 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.input.key.Key
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.testTag
+import com.maik205.shoumeiplayer.domain.model.LibraryDestination
 import com.maik205.shoumeiplayer.ui.i18n.UiText
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionNavigationItem
+import com.maik205.shoumeiplayer.ui.television.components.TelevisionTopNavigation
 import com.maik205.shoumeiplayer.ui.television.screens.onboarding.RecoveryScreen
 import com.maik205.shoumeiplayer.ui.television.screens.onboarding.RecoveryUiState
 import com.maik205.shoumeiplayer.ui.television.screens.player.PlayerExitConfirmationOverlay
@@ -77,5 +88,44 @@ class P0FocusRegressionTest {
             pressKey(Key.DirectionRight)
         }
         compose.onNodeWithText("Cancel").assertIsFocused()
+    }
+
+    @Test
+    fun delayedSelectedLibraryGetsInitialFocusWithoutReclaimingItOnRefresh() {
+        val libraries = mutableStateOf(emptyList<LibraryDestination>())
+        val contentFocus = FocusRequester()
+        compose.setContent {
+            ShoumeiTelevisionTheme {
+                Column {
+                    TelevisionTopNavigation(
+                        primaryDestinations = listOf(
+                            TelevisionNavigationItem("search", "Search", Icons.Default.Search),
+                        ),
+                        libraryDestinations = libraries.value,
+                        selectedKey = "library:movies",
+                        onDestinationClick = {},
+                        onSettingsClick = {},
+                        onAvatarClick = {},
+                        avatarLabel = "Profile",
+                    )
+                    TelevisionFocusSurface(
+                        onClick = {},
+                        focusRequester = contentFocus,
+                        modifier = Modifier.testTag("library_content"),
+                    ) { _ -> }
+                }
+            }
+        }
+
+        compose.runOnIdle {
+            libraries.value = listOf(LibraryDestination("movies", "Movies", "movies"))
+        }
+        compose.onNodeWithText("Movies").assertIsFocused()
+
+        compose.runOnIdle {
+            check(contentFocus.requestFocus())
+            libraries.value = listOf(LibraryDestination("movies", "Films", "movies"))
+        }
+        compose.onNodeWithTag("library_content").assertIsFocused()
     }
 }

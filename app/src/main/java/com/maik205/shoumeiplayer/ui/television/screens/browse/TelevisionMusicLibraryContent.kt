@@ -63,6 +63,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -90,6 +91,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -117,6 +119,7 @@ import com.maik205.shoumeiplayer.domain.model.MediaShelf as MediaShelfUi
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 import kotlin.math.abs
 
 @Composable
@@ -129,6 +132,7 @@ internal fun MusicLibraryContent(
     onLoadMore: () -> Unit,
     entryFocus: FocusRequester,
     topNavigationFocus: FocusRequester,
+    restoreMediaId: String?,
 ) {
     if (state.loading && state.items.isEmpty()) {
         TelevisionLoadingState(
@@ -185,6 +189,31 @@ internal fun MusicLibraryContent(
             artistsLabel to state.items.filter { it.type == "MusicArtist" },
             playlistsLabel to state.items.filter { it.type == "Playlist" },
         ).filter { it.second.isNotEmpty() }
+    }
+    val itemFocusTargets = remember { mutableMapOf<String, MusicFocusTarget>() }
+    val currentRestoreMediaId by rememberUpdatedState(restoreMediaId)
+    val restoreScope = rememberCoroutineScope()
+    LifecycleResumeEffect(Unit) {
+        val job = restoreScope.launch {
+            val mediaId = currentRestoreMediaId ?: return@launch
+            val shelfIndex = grouped.indexOfFirst { (_, items) -> items.any { it.id == mediaId } }
+            if (shelfIndex < 0) return@launch
+            listState.scrollToItem(shelfIndex + 2)
+            while (isActive) {
+                val target = itemFocusTargets[mediaId]
+                if (target != null) {
+                    target.rowState.scrollToItem(target.itemIndex)
+                }
+                if (target != null && runCatching {
+                        target.requester.requestFocus()
+                    }.getOrDefault(false)
+                ) {
+                    break
+                }
+                androidx.compose.runtime.withFrameNanos { }
+            }
+        }
+        onPauseOrDispose { job.cancel() }
     }
 
     fun selectView(label: String, sectionTitle: String? = null) {
@@ -374,6 +403,7 @@ internal fun MusicLibraryContent(
                 upFocusRequester = heroActionFocus.takeIf { title == grouped.first().first },
                 onFocused = onFocused,
                 onOpenItem = onOpenItem,
+                itemFocusTargets = itemFocusTargets,
             )
         }
         item("music-end") {
@@ -433,19 +463,24 @@ private fun MusicShelf(
     upFocusRequester: FocusRequester?,
     onFocused: (MediaItemUi) -> Unit,
     onOpenItem: (MediaItemUi) -> Unit,
+    itemFocusTargets: MutableMap<String, MusicFocusTarget>,
 ) {
     var focusedItemId by remember(title) { mutableStateOf<String?>(null) }
     val itemIdentity = items.fold(1) { hash, item -> 31 * hash + item.id.hashCode() }
-    val railFocusRequesters = remember(items.size, itemIdentity, firstItemFocusRequester) {
+    val railState = rememberLazyListState()
+    val railFocusRequesters = remember(items.size, itemIdentity, firstItemFocusRequester, railState) {
         List(items.size) { index ->
             if (index == 0 && firstItemFocusRequester != null) {
                 firstItemFocusRequester
             } else {
-                FocusRequester()
+                itemFocusTargets[items[index].id]?.requester ?: FocusRequester()
+            }
+        }.also { requesters ->
+            items.forEachIndexed { index, item ->
+                itemFocusTargets[item.id] = MusicFocusTarget(requesters[index], railState, index)
             }
         }
     }
-    val railState = rememberLazyListState()
     TelevisionArtworkPrefetch(
         items = items,
         listState = railState,
@@ -483,7 +518,7 @@ private fun MusicShelf(
             ),
             horizontalArrangement = Arrangement.spacedBy(14.5.dp),
         ) {
-            itemsIndexed(items, key = { index, item -> "${item.id}:$index" }) { index, item ->
+            itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
                 TelevisionMediaTile(
                     item = item,
                     shape = ArtworkShape.Square,
@@ -535,6 +570,12 @@ private fun MusicShelf(
         }
     }
 }
+
+private data class MusicFocusTarget(
+    val requester: FocusRequester,
+    val rowState: LazyListState,
+    val itemIndex: Int,
+)
 
 private fun MediaItemUi.musicEyebrow(
     albumLabel: String,

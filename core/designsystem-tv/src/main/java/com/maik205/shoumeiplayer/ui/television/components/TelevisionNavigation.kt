@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -40,6 +41,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -58,7 +61,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
@@ -67,7 +69,10 @@ import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDesti
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 
 @Immutable
 data class TelevisionNavigationItem(
@@ -215,20 +220,36 @@ fun TelevisionTopNavigation(
         focusRequesters.keys.retainAll(activeKeys)
     }
     val selectedDestinationAvailable = selectedKey != null && selectedKey in activeKeys
-    val focusRestoreScope = rememberCoroutineScope()
+    var initialFocusAssigned by rememberSaveable(selectedKey) { mutableStateOf(false) }
 
-    // Reclaim the selected destination whenever this back-stack entry resumes. Keying the effect
-    // by availability also focuses a library that loads after first composition without letting
-    // ordinary library refreshes steal focus from content.
-    LifecycleResumeEffect(selectedKey, selectedDestinationAvailable) {
-        val restoreFocusJob = focusRestoreScope.launch {
-            withFrameNanos { }
-            selectedKey?.takeIf { selectedDestinationAvailable }?.let { key ->
-                (selectedFocusRequester?.takeIf { key == selectedKey } ?: focusRequesters[key])
-                    ?.requestFocus()
-            }
+    // The navigation owns focus only on first entry to this back-stack destination. Content owns
+    // restoration when the destination resumes after a detail screen.
+    LaunchedEffect(selectedKey, selectedDestinationAvailable, initialFocusAssigned) {
+        val key = selectedKey?.takeIf { selectedDestinationAvailable && !initialFocusAssigned }
+            ?: return@LaunchedEffect
+        val targetIndex = when (key) {
+            "settings" -> lazyNavigationItemCount
+            "profile" -> lazyNavigationItemCount + 1
+            else -> primaryDestinations.indexOfFirst { it.key == key }
+                .takeIf { it >= 0 }
+                ?: libraryDestinations.indexOfFirst {
+                    televisionLibraryNavigationKey(it.id) == key
+                }.takeIf { it >= 0 }?.plus(primaryDestinations.size)
+                ?: return@LaunchedEffect
         }
-        onPauseOrDispose { restoreFocusJob.cancel() }
+        if (targetIndex < lazyNavigationItemCount) {
+            if (navigationRailState.layoutInfo.visibleItemsInfo.none { it.index == targetIndex }) {
+                navigationRailState.scrollToItem(targetIndex)
+            }
+            snapshotFlow {
+                navigationRailState.layoutInfo.visibleItemsInfo.any { it.index == targetIndex }
+            }.first { it }
+        }
+        val requester = focusRequesters[key] ?: return@LaunchedEffect
+        while (isActive && !runCatching { requester.requestFocus() }.getOrDefault(false)) {
+            withFrameNanos { }
+        }
+        if (isActive) initialFocusAssigned = true
     }
     LaunchedEffect(pendingLibraryKey) {
         val key = pendingLibraryKey ?: return@LaunchedEffect
@@ -511,6 +532,10 @@ private fun Modifier.televisionNavigationRing(
 ): Modifier {
     if (focusRequesters.size < 2 || index !in focusRequesters.indices) return this
     val scope = rememberCoroutineScope()
+    var movementJob by remember { mutableStateOf<Job?>(null) }
+    DisposableEffect(Unit) {
+        onDispose { movementJob?.cancel() }
+    }
     return onPreviewKeyEvent { event ->
         if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
         val target = when (event.key) {
@@ -519,14 +544,22 @@ private fun Modifier.televisionNavigationRing(
             else -> return@onPreviewKeyEvent false
         }
 
-        scope.launch {
+        movementJob?.cancel()
+        movementJob = scope.launch {
             val lazyTargetIsVisible = target < lazyItemCount &&
                 listState.layoutInfo.visibleItemsInfo.any { it.index == target }
             if (target < lazyItemCount && !lazyTargetIsVisible) {
                 listState.scrollToItem(target)
+                snapshotFlow {
+                    listState.layoutInfo.visibleItemsInfo.any { it.index == target }
+                }.first { it }
+            }
+            while (isActive && !runCatching {
+                    focusRequesters[target].requestFocus()
+                }.getOrDefault(false)
+            ) {
                 withFrameNanos { }
             }
-            focusRequesters[target].requestFocus()
         }
         true
     }
