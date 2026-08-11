@@ -43,6 +43,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,6 +88,7 @@ import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWr
 import com.maik205.shoumeiplayer.ui.television.components.televisionBringIntoViewOnFocus
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
+import kotlinx.coroutines.isActive
 
 @Composable
 fun ConnectScreen(
@@ -112,10 +114,15 @@ fun ConnectScreen(
 
     LaunchedEffect(state.servers, state.discovering) {
         if (!state.discovering && !initialFocusAssigned) {
-            if (state.servers.isNotEmpty()) {
-                firstServerFocus.requestFocus()
-            } else if (state.discoveryError == null) {
-                addressFocus.requestFocus()
+            val target = when {
+                state.servers.isNotEmpty() -> firstServerFocus
+                state.discoveryError == null -> addressFocus
+                else -> null
+            }
+            if (target != null) {
+                while (isActive && !runCatching { target.requestFocus() }.getOrDefault(false)) {
+                    withFrameNanos { }
+                }
             }
             initialFocusAssigned = true
         }
@@ -181,7 +188,9 @@ fun ConnectScreen(
                         title = stringResource(R.string.tv_no_servers_found),
                         actionLabel = stringResource(R.string.retry),
                         onAction = onRefresh,
-                        requestInitialFocus = true,
+                        // ConnectScreen owns entry focus. Let it place focus in the address field;
+                        // otherwise this retry action steals focus and leaves no D-pad path down.
+                        requestInitialFocus = false,
                         modifier = Modifier.height(126.dp),
                     )
 
