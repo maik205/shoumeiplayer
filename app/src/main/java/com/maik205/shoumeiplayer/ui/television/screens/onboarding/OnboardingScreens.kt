@@ -699,34 +699,68 @@ fun LoginScreen(
                         password = true,
                         modifier = Modifier.focusProperties {
                             up = usernameFocus
-                            down = forgotPasswordFocus
+                            down = if (signInFocusable) signInFocus else forgotPasswordFocus
                         },
                         upFocusRequester = usernameFocus,
-                        downFocusRequester = forgotPasswordFocus,
+                        downFocusRequester = if (signInFocusable) signInFocus else forgotPasswordFocus,
                     )
 
                     Spacer(Modifier.height(16.dp))
-                    TelevisionFocusRevealButton(
-                        label = stringResource(R.string.tv_forgot_password),
-                        icon = Icons.Default.LockReset,
-                        onClick = onForgotPassword,
-                        expandedWidth = 164.dp,
-                        focusRequester = forgotPasswordFocus,
-                        modifier = Modifier.focusProperties {
-                            left = FocusRequester.Cancel
-                            up = passwordFocus
-                            right = FocusRequester.Cancel
-                            down = when {
-                                quickConnectFocusable -> quickConnectFocus
-                                signInFocusable -> signInFocus
-                                else -> FocusRequester.Cancel
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TelevisionFocusRevealButton(
+                                label = stringResource(R.string.sign_in),
+                                icon = Icons.AutoMirrored.Filled.ArrowForward,
+                                onClick = onSignIn,
+                                enabled = signInFocusable,
+                                expandedWidth = 104.dp,
+                                focusRequester = signInFocus,
+                                modifier = Modifier.focusProperties {
+                                    left = FocusRequester.Cancel
+                                    up = passwordFocus
+                                    right = forgotPasswordFocus
+                                    down = if (quickConnectFocusable) {
+                                        quickConnectFocus
+                                    } else {
+                                        FocusRequester.Cancel
+                                    }
+                                },
+                            )
+                            if (state.signingIn) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier
+                                        .padding(start = 10.dp)
+                                        .size(16.dp),
+                                    strokeWidth = 2.dp,
+                                )
                             }
-                        },
-                    )
+                        }
+                        TelevisionFocusRevealButton(
+                            label = stringResource(R.string.tv_forgot_password),
+                            icon = Icons.Default.LockReset,
+                            onClick = onForgotPassword,
+                            expandedWidth = 164.dp,
+                            focusRequester = forgotPasswordFocus,
+                            modifier = Modifier.focusProperties {
+                                left = if (signInFocusable) {
+                                    signInFocus
+                                } else {
+                                    FocusRequester.Cancel
+                                }
+                                up = passwordFocus
+                                right = FocusRequester.Cancel
+                                down = if (quickConnectFocusable) quickConnectFocus else FocusRequester.Cancel
+                            },
+                        )
+                    }
+
                     Spacer(Modifier.height(14.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         if (state.quickConnectChecking) {
@@ -734,7 +768,6 @@ fun LoginScreen(
                                 modifier = Modifier.size(16.dp),
                                 strokeWidth = 2.dp,
                             )
-                            Spacer(Modifier.width(16.dp))
                         } else if (state.quickConnectAvailable) {
                             TelevisionFocusRevealButton(
                                 label = state.quickConnectCode
@@ -746,9 +779,9 @@ fun LoginScreen(
                                 expandedWidth = if (state.quickConnectCode == null) 148.dp else 118.dp,
                                 focusRequester = quickConnectFocus,
                                 modifier = Modifier.focusProperties {
-                                    left = if (signInFocusable) signInFocus else FocusRequester.Cancel
-                                    up = forgotPasswordFocus
-                                    right = if (signInFocusable) signInFocus else FocusRequester.Cancel
+                                    left = FocusRequester.Cancel
+                                    up = if (signInFocusable) signInFocus else forgotPasswordFocus
+                                    right = FocusRequester.Cancel
                                     down = FocusRequester.Cancel
                                 },
                             )
@@ -760,37 +793,6 @@ fun LoginScreen(
                                     strokeWidth = 2.dp,
                                 )
                             }
-                            Spacer(Modifier.width(16.dp))
-                        }
-                        TelevisionFocusRevealButton(
-                            label = stringResource(R.string.sign_in),
-                            icon = Icons.AutoMirrored.Filled.ArrowForward,
-                            onClick = onSignIn,
-                            enabled = signInFocusable,
-                            expandedWidth = 104.dp,
-                            focusRequester = signInFocus,
-                            modifier = Modifier.focusProperties {
-                                left = if (quickConnectFocusable) {
-                                    quickConnectFocus
-                                } else {
-                                    FocusRequester.Cancel
-                                }
-                                up = forgotPasswordFocus
-                                right = if (quickConnectFocusable) {
-                                    quickConnectFocus
-                                } else {
-                                    FocusRequester.Cancel
-                                }
-                                down = FocusRequester.Cancel
-                            },
-                        )
-                        if (state.signingIn) {
-                            CircularProgressIndicator(
-                                modifier = Modifier
-                                    .padding(start = 10.dp)
-                                    .size(16.dp),
-                                strokeWidth = 2.dp,
-                            )
                         }
                     }
 
