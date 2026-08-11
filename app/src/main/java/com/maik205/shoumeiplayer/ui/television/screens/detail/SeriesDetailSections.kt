@@ -86,12 +86,21 @@ internal fun SeriesDetailSection(
     episodeTitle: String,
     currentEpisodeId: String? = null,
     onPlay: (MediaItemUi) -> Unit,
+    entryFocusRequester: FocusRequester? = null,
+    heroFocusRequester: FocusRequester? = null,
 ) {
-    val nextUpFocus = remember { FocusRequester() }
-    val seasonFocus = remember { FocusRequester() }
-    val episodeFocus = remember { FocusRequester() }
+    val defaultNextUpFocus = remember { FocusRequester() }
+    val defaultSeasonFocus = remember { FocusRequester() }
+    val defaultEpisodeFocus = remember { FocusRequester() }
     val hasSeasonSelector = seasons.isNotEmpty()
     val hasEpisodeRow = episodes.isNotEmpty()
+    val nextUpFocus = if (nextUp != null) entryFocusRequester ?: defaultNextUpFocus else defaultNextUpFocus
+    val seasonFocus = if (nextUp == null && hasSeasonSelector) entryFocusRequester ?: defaultSeasonFocus else defaultSeasonFocus
+    val episodeFocus = if (nextUp == null && !hasSeasonSelector && hasEpisodeRow) {
+        entryFocusRequester ?: defaultEpisodeFocus
+    } else {
+        defaultEpisodeFocus
+    }
 
     Column(
         modifier = Modifier
@@ -126,12 +135,12 @@ internal fun SeriesDetailSection(
             selectedSeasonId = selectedSeasonId,
             currentEpisodeId = currentEpisodeId,
             seasonFocusRequester = seasonFocus.takeIf { hasSeasonSelector },
-            seasonUpFocusRequester = nextUpFocus.takeIf { nextUp != null },
+            seasonUpFocusRequester = nextUpFocus.takeIf { nextUp != null } ?: heroFocusRequester,
             episodeFocusRequester = episodeFocus.takeIf { hasEpisodeRow },
             episodeUpFocusRequester = when {
                 hasSeasonSelector -> seasonFocus
                 nextUp != null -> nextUpFocus
-                else -> null
+                else -> heroFocusRequester
             },
             onSelectSeason = onSelect,
             onPlay = onPlay,
@@ -282,19 +291,13 @@ internal fun EpisodeRail(
 ) {
     val currentEpisodeIndex = episodes.indexOfFirst { it.id == currentEpisodeId }.coerceAtLeast(0)
     val entryEpisodeIndex = if (currentEpisodeId != null) currentEpisodeIndex else 0
-    val railFocusRequesters = remember(
-        episodes.size,
-        episodes.fold(1) { hash, episode -> 31 * hash + episode.id.hashCode() },
-        entryEpisodeIndex,
-        episodeFocusRequester,
-    ) {
-        List(episodes.size) { index ->
+    val stableFocusRequesters = remember { mutableMapOf<String, FocusRequester>() }
+    val railFocusRequesters = episodes.mapIndexed { index, episode ->
             if (index == entryEpisodeIndex && episodeFocusRequester != null) {
                 episodeFocusRequester
             } else {
-                FocusRequester()
+                stableFocusRequesters.getOrPut(episode.id) { FocusRequester() }
             }
-        }
     }
     val rowState = rememberLazyListState(initialFirstVisibleItemIndex = currentEpisodeIndex)
     LaunchedEffect(selectedSeasonId, episodes.firstOrNull()?.id) {

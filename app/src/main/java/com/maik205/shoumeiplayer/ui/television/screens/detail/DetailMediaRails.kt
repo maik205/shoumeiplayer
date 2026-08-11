@@ -81,10 +81,22 @@ internal fun TrackRail(
     title: String,
     tracks: List<MediaItemUi>,
     onPlay: (MediaItemUi) -> Unit,
+    entryFocusRequester: FocusRequester? = null,
+    heroFocusRequester: FocusRequester? = null,
 ) {
+    val focusRequesters = remember { mutableMapOf<String, FocusRequester>() }
+    val activeFocusRequesters = tracks.mapIndexed { index, track ->
+        track.id to if (index == 0 && entryFocusRequester != null) {
+            entryFocusRequester
+        } else {
+            focusRequesters.getOrPut(track.id) { FocusRequester() }
+        }
+    }.toMap()
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .focusGroup()
+            .focusRestorer()
             .padding(
                 start = TelevisionDimensions.SafeHorizontal,
                 end = TelevisionDimensions.SafeHorizontal,
@@ -96,10 +108,14 @@ internal fun TrackRail(
         tracks.take(24).forEachIndexed { index, track ->
             TelevisionFocusSurface(
                 onClick = { onPlay(track) },
+                focusRequester = activeFocusRequesters[track.id],
                 restingAlpha = if (track.watched) 0.46f else 0.66f,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp)
+                    .focusProperties {
+                        if (index == 0) heroFocusRequester?.let { up = it }
+                    }
                     .televisionBringIntoViewOnFocus(),
             ) { focused ->
                 Row(
@@ -155,10 +171,13 @@ internal fun DetailMediaRail(
     title: String,
     items: List<MediaItemUi>,
     onOpen: (MediaItemUi) -> Unit,
+    entryFocusRequester: FocusRequester? = null,
+    heroFocusRequester: FocusRequester? = null,
 ) {
-    val itemIdentity = items.fold(1) { hash, item -> 31 * hash + item.id.hashCode() }
-    val railFocusRequesters = remember(items.size, itemIdentity) {
-        List(items.size) { FocusRequester() }
+    val focusRequesters = remember { mutableMapOf<String, FocusRequester>() }
+    val railFocusRequesters = items.mapIndexed { index, item ->
+        if (index == 0 && entryFocusRequester != null) entryFocusRequester
+        else focusRequesters.getOrPut(item.id) { FocusRequester() }
     }
     val railState = rememberLazyListState()
     TelevisionArtworkPrefetch(
@@ -198,7 +217,9 @@ internal fun DetailMediaRail(
                         index,
                         railFocusRequesters,
                         railState,
-                    ),
+                    ).focusProperties {
+                        if (index == 0) heroFocusRequester?.let { up = it }
+                    },
                     shape = when (item.type) {
                         "Episode", "Video", "Recording" -> ArtworkShape.Landscape
                         else -> item.shape
@@ -213,10 +234,13 @@ internal fun DetailMediaRail(
 internal fun PeopleRail(
     people: List<PersonUi>,
     onOpen: (PersonUi) -> Unit,
+    entryFocusRequester: FocusRequester? = null,
+    heroFocusRequester: FocusRequester? = null,
 ) {
-    val peopleIdentity = people.fold(1) { hash, person -> 31 * hash + person.id.hashCode() }
-    val railFocusRequesters = remember(people.size, peopleIdentity) {
-        List(people.size) { FocusRequester() }
+    val focusRequesters = remember { mutableMapOf<String, FocusRequester>() }
+    val railFocusRequesters = people.mapIndexed { index, person ->
+        if (index == 0 && entryFocusRequester != null) entryFocusRequester
+        else focusRequesters.getOrPut(person.id) { FocusRequester() }
     }
     val railState = rememberLazyListState()
     Column(
@@ -245,6 +269,9 @@ internal fun PeopleRail(
                     scaleTo = TelevisionFocusScale.Poster,
                     modifier = Modifier
                         .width(132.dp)
+                        .focusProperties {
+                            if (index == 0) heroFocusRequester?.let { up = it }
+                        }
                         .televisionHorizontalWrap(index, railFocusRequesters, railState)
                         .televisionBringIntoViewOnFocus(),
                 ) {

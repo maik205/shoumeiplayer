@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -84,6 +85,7 @@ internal fun DetailHero(
     onPlay: () -> Unit,
     playLoading: Boolean,
     playFocus: FocusRequester,
+    firstSectionFocus: FocusRequester?,
 ) {
     val item = requireNotNull(state.item)
     val playbackItem = state.playbackItem ?: item
@@ -130,6 +132,9 @@ internal fun DetailHero(
                 focusRequester = backFocus,
                 expandedWidth = 92.dp,
                 onFocusChanged = { if (it) onHeroControlFocused() },
+                modifier = Modifier.focusProperties {
+                    firstSectionFocus?.let { down = it }
+                },
             )
             Spacer(Modifier.height(44.dp))
             Text(
@@ -182,6 +187,9 @@ internal fun DetailHero(
                         focusRequester = playFocus,
                         expandedWidth = if (state.kind == DetailKind.Series) 148.dp else 96.dp,
                         onFocusChanged = { if (it) onHeroControlFocused() },
+                        modifier = Modifier.focusProperties {
+                            firstSectionFocus?.let { down = it }
+                        },
                     )
                 }
                 TelevisionFocusRevealButton(
@@ -194,6 +202,9 @@ internal fun DetailHero(
                     onClick = onToggleFavorite,
                     expandedWidth = 118.dp,
                     onFocusChanged = { if (it) onHeroControlFocused() },
+                    modifier = Modifier.focusProperties {
+                        firstSectionFocus?.let { down = it }
+                    },
                 )
                 if (
                     state.kind !in setOf(
@@ -214,6 +225,9 @@ internal fun DetailHero(
                         onClick = onTogglePlayed,
                         expandedWidth = 156.dp,
                         onFocusChanged = { if (it) onHeroControlFocused() },
+                        modifier = Modifier.focusProperties {
+                            firstSectionFocus?.let { down = it }
+                        },
                     )
                 }
             }

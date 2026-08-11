@@ -32,7 +32,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -40,12 +39,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
-import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
@@ -62,7 +61,6 @@ import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import com.maik205.shoumeiplayer.ui.i18n.UiText
 import com.maik205.shoumeiplayer.ui.i18n.resolve
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
-import kotlinx.coroutines.launch
 
 @Composable
 fun TelevisionDetailScreen(
@@ -94,11 +92,19 @@ fun TelevisionDetailScreen(
     val playbackItem = state.playbackItem ?: item
     val playFocus = remember { FocusRequester() }
     val backFocus = remember { FocusRequester() }
-    val focusScope = rememberCoroutineScope()
+    val firstSectionFocus = remember { FocusRequester() }
     val listState = rememberLazyListState()
     val playbackLaunch = rememberPlaybackLaunchState(item?.id)
     val heroListIndex = (if (loadError != null) 1 else 0) + (if (actionError != null) 1 else 0)
     var initialFocusAssigned by rememberSaveable(item?.id) { mutableStateOf(false) }
+    var retryHadFocus by remember(item?.id) { mutableStateOf(false) }
+    var previousErrorKeys by remember(item?.id) { mutableStateOf<Set<String>?>(null) }
+    val errorKeys = buildSet {
+        if (loadError != null) add("load")
+        if (actionError != null) add("action")
+        if (state.seasonError != null) add("season")
+        state.sectionErrors.keys.forEach { add("section:${it.name}") }
+    }
     val audioStreams = remember(playbackItem?.id, playbackItem?.mediaStreams) {
         playbackItem?.mediaStreams.orEmpty().filter { it.type.equals("Audio", ignoreCase = true) }
     }
@@ -114,20 +120,6 @@ fun TelevisionDetailScreen(
     }
     var qualityChoice by rememberSaveable(item?.id) { mutableIntStateOf(0) }
 
-    LifecycleResumeEffect(item?.id) {
-        val restoreFocusJob = focusScope.launch {
-            withFrameNanos { }
-            if (!state.loading && item != null && hero != null) {
-                if (state.playableItemId != null) {
-                    playFocus.requestFocus()
-                } else {
-                    backFocus.requestFocus()
-                }
-            }
-        }
-        onPauseOrDispose { restoreFocusJob.cancel() }
-    }
-
     LaunchedEffect(state.loading, state.playableItemId, item?.id, hero?.id) {
         if (!state.loading && item != null && hero != null && !initialFocusAssigned) {
             if (state.playableItemId != null) {
@@ -137,6 +129,15 @@ fun TelevisionDetailScreen(
             }
             initialFocusAssigned = true
         }
+    }
+    LaunchedEffect(errorKeys) {
+        val removedErrors = previousErrorKeys.orEmpty() - errorKeys
+        if (shouldRestoreDetailRetryFocus(removedErrors, retryHadFocus) && item != null && hero != null) {
+            withFrameNanos { }
+            if (state.playableItemId != null) playFocus.requestFocus() else backFocus.requestFocus()
+            retryHadFocus = false
+        }
+        previousErrorKeys = errorKeys
     }
     TelevisionBackground(imageUrl = hero?.backdropUrl) {
         when {
@@ -207,6 +208,21 @@ fun TelevisionDetailScreen(
                 } else {
                     state.related
                 }
+                val hasSeriesContent = when (state.kind) {
+                    DetailKind.Series -> state.nextUp != null ||
+                        state.seasons.isNotEmpty() || state.episodes.isNotEmpty()
+                    DetailKind.Episode -> state.episodes.isNotEmpty()
+                    else -> false
+                }
+                val firstContentSection = firstDetailContentFocusTarget(
+                    hasSeriesContent = hasSeriesContent,
+                    hasTracks = state.tracks.isNotEmpty(),
+                    hasReleases = state.releases.isNotEmpty(),
+                    hasRelated = relatedItems.isNotEmpty(),
+                    hasPeople = state.people.isNotEmpty(),
+                    hasCredits = state.credits.isNotEmpty(),
+                )
+                val heroReturnFocus = if (state.playableItemId != null) playFocus else backFocus
 
                 LazyColumn(
                     state = listState,
@@ -227,7 +243,7 @@ fun TelevisionDetailScreen(
                                     start = TelevisionDimensions.SafeHorizontal,
                                     end = TelevisionDimensions.SafeHorizontal,
                                     top = 24.dp,
-                                ),
+                                ).onFocusChanged { if (it.hasFocus) retryHadFocus = true },
                             )
                         }
                     }
@@ -244,7 +260,7 @@ fun TelevisionDetailScreen(
                                     start = TelevisionDimensions.SafeHorizontal,
                                     end = TelevisionDimensions.SafeHorizontal,
                                     top = 24.dp,
-                                ),
+                                ).onFocusChanged { if (it.hasFocus) retryHadFocus = true },
                             )
                         }
                     }
@@ -283,6 +299,7 @@ fun TelevisionDetailScreen(
                             },
                             playLoading = playbackLaunch.loading,
                             playFocus = playFocus,
+                            firstSectionFocus = firstSectionFocus.takeIf { firstContentSection != null },
                         )
                     }
 
@@ -292,6 +309,7 @@ fun TelevisionDetailScreen(
                                 title = stringResource(R.string.tv_detail_playable_error_title),
                                 error = playableSectionError,
                                 onRetry = onRetry,
+                                onRetryFocused = { retryHadFocus = true },
                             )
                         }
                     }
@@ -301,6 +319,7 @@ fun TelevisionDetailScreen(
                                 title = stringResource(R.string.tv_detail_seasons_error_title),
                                 error = seasonsSectionError,
                                 onRetry = onRetry,
+                                onRetryFocused = { retryHadFocus = true },
                             )
                         }
                     }
@@ -310,6 +329,7 @@ fun TelevisionDetailScreen(
                                 title = stringResource(R.string.tv_detail_episodes_error_title),
                                 error = episodesSectionError,
                                 onRetry = onRetry,
+                                onRetryFocused = { retryHadFocus = true },
                             )
                         }
                     }
@@ -354,7 +374,7 @@ fun TelevisionDetailScreen(
                                         start = TelevisionDimensions.SafeHorizontal,
                                         end = TelevisionDimensions.SafeHorizontal,
                                         top = 22.dp,
-                                    ),
+                                    ).onFocusChanged { if (it.hasFocus) retryHadFocus = true },
                                 )
                             }
                         }
@@ -368,15 +388,19 @@ fun TelevisionDetailScreen(
                                 episodes = state.episodes,
                                 episodeTitle = stringResource(R.string.tv_episodes),
                                 onPlay = { episode ->
-                                    onPlay(
-                                        episode.id,
-                                        episode.resumeTicks,
-                                        false,
-                                        audioStreams.getOrNull(audioChoice)?.index,
-                                        subtitleStreams.getOrNull(subtitleChoice - 1)?.index,
-                                        qualityOptions.getOrNull(qualityChoice),
-                                    )
+                                    playbackLaunch.launch {
+                                        onPlay(
+                                            episode.id,
+                                            episode.resumeTicks,
+                                            false,
+                                            audioStreams.getOrNull(audioChoice)?.index,
+                                            subtitleStreams.getOrNull(subtitleChoice - 1)?.index,
+                                            qualityOptions.getOrNull(qualityChoice),
+                                        )
+                                    }
                                 },
+                                entryFocusRequester = firstSectionFocus.takeIf { firstContentSection == DetailContentFocusTarget.Series },
+                                heroFocusRequester = heroReturnFocus,
                             )
                         }
                     } else if (state.kind == DetailKind.Episode && state.episodes.isNotEmpty()) {
@@ -391,15 +415,19 @@ fun TelevisionDetailScreen(
                                 episodeTitle = stringResource(R.string.tv_detail_more_episodes),
                                 currentEpisodeId = item.id,
                                 onPlay = { episode ->
-                                    onPlay(
-                                        episode.id,
-                                        episode.resumeTicks,
-                                        false,
-                                        audioStreams.getOrNull(audioChoice)?.index,
-                                        subtitleStreams.getOrNull(subtitleChoice - 1)?.index,
-                                        qualityOptions.getOrNull(qualityChoice),
-                                    )
+                                    playbackLaunch.launch {
+                                        onPlay(
+                                            episode.id,
+                                            episode.resumeTicks,
+                                            false,
+                                            audioStreams.getOrNull(audioChoice)?.index,
+                                            subtitleStreams.getOrNull(subtitleChoice - 1)?.index,
+                                            qualityOptions.getOrNull(qualityChoice),
+                                        )
+                                    }
                                 },
+                                entryFocusRequester = firstSectionFocus.takeIf { firstContentSection == DetailContentFocusTarget.Series },
+                                heroFocusRequester = heroReturnFocus,
                             )
                         }
                     }
@@ -412,7 +440,9 @@ fun TelevisionDetailScreen(
                                 onRetry = onRetry,
                                 retryLabel = stringResource(R.string.retry),
                                 requestInitialFocus = false,
-                                modifier = Modifier.padding(horizontal = TelevisionDimensions.SafeHorizontal),
+                                modifier = Modifier
+                                    .padding(horizontal = TelevisionDimensions.SafeHorizontal)
+                                    .onFocusChanged { if (it.hasFocus) retryHadFocus = true },
                             )
                         }
                     }
@@ -427,8 +457,12 @@ fun TelevisionDetailScreen(
                                 },
                                 tracks = state.tracks,
                                 onPlay = { track ->
-                                    onPlay(track.id, track.resumeTicks, true, null, null, null)
+                                    playbackLaunch.launch {
+                                        onPlay(track.id, track.resumeTicks, true, null, null, null)
+                                    }
                                 },
+                                entryFocusRequester = firstSectionFocus.takeIf { firstContentSection == DetailContentFocusTarget.Tracks },
+                                heroFocusRequester = heroReturnFocus,
                             )
                         }
                     }
@@ -439,6 +473,8 @@ fun TelevisionDetailScreen(
                                 title = stringResource(R.string.tv_detail_albums),
                                 items = state.releases,
                                 onOpen = onOpenItem,
+                                entryFocusRequester = firstSectionFocus.takeIf { firstContentSection == DetailContentFocusTarget.Releases },
+                                heroFocusRequester = heroReturnFocus,
                             )
                         }
                     }
@@ -451,7 +487,9 @@ fun TelevisionDetailScreen(
                                 onRetry = onRetry,
                                 retryLabel = stringResource(R.string.retry),
                                 requestInitialFocus = false,
-                                modifier = Modifier.padding(horizontal = TelevisionDimensions.SafeHorizontal),
+                                modifier = Modifier
+                                    .padding(horizontal = TelevisionDimensions.SafeHorizontal)
+                                    .onFocusChanged { if (it.hasFocus) retryHadFocus = true },
                             )
                         }
                     }
@@ -462,6 +500,8 @@ fun TelevisionDetailScreen(
                                 title = stringResource(R.string.tv_detail_more_like),
                                 items = relatedItems,
                                 onOpen = onOpenItem,
+                                entryFocusRequester = firstSectionFocus.takeIf { firstContentSection == DetailContentFocusTarget.Related },
+                                heroFocusRequester = heroReturnFocus,
                             )
                         }
                     }
@@ -474,7 +514,9 @@ fun TelevisionDetailScreen(
                                 onRetry = onRetry,
                                 retryLabel = stringResource(R.string.retry),
                                 requestInitialFocus = false,
-                                modifier = Modifier.padding(horizontal = TelevisionDimensions.SafeHorizontal),
+                                modifier = Modifier
+                                    .padding(horizontal = TelevisionDimensions.SafeHorizontal)
+                                    .onFocusChanged { if (it.hasFocus) retryHadFocus = true },
                             )
                         }
                     }
@@ -484,6 +526,8 @@ fun TelevisionDetailScreen(
                             PeopleRail(
                                 people = state.people,
                                 onOpen = onOpenPerson,
+                                entryFocusRequester = firstSectionFocus.takeIf { firstContentSection == DetailContentFocusTarget.People },
+                                heroFocusRequester = heroReturnFocus,
                             )
                         }
                     }
@@ -494,6 +538,8 @@ fun TelevisionDetailScreen(
                                 title = stringResource(R.string.tv_detail_known_for),
                                 items = state.credits,
                                 onOpen = onOpenItem,
+                                entryFocusRequester = firstSectionFocus.takeIf { firstContentSection == DetailContentFocusTarget.Credits },
+                                heroFocusRequester = heroReturnFocus,
                             )
                         }
                     }
@@ -520,11 +566,43 @@ fun TelevisionDetailScreen(
     }
 }
 
+internal enum class DetailContentFocusTarget {
+    Series,
+    Tracks,
+    Releases,
+    Related,
+    People,
+    Credits,
+}
+
+internal fun firstDetailContentFocusTarget(
+    hasSeriesContent: Boolean,
+    hasTracks: Boolean,
+    hasReleases: Boolean,
+    hasRelated: Boolean,
+    hasPeople: Boolean,
+    hasCredits: Boolean,
+): DetailContentFocusTarget? = when {
+    hasSeriesContent -> DetailContentFocusTarget.Series
+    hasTracks -> DetailContentFocusTarget.Tracks
+    hasReleases -> DetailContentFocusTarget.Releases
+    hasRelated -> DetailContentFocusTarget.Related
+    hasPeople -> DetailContentFocusTarget.People
+    hasCredits -> DetailContentFocusTarget.Credits
+    else -> null
+}
+
+internal fun shouldRestoreDetailRetryFocus(
+    removedErrors: Set<String>,
+    retryHadFocus: Boolean,
+): Boolean = retryHadFocus && removedErrors.isNotEmpty()
+
 @Composable
 private fun DetailSectionError(
     title: String,
     error: UiText,
     onRetry: () -> Unit,
+    onRetryFocused: () -> Unit,
 ) {
     TelevisionErrorState(
         title = title,
@@ -532,10 +610,12 @@ private fun DetailSectionError(
         onRetry = onRetry,
         retryLabel = stringResource(R.string.retry),
         requestInitialFocus = false,
-        modifier = Modifier.padding(
-            start = TelevisionDimensions.SafeHorizontal,
-            end = TelevisionDimensions.SafeHorizontal,
-            top = 22.dp,
-        ),
+        modifier = Modifier
+            .padding(
+                start = TelevisionDimensions.SafeHorizontal,
+                end = TelevisionDimensions.SafeHorizontal,
+                top = 22.dp,
+            )
+            .onFocusChanged { if (it.hasFocus) onRetryFocused() },
     )
 }

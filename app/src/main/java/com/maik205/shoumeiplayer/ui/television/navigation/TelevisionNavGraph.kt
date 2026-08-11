@@ -343,7 +343,7 @@ fun TelevisionNavGraph(
                     shellViewModel.refreshLibraries()
                 },
                 onItemFocused = viewModel::focus,
-                onOpenItem = { navController.navigate(DetailRoute(it.id)) },
+                onOpenItem = { navController.navigateDetail(it.id) },
                 onPlay = { media -> navController.navigate(media.toPlayerRoute()) },
                 onToggleFavorite = viewModel::toggleFavorite,
                 onNavigateHome = {},
@@ -368,7 +368,7 @@ fun TelevisionNavGraph(
                 resultLimitReached = state.resultLimitReached,
                 onQueryChange = viewModel::setQuery,
                 onRetry = viewModel::retry,
-                onOpenItem = { navController.navigate(DetailRoute(it.id)) },
+                onOpenItem = { navController.navigateDetail(it.id) },
                 onBack = navController::popBackStack,
                 libraries = shell.libraries,
                 userName = shell.userName,
@@ -409,7 +409,7 @@ fun TelevisionNavGraph(
                     if (media.type == "Audio") {
                         navController.navigate(media.toPlayerRoute())
                     } else {
-                        navController.navigate(DetailRoute(media.id))
+                        navController.navigateDetail(media.id)
                     }
                 },
                 onNavigateHome = { navController.navigateTop(HomeRoute) },
@@ -447,7 +447,7 @@ fun TelevisionNavGraph(
                 onBack = navController::popBackStack,
                 onRefresh = viewModel::refresh,
                 onFocusProgram = viewModel::focus,
-                onOpenProgram = { navController.navigate(DetailRoute(it.id)) },
+                onOpenProgram = { navController.navigateDetail(it.id) },
                 onPlay = { navController.navigate(it.toPlayerRoute()) },
                 libraries = shell.libraries,
                 userName = shell.userName,
@@ -524,11 +524,11 @@ fun TelevisionNavGraph(
                 onExit = navController::popBackStack,
                 onNavigateToItem = { itemId ->
                     navController.popBackStack()
-                    navController.navigate(DetailRoute(itemId))
+                    navController.navigateDetail(itemId)
                 },
                 onNavigateToPerson = { personId, name ->
                     navController.popBackStack()
-                    navController.navigate(PersonRoute(personId, name))
+                    navController.navigatePerson(personId, name)
                 },
             )
         }
@@ -567,8 +567,8 @@ private fun DetailDestination(
         onToggleFavorite = viewModel::toggleFavorite,
         onTogglePlayed = viewModel::togglePlayed,
         onSelectSeason = viewModel::selectSeason,
-        onOpenItem = { navController.navigate(DetailRoute(it.id)) },
-        onOpenPerson = { navController.navigate(PersonRoute(it.id, it.name)) },
+        onOpenItem = { navController.navigateDetail(it.id) },
+        onOpenPerson = { navController.navigatePerson(it.id, it.name) },
     )
 }
 
@@ -584,6 +584,20 @@ private fun NavHostController.navigateLibrary(library: LibraryDestinationUi) {
             ),
         )
     }
+}
+
+private fun NavHostController.navigateDetail(itemId: String) {
+    val currentItemId = runCatching {
+        currentBackStackEntry?.toRoute<DetailRoute>()?.itemId
+    }.getOrNull()
+    if (currentItemId != itemId) navigate(DetailRoute(itemId))
+}
+
+private fun NavHostController.navigatePerson(personId: String, name: String) {
+    val currentPersonId = runCatching {
+        currentBackStackEntry?.toRoute<PersonRoute>()?.personId
+    }.getOrNull()
+    if (currentPersonId != personId) navigate(PersonRoute(personId, name))
 }
 
 private fun NavHostController.navigateTop(route: Any) {
