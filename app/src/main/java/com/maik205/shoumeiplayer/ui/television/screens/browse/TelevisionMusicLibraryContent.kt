@@ -124,6 +124,7 @@ import com.maik205.shoumeiplayer.domain.model.MediaShelf as MediaShelfUi
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import kotlin.math.abs
 
 @Composable
@@ -200,6 +201,7 @@ internal fun MusicLibraryContent(
         ).filter { it.items.isNotEmpty() }
     }
     val itemFocusTargets = remember { mutableMapOf<String, MusicFocusTarget>() }
+    var shelfFocusJob by remember { mutableStateOf<Job?>(null) }
     val currentRestoreMediaId by rememberUpdatedState(restoreMediaId)
     val restoreScope = rememberCoroutineScope()
     LifecycleResumeEffect(Unit) {
@@ -229,12 +231,18 @@ internal fun MusicLibraryContent(
         val targetItems = grouped.getOrNull(shelfIndex)?.items ?: return
         val resolvedItemIndex = itemIndex.coerceIn(0, targetItems.lastIndex)
         val itemId = targetItems[resolvedItemIndex].id
-        scope.launch {
-            listState.scrollToItem(shelfIndex + 2)
+        shelfFocusJob?.cancel()
+        shelfFocusJob = scope.launch {
+            val outerIndex = shelfIndex + 2
+            if (listState.layoutInfo.visibleItemsInfo.none { it.index == outerIndex }) {
+                listState.animateScrollToItem(outerIndex)
+            }
             repeat(8) {
                 val target = itemFocusTargets[itemId]
                 if (target != null) {
-                    target.rowState.scrollToItem(target.itemIndex)
+                    if (target.rowState.layoutInfo.visibleItemsInfo.none { it.index == target.itemIndex }) {
+                        target.rowState.animateScrollToItem(target.itemIndex)
+                    }
                     androidx.compose.runtime.withFrameNanos { }
                     if (runCatching { target.requester.requestFocus() }.getOrDefault(false)) return@launch
                 }
@@ -622,6 +630,7 @@ private fun MusicShelf(
                         lineHeight = 10.sp,
                     ),
                     focusRequester = railFocusRequesters.getOrNull(index),
+                    bringIntoViewOnFocus = false,
                     modifier = Modifier
                         .televisionHorizontalWrap(index, railFocusRequesters, railState)
                         .onPreviewKeyEvent { event ->

@@ -24,8 +24,18 @@
     <string name="tv_libraries_refresh_failed">Couldn’t refresh server libraries.</string>
     <string name="tv_search_failed">Search failed. Try again.</string>
     <string name="tv_search_limit">Showing the first 40 results.</string>
+    <string name="tv_search_searching">Searching</string>
+    <string name="tv_search_clear">Clear search</string>
+    <plurals name="tv_search_result_count">
+        <item quantity="one">%d result</item>
+        <item quantity="other">%d results</item>
+    </plurals>
     <string name="tv_search_unavailable">Search is unavailable</string>
     <string name="tv_back">Back</string>
+    <string name="tv_media_movie">Movie</string>
+    <string name="tv_media_series">Series</string>
+    <string name="tv_media_episode">Episode</string>
+    <string name="tv_media_item">Media</string>
     <string name="tv_loading_home">Loading home</string>
     <string name="tv_loading_library">Loading library</string>
     <string name="tv_loading_detail">Loading details</string>

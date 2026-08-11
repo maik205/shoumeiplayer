@@ -129,6 +129,7 @@ internal fun DetailHero(
                 onClick = onBack,
                 focusRequester = backFocus,
                 expandedWidth = 92.dp,
+                onFocusChanged = { if (it) onHeroControlFocused() },
             )
             Spacer(Modifier.height(44.dp))
             Text(

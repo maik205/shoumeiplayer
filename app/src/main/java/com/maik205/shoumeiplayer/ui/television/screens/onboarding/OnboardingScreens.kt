@@ -61,6 +61,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -1069,6 +1070,7 @@ private fun NativeTvField(
     downFocusRequester: FocusRequester? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
+    val keyboardController = LocalSoftwareKeyboardController.current
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
@@ -1080,6 +1082,10 @@ private fun NativeTvField(
                     return@onPreviewKeyEvent false
                 }
                 when (event.key) {
+                    Key.Enter, Key.NumPadEnter, Key.DirectionCenter -> {
+                        keyboardController?.show()
+                        true
+                    }
                     Key.DirectionUp -> upFocusRequester?.let {
                         it.requestFocus()
                         true
@@ -1104,6 +1110,7 @@ private fun NativeTvField(
         keyboardOptions = KeyboardOptions(
             keyboardType = if (password) KeyboardType.Password else KeyboardType.Uri,
             imeAction = imeAction,
+            showKeyboardOnFocus = false,
         ),
         keyboardActions = KeyboardActions(
             onDone = { onDone() },
