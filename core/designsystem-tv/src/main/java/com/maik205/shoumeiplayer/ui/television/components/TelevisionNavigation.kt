@@ -245,7 +245,10 @@ fun TelevisionTopNavigation(
                 navigationRailState.layoutInfo.visibleItemsInfo.any { it.index == targetIndex }
             }.first { it }
         }
-        val requester = focusRequesters[key] ?: return@LaunchedEffect
+        // Resolve this exactly as the rendered item does. A destination screen can own the
+        // selected requester's lifecycle; looking only in the internal map then targets a stale
+        // or unattached requester and leaves focus on the reused first nav item (usually Search).
+        val requester = focusRequesterFor(key)
         while (isActive && !runCatching { requester.requestFocus() }.getOrDefault(false)) {
             withFrameNanos { }
         }

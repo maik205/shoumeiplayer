@@ -145,4 +145,32 @@ class P0FocusRegressionTest {
         }
         compose.onNodeWithTag("library_content").assertIsFocused()
     }
+
+    @Test
+    fun changingFromSearchToLibraryFocusesTheSelectedLibraryRequester() {
+        val selectedKey = mutableStateOf("search")
+        val selectedFocus = FocusRequester()
+        compose.setContent {
+            ShoumeiTelevisionTheme {
+                TelevisionTopNavigation(
+                    primaryDestinations = listOf(
+                        TelevisionNavigationItem("search", "Search", Icons.Default.Search),
+                    ),
+                    libraryDestinations = listOf(
+                        LibraryDestination("movies", "Movies", "movies"),
+                    ),
+                    selectedKey = selectedKey.value,
+                    onDestinationClick = {},
+                    onSettingsClick = {},
+                    onAvatarClick = {},
+                    avatarLabel = "Profile",
+                    selectedFocusRequester = selectedFocus,
+                )
+            }
+        }
+
+        compose.onNodeWithText("Search").assertIsFocused()
+        compose.runOnIdle { selectedKey.value = "library:movies" }
+        compose.onNodeWithText("Movies").assertIsFocused()
+    }
 }
