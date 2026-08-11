@@ -38,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -74,6 +75,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealB
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import java.util.Locale
+import kotlinx.coroutines.isActive
 
 @Composable
 internal fun PlayerSelectionPanel(
@@ -82,10 +84,15 @@ internal fun PlayerSelectionPanel(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val first = remember { FocusRequester() }
+    val initial = remember { FocusRequester() }
+    val initialRow = rows.firstOrNull(PlayerSelectionRow::selected) ?: rows.firstOrNull()
     val colors = TelevisionTheme.colors
-    LaunchedEffect(title, rows.size) {
-        runCatching { first.requestFocus() }
+    LaunchedEffect(title, rows.size, initialRow?.key) {
+        if (initialRow != null) {
+            while (isActive && !runCatching { initial.requestFocus() }.getOrDefault(false)) {
+                withFrameNanos { }
+            }
+        }
     }
     Column(
         modifier = modifier
@@ -113,7 +120,7 @@ internal fun PlayerSelectionPanel(
             items(rows, key = PlayerSelectionRow::key) { row ->
                 PlayerSelectionPanelRow(
                     row = row,
-                    focusRequester = if (row == rows.firstOrNull()) first else null,
+                    focusRequester = if (row == initialRow) initial else null,
                 )
             }
         }
@@ -138,7 +145,7 @@ private fun PlayerSelectionPanelRow(
         focusRequester = focusRequester,
         scaleTo = 1f,
         restingAlpha = if (row.selected) 0.96f else 0.66f,
-        modifier = Modifier.fillMaxWidth().height(26.dp),
+        modifier = Modifier.fillMaxWidth().height(42.dp),
     ) { focused ->
         Row(
             modifier = Modifier

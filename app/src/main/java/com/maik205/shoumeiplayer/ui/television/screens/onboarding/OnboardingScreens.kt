@@ -104,16 +104,28 @@ fun ConnectScreen(
     val addressFocus = remember { FocusRequester() }
     val firstServerFocus = remember { FocusRequester() }
     val insecureAllowFocus = remember { FocusRequester() }
+    val connectFocus = remember { FocusRequester() }
     var initialFocusAssigned by remember { mutableStateOf(false) }
+    var insecureWasPresent by remember { mutableStateOf(false) }
+    var insecureReturnFocus by remember { mutableStateOf<FocusRequester?>(null) }
 
     LaunchedEffect(state.insecureConnection) {
         if (state.insecureConnection != null) {
-            runCatching { insecureAllowFocus.requestFocus() }
+            insecureWasPresent = true
+            while (isActive && !runCatching { insecureAllowFocus.requestFocus() }.getOrDefault(false)) {
+                withFrameNanos { }
+            }
+        } else if (insecureWasPresent) {
+            insecureWasPresent = false
+            runCatching { (insecureReturnFocus ?: addressFocus).requestFocus() }
+            insecureReturnFocus = null
         }
     }
 
-    LaunchedEffect(state.servers, state.discovering) {
-        if (!state.discovering && !initialFocusAssigned) {
+    BackHandler(enabled = state.insecureConnection != null, onBack = onCancelInsecureConnection)
+
+    LaunchedEffect(state.servers, state.discovering, state.insecureConnection) {
+        if (state.insecureConnection == null && !state.discovering && !initialFocusAssigned) {
             val target = when {
                 state.servers.isNotEmpty() -> firstServerFocus
                 state.discoveryError == null -> addressFocus
@@ -203,7 +215,14 @@ fun ConnectScreen(
                         items(state.servers, key = ServerChoiceUi::id) { server ->
                             ServerRow(
                                 server = server,
-                                onClick = { onServerClick(server) },
+                                onClick = {
+                                    insecureReturnFocus = if (server == state.servers.firstOrNull()) {
+                                        firstServerFocus
+                                    } else {
+                                        addressFocus
+                                    }
+                                    onServerClick(server)
+                                },
                                 focusRequester = if (server == state.servers.firstOrNull()) firstServerFocus else null,
                             )
                         }
@@ -240,14 +259,29 @@ fun ConnectScreen(
                         value = state.address,
                         onValueChange = onAddressChange,
                         placeholder = stringResource(R.string.tv_server_address_hint),
-                        onDone = onConnect,
+                        onDone = {
+                            insecureReturnFocus = addressFocus
+                            onConnect()
+                        },
                         focusRequester = addressFocus,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .onPreviewKeyEvent { event ->
+                                if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionRight) {
+                                    runCatching { connectFocus.requestFocus() }.getOrDefault(false)
+                                } else {
+                                    false
+                                }
+                            },
                     )
                     Spacer(Modifier.width(12.dp))
                     TelevisionFocusSurface(
-                        onClick = onConnect,
+                        onClick = {
+                            insecureReturnFocus = connectFocus
+                            onConnect()
+                        },
                         enabled = state.address.isNotBlank() && !state.connecting,
+                        focusRequester = connectFocus,
                         scaleTo = TelevisionFocusScale.Action,
                         restingAlpha = if (state.address.isBlank()) 0.24f else 0.62f,
                         modifier = Modifier.size(44.dp),
@@ -269,7 +303,11 @@ fun ConnectScreen(
 
                 state.insecureConnection?.let { insecureConnection ->
                     Spacer(Modifier.height(18.dp))
-                    Column(modifier = Modifier.focusGroup()) {
+                    Column(
+                        modifier = Modifier
+                            .focusGroup()
+                            .focusProperties { onExit = { cancelFocusChange() } },
+                    ) {
                         Row(verticalAlignment = Alignment.Top) {
                             Icon(
                                 imageVector = Icons.Default.Warning,

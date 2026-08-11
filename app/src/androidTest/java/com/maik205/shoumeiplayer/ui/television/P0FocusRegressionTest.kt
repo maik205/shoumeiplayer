@@ -3,6 +3,7 @@ package com.maik205.shoumeiplayer.ui.television
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performKeyInput
@@ -20,6 +21,9 @@ import com.maik205.shoumeiplayer.ui.i18n.UiText
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionNavigationItem
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionTopNavigation
+import com.maik205.shoumeiplayer.ui.television.screens.onboarding.ConnectScreen
+import com.maik205.shoumeiplayer.ui.television.screens.onboarding.ConnectUiState
+import com.maik205.shoumeiplayer.ui.television.screens.onboarding.InsecureConnectionUi
 import com.maik205.shoumeiplayer.ui.television.screens.onboarding.RecoveryScreen
 import com.maik205.shoumeiplayer.ui.television.screens.onboarding.RecoveryUiState
 import com.maik205.shoumeiplayer.ui.television.screens.player.PlayerExitConfirmationOverlay
@@ -81,13 +85,43 @@ class P0FocusRegressionTest {
             }
         }
 
-        compose.onNodeWithText("Exit player").assertIsFocused()
-        compose.onNodeWithText("Cancel").assertIsNotFocused()
+        compose.onNodeWithContentDescription("Cancel").assertIsFocused()
 
-        compose.onNodeWithText("Exit player").performKeyInput {
+        compose.onNodeWithContentDescription("Cancel").performKeyInput {
             pressKey(Key.DirectionRight)
         }
-        compose.onNodeWithText("Cancel").assertIsFocused()
+        compose.onNodeWithContentDescription("Exit player").assertIsFocused()
+    }
+
+    @Test
+    fun insecureConnectionKeepsTheDecisionInsideItsInlineContext() {
+        compose.setContent {
+            ShoumeiTelevisionTheme {
+                ConnectScreen(
+                    state = ConnectUiState(
+                        address = "media.local",
+                        insecureConnection = InsecureConnectionUi("http://media.local"),
+                    ),
+                    onAddressChange = {},
+                    onRefresh = {},
+                    onServerClick = {},
+                    onConnect = {},
+                    onRetryConnection = {},
+                    onAcceptInsecureConnection = {},
+                    onCancelInsecureConnection = {},
+                )
+            }
+        }
+
+        compose.onNodeWithContentDescription("Use HTTP anyway").assertIsFocused()
+        compose.onNodeWithContentDescription("Use HTTP anyway").performKeyInput {
+            pressKey(Key.DirectionRight)
+        }
+        compose.onNodeWithContentDescription("Cancel").assertIsFocused()
+        compose.onNodeWithContentDescription("Cancel").performKeyInput {
+            pressKey(Key.DirectionDown)
+        }
+        compose.onNodeWithContentDescription("Cancel").assertIsFocused()
     }
 
     @Test

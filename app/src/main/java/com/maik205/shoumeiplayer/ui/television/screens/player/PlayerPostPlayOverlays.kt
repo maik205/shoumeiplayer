@@ -7,11 +7,8 @@ import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,11 +16,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -68,8 +62,6 @@ import com.maik205.shoumeiplayer.feature.player.ChapterMark
 import com.maik205.shoumeiplayer.feature.player.PlayerUiState
 import com.maik205.shoumeiplayer.feature.player.UpNextUi
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
-import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
-import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
@@ -318,17 +310,7 @@ internal fun PostPlayOverlay(
                     .padding(start = 67.dp, bottom = 48.dp),
             ) {
                 Text(
-                if (upNext != null) {
-                    stringResource(R.string.tv_player_up_next)
-                } else {
-                    stringResource(R.string.tv_player_playback_complete)
-                },
-                    style = MaterialTheme.typography.labelLarge,
-                    color = TelevisionTheme.colors.PaperMuted,
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                upNext?.title ?: stringResource(R.string.tv_player_that_is_all),
+                    upNext?.title ?: stringResource(R.string.tv_player_playback_complete),
                     style = MaterialTheme.typography.displayLarge,
                     fontWeight = FontWeight.Bold,
                     maxLines = 2,
@@ -337,6 +319,14 @@ internal fun PostPlayOverlay(
                 upNext?.subtitle?.let {
                     Spacer(Modifier.height(10.dp))
                     Text(it, style = MaterialTheme.typography.bodyLarge, color = TelevisionTheme.colors.PaperMuted)
+                }
+                if (upNext == null) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        stringResource(R.string.tv_player_that_is_all),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = TelevisionTheme.colors.PaperMuted,
+                    )
                 }
                 Spacer(Modifier.height(20.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -401,119 +391,57 @@ internal fun PostPlayOverlay(
 }
 
 @Composable
-private fun LegacyPostPlayOverlay(
-    upNext: UpNextUi?,
-    countdownSeconds: Int?,
-    onPlayNext: () -> Unit,
-    onReplay: () -> Unit,
-    onBack: () -> Unit,
-) {
-    val primary = remember { FocusRequester() }
-    LaunchedEffect(upNext?.itemId) { runCatching { primary.requestFocus() } }
-    ModalScrim {
-        if (upNext != null) {
-        val playNextLabel = if (countdownSeconds != null) {
-            stringResource(R.string.tv_player_play_next_countdown, countdownSeconds)
-        } else {
-            stringResource(R.string.tv_player_play_next)
-        }
-        Text(
-            stringResource(R.string.tv_player_up_next),
-            style = MaterialTheme.typography.titleMedium,
-            color = TelevisionTheme.colors.PaperMuted,
-        )
-            AsyncImage(
-                model = upNext.thumbUrl,
-                contentDescription = upNext.title,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .width(420.dp)
-                    .height(236.dp)
-                    .background(TelevisionTheme.colors.ImagePlaceholder),
-            )
-            Text(
-                upNext.title,
-                style = MaterialTheme.typography.headlineMedium.televisionItemTitle(),
-                maxLines = 2,
-            )
-            upNext.subtitle?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = TelevisionTheme.colors.PaperMuted)
-            }
-        PlayerTextButton(
-            label = playNextLabel,
-                onClick = onPlayNext,
-                focusRequester = primary,
-                modifier = Modifier.width(220.dp),
-            )
-        } else {
-            Text(
-                stringResource(R.string.tv_player_playback_complete),
-                style = MaterialTheme.typography.displaySmall,
-            )
-            PlayerTextButton(
-                label = stringResource(R.string.tv_player_play_again),
-                icon = Icons.Default.Refresh,
-                onClick = onReplay,
-                focusRequester = primary,
-                modifier = Modifier.width(190.dp),
-            )
-        }
-        PlayerTextButton(
-            label = stringResource(R.string.tv_back),
-            icon = Icons.AutoMirrored.Filled.ArrowBack,
-            onClick = onBack,
-            modifier = Modifier.width(160.dp),
-        )
-    }
-}
-
-@Composable
 internal fun PlayerExitConfirmationOverlay(
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
 ) {
-    val confirmFocus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { confirmFocus.requestFocus() }
-    ModalScrim {
-        Text(
-            text = stringResource(R.string.tv_player_exit),
-            style = MaterialTheme.typography.displaySmall,
-        )
-        Text(
-            text = stringResource(R.string.tv_player_exit_message),
-            style = MaterialTheme.typography.bodyLarge,
-            color = TelevisionTheme.colors.PaperMuted,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            PlayerTextButton(
-                label = stringResource(R.string.tv_player_confirm_exit),
-                onClick = onConfirm,
-                focusRequester = confirmFocus,
-                modifier = Modifier.width(180.dp),
-            )
-            PlayerTextButton(
-                label = stringResource(R.string.cancel),
-                onClick = onCancel,
-                modifier = Modifier.width(140.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun ModalScrim(content: @Composable ColumnScope.() -> Unit) {
+    val cancelFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { cancelFocus.requestFocus() } }
     Box(
         modifier = Modifier
             .playerModalFocusTrap()
             .fillMaxSize()
-            .background(TelevisionTheme.colors.Black.copy(alpha = 0.94f)),
-        contentAlignment = Alignment.Center,
+            .background(
+                Brush.horizontalGradient(
+                    0f to TelevisionTheme.colors.Black.copy(alpha = 0.96f),
+                    0.6f to TelevisionTheme.colors.Black.copy(alpha = 0.66f),
+                    1f to TelevisionTheme.colors.Black.copy(alpha = 0.24f),
+                ),
+            ),
     ) {
         Column(
-            modifier = Modifier.width(540.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .width(680.dp)
+                .padding(start = 67.dp, bottom = 54.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
-            content = content,
-        )
+        ) {
+            Text(
+                text = stringResource(R.string.tv_player_exit),
+                style = MaterialTheme.typography.displayLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = stringResource(R.string.tv_player_exit_message),
+                style = MaterialTheme.typography.bodyLarge,
+                color = TelevisionTheme.colors.PaperMuted,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                PlayerCompactActionButton(
+                    label = stringResource(R.string.cancel),
+                    icon = Icons.Default.PlayArrow,
+                    onClick = onCancel,
+                    focusRequester = cancelFocus,
+                    selected = true,
+                    expandedWidth = 110.dp,
+                )
+                PlayerCompactActionButton(
+                    label = stringResource(R.string.tv_player_confirm_exit),
+                    icon = Icons.Default.Stop,
+                    onClick = onConfirm,
+                    expandedWidth = 150.dp,
+                )
+            }
+        }
     }
 }
