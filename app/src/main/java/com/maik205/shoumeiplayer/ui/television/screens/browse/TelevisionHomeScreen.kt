@@ -58,6 +58,7 @@ import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -95,6 +96,8 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.R
+import com.maik205.shoumeiplayer.di.LocalAppContainer
+import com.maik205.shoumeiplayer.domain.settings.ClientSettings
 import com.maik205.shoumeiplayer.ui.i18n.resolve
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionBackground
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionAppTopNavigation
@@ -114,8 +117,9 @@ import com.maik205.shoumeiplayer.ui.television.model.HeroUi
 import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import com.maik205.shoumeiplayer.domain.model.MediaShelf as MediaShelfUi
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
+import com.maik205.shoumeiplayer.ui.television.theme.televisionTypography
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -137,6 +141,14 @@ fun TelevisionHomeScreen(
     onNavigateProfile: () -> Unit,
     navigationState: LazyListState,
 ) {
+    // Read directly from the store rather than threading it through TelevisionHomeState: this is
+    // the same seam ShoumeiTelevisionTheme uses, and it is what lets a personalization toggle take
+    // effect without every browse ViewModel growing a ClientSettings field it does not otherwise
+    // need (#89).
+    val settingsStore = LocalAppContainer.current.settingsStore
+    val settingsDefaults = remember { ClientSettings() }
+    val settings by settingsStore.settings.collectAsState(initial = settingsDefaults)
+
     val hero = state.hero
     val playbackLaunch = rememberPlaybackLaunchState(hero?.item?.id)
     val playFocus = remember { FocusRequester() }
@@ -173,7 +185,13 @@ fun TelevisionHomeScreen(
         }
     }
 
-    TelevisionBackground(imageUrl = hero?.item?.backdropUrl) {
+    // "Backdrop images" (#89): off means the hero's ambient background never renders, on this
+    // screen or the compact hero that replaces it while browsing.
+    TelevisionBackground(imageUrl = resolveBackdropUrl(hero?.item?.backdropUrl, settings.backdropImages)) {
+        // "Interface scale" (#89): every text role under this screen is read from here rather than
+        // the unscaled TelevisionTypography constant. ShoumeiTelevisionTheme still owns colours and
+        // shapes -- only typography is overridden, and Comfortable reproduces its baseline exactly.
+        MaterialTheme(typography = televisionTypography(settings.interfaceScale)) {
         CompositionLocalProvider(LocalBringIntoViewSpec provides HomeBringIntoViewSpec) {
             LazyColumn(
                 state = listState,
@@ -217,7 +235,7 @@ fun TelevisionHomeScreen(
                             Text(
                                 text = stringResource(R.string.tv_refreshing),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = TelevisionColors.PaperMuted,
+                                color = TelevisionTheme.colors.PaperMuted,
                                 modifier = Modifier.padding(
                                     start = TelevisionDimensions.SafeHorizontal,
                                     top = 17.dp,
@@ -287,6 +305,7 @@ fun TelevisionHomeScreen(
                                     onItemFocused(it)
                                 },
                                 onClick = onOpenItem,
+                                watchedIndicatorsEnabled = settings.watchedIndicators,
                             )
                         }
                         item(key = "end") {
@@ -357,6 +376,7 @@ fun TelevisionHomeScreen(
             navigationState = navigationState,
             onNavigationFocused = { focusedRail = -1 },
         )
+        }
     }
 }
 

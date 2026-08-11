@@ -14,6 +14,7 @@ import com.maik205.shoumeiplayer.domain.settings.ClientSettings
 import com.maik205.shoumeiplayer.domain.settings.AppTheme
 import com.maik205.shoumeiplayer.domain.settings.AssSsaDirectPlay
 import com.maik205.shoumeiplayer.domain.settings.BurnSubtitles
+import com.maik205.shoumeiplayer.domain.settings.ColorPalette
 import com.maik205.shoumeiplayer.domain.settings.DisplayLanguage
 import com.maik205.shoumeiplayer.domain.settings.HardwareCodecs
 import com.maik205.shoumeiplayer.domain.settings.HardwareDecoding
@@ -93,6 +94,7 @@ private object SettingsKeys {
     val DISPLAY_LANGUAGE = stringPreferencesKey("display_language")
     val INTERFACE_SCALE = stringPreferencesKey("interface_scale")
     val THEME = stringPreferencesKey("theme")
+    val COLOR_PALETTE = stringPreferencesKey("color_palette")
     val BACKDROP_IMAGES = booleanPreferencesKey("backdrop_images")
     val BACKDROP_ROTATION_SECONDS = intPreferencesKey("backdrop_rotation_seconds")
     val WATCHED_INDICATORS = booleanPreferencesKey("watched_indicators")
@@ -283,6 +285,11 @@ private fun Preferences.toClientSettings(): ClientSettings = ClientSettings(
         AppTheme.Dark,
         AppTheme.entries.toTypedArray(),
     ),
+    colorPalette = storedOption(
+        this[SettingsKeys.COLOR_PALETTE],
+        ColorPalette.Midnight,
+        ColorPalette.entries.toTypedArray(),
+    ),
     backdropImages = this[SettingsKeys.BACKDROP_IMAGES] ?: true,
     backdropRotationSeconds = this[SettingsKeys.BACKDROP_ROTATION_SECONDS] ?: 20,
     watchedIndicators = this[SettingsKeys.WATCHED_INDICATORS] ?: true,
@@ -354,6 +361,7 @@ private fun androidx.datastore.preferences.core.MutablePreferences.write(setting
     this[SettingsKeys.DISPLAY_LANGUAGE] = settings.displayLanguage.storageId
     this[SettingsKeys.INTERFACE_SCALE] = settings.interfaceScale.storageId
     this[SettingsKeys.THEME] = settings.theme.storageId
+    this[SettingsKeys.COLOR_PALETTE] = settings.colorPalette.storageId
     this[SettingsKeys.BACKDROP_IMAGES] = settings.backdropImages
     this[SettingsKeys.BACKDROP_ROTATION_SECONDS] = settings.backdropRotationSeconds
     this[SettingsKeys.WATCHED_INDICATORS] = settings.watchedIndicators

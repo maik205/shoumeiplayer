@@ -74,7 +74,7 @@ import com.maik205.shoumeiplayer.feature.player.PlayerUiState
 import com.maik205.shoumeiplayer.feature.player.PlayerTimelineState
 import com.maik205.shoumeiplayer.feature.player.PlayerMessage
 import com.maik205.shoumeiplayer.feature.player.PlayerMessageKind
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
@@ -480,7 +480,7 @@ internal fun TelevisionPlayerContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(TelevisionColors.Black)
+            .background(TelevisionTheme.colors.Black)
             .focusRequester(rootFocus)
             .focusable()
             .onPreviewKeyEvent { event ->
@@ -706,11 +706,11 @@ internal fun TelevisionPlayerContent(
             Text(
                 text = it.resolveMessage(),
                 style = MaterialTheme.typography.bodyMedium,
-                color = TelevisionColors.Paper,
+                color = TelevisionTheme.colors.Paper,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = 22.dp)
-                    .background(TelevisionColors.Black.copy(alpha = 0.86f))
+                    .background(TelevisionTheme.colors.Black.copy(alpha = 0.86f))
                     .padding(horizontal = 18.dp, vertical = 10.dp),
             )
         }
@@ -728,11 +728,11 @@ internal fun TelevisionPlayerContent(
             Text(
                 text = stringResource(R.string.tv_player_swapping),
                 style = MaterialTheme.typography.bodyMedium,
-                color = TelevisionColors.Paper,
+                color = TelevisionTheme.colors.Paper,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = 22.dp)
-                    .background(TelevisionColors.Black.copy(alpha = 0.86f))
+                    .background(TelevisionTheme.colors.Black.copy(alpha = 0.86f))
                     .padding(horizontal = 18.dp, vertical = 10.dp),
             )
         }
@@ -1172,7 +1172,7 @@ private fun PlayerLoadingOverlay(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                TelevisionColors.Black.copy(alpha = if (dimBackground) 0.92f else 0f),
+                TelevisionTheme.colors.Black.copy(alpha = if (dimBackground) 0.92f else 0f),
             )
             .semantics(mergeDescendants = true) {
                 contentDescription = loadingDescription
@@ -1188,8 +1188,8 @@ private fun PlayerLoadingOverlay(
                 .background(
                     Brush.radialGradient(
                         colors = listOf(
-                            TelevisionColors.BlackRaised.copy(alpha = 0.78f),
-                            TelevisionColors.Black.copy(alpha = 0f),
+                            TelevisionTheme.colors.BlackRaised.copy(alpha = 0.78f),
+                            TelevisionTheme.colors.Black.copy(alpha = 0f),
                         ),
                     ),
                 ),
@@ -1205,7 +1205,7 @@ private fun PlayerLoadingOverlay(
         ) {
             CircularProgressIndicator(
                 modifier = Modifier.size(TelevisionDimensions.ActionIcon),
-                trackColor = TelevisionColors.ProgressTrack,
+                trackColor = TelevisionTheme.colors.ProgressTrack,
                 strokeWidth = 1.5.dp,
             )
             Spacer(Modifier.width(8.dp))
@@ -1216,12 +1216,12 @@ private fun PlayerLoadingOverlay(
                 Text(
                     text = loadingLabel,
                     style = MaterialTheme.typography.titleMedium,
-                    color = TelevisionColors.PaperMuted,
+                    color = TelevisionTheme.colors.PaperMuted,
                 )
                 Text(
                     text = bufferDetails,
                     style = MaterialTheme.typography.bodySmall,
-                    color = TelevisionColors.PaperSoft,
+                    color = TelevisionTheme.colors.PaperSoft,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

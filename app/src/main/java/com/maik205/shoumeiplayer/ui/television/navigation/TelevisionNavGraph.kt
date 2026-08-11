@@ -66,7 +66,7 @@ import com.maik205.shoumeiplayer.ui.television.screens.settings.TelevisionSettin
 import com.maik205.shoumeiplayer.ui.television.screens.settings.TelevisionSettingsScreen
 import com.maik205.shoumeiplayer.ui.television.screens.settings.TelevisionSettingsViewModel
 import com.maik205.shoumeiplayer.ui.television.screens.browse.TelevisionSearchScreen
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import com.maik205.shoumeiplayer.ui.i18n.resolve
 
 private val TelevisionEnter: EnterTransition = fadeIn(tween(100))
@@ -90,7 +90,7 @@ fun TelevisionNavGraph(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(TelevisionColors.Black),
+                .background(TelevisionTheme.colors.Black),
         ) {
             TelevisionLoadingState(
                 label = stringResource(R.string.tv_opening_shoumei),
@@ -105,7 +105,7 @@ fun TelevisionNavGraph(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(TelevisionColors.Black),
+                .background(TelevisionTheme.colors.Black),
         ) {
             Column(
                 modifier = Modifier

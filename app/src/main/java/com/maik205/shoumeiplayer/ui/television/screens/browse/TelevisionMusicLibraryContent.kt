@@ -116,8 +116,8 @@ import com.maik205.shoumeiplayer.ui.television.model.HeroUi
 import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import com.maik205.shoumeiplayer.domain.model.MediaShelf as MediaShelfUi
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import kotlin.math.abs
@@ -322,7 +322,7 @@ internal fun MusicLibraryContent(
                     modifier = Modifier
                         .size(164.dp)
                         .clip(RoundedCornerShape(TelevisionDimensions.FocusRadius))
-                        .background(TelevisionColors.ImagePlaceholder),
+                        .background(TelevisionTheme.colors.ImagePlaceholder),
                 ) {
                     focused?.imageUrl?.let {
                         AsyncImage(
@@ -344,7 +344,7 @@ internal fun MusicLibraryContent(
                         ) ?: musicLabel,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = TelevisionColors.PaperMuted,
+                        color = TelevisionTheme.colors.PaperMuted,
                     )
                     Spacer(Modifier.height(5.dp))
                     Text(
@@ -369,7 +369,7 @@ internal fun MusicLibraryContent(
                                 fontSize = 8.5.sp,
                                 lineHeight = 11.sp,
                             ),
-                            color = TelevisionColors.PaperMuted,
+                            color = TelevisionTheme.colors.PaperMuted,
                             maxLines = 1,
                         )
                     }
@@ -421,7 +421,7 @@ internal fun MusicLibraryContent(
                     Text(
                         text = stringResource(R.string.tv_loading_more),
                         style = MaterialTheme.typography.bodyLarge.copy(fontSize = 9.sp),
-                        color = TelevisionColors.PaperMuted,
+                        color = TelevisionTheme.colors.PaperMuted,
                     )
                 }
                 state.error != null -> TelevisionErrorState(
@@ -439,7 +439,7 @@ internal fun MusicLibraryContent(
                 state.exhausted -> Text(
                     text = stringResource(R.string.tv_music_end),
                     style = MaterialTheme.typography.bodyLarge.copy(fontSize = 9.sp),
-                    color = TelevisionColors.PaperMuted.copy(alpha = 0.56f),
+                    color = TelevisionTheme.colors.PaperMuted.copy(alpha = 0.56f),
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()

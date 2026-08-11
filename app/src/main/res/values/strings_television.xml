@@ -552,4 +552,9 @@
     <string name="tv_settings_video">Video</string>
     <string name="tv_settings_video_output">Video output</string>
     <string name="tv_settings_watched_indicators">Watched indicators</string>
+    <string name="tv_settings_color_palette">Color palette</string>
+    <string name="tv_settings_palette_midnight">Midnight</string>
+    <string name="tv_settings_palette_ember">Ember</string>
+    <string name="tv_settings_palette_daylight">Daylight</string>
+    <string name="tv_settings_palette_sunrise">Sunrise</string>
 </resources>

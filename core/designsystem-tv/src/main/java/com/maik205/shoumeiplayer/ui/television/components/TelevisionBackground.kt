@@ -14,7 +14,7 @@ import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
 import coil3.request.crossfade
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 
 private const val BACKDROP_CROSSFADE_MS = 320
 
@@ -29,6 +29,7 @@ fun TelevisionBackground(
     imageAlignment: Alignment = Alignment.Center,
     content: @Composable BoxScope.() -> Unit = {},
 ) {
+    val colors = TelevisionTheme.colors
     val context = LocalPlatformContext.current
     val imageRequest = remember(imageUrl, context) {
         imageUrl?.let {
@@ -42,7 +43,7 @@ fun TelevisionBackground(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(TelevisionColors.Black),
+            .background(colors.Black),
     ) {
         if (imageRequest != null) {
             AsyncImage(
@@ -59,10 +60,10 @@ fun TelevisionBackground(
                 .fillMaxSize()
                 .background(
                     Brush.horizontalGradient(
-                        0f to TelevisionColors.Black.copy(alpha = 0.91f),
-                        0.38f to TelevisionColors.Black.copy(alpha = 0.62f),
-                        0.72f to TelevisionColors.Black.copy(alpha = 0.16f),
-                        1f to TelevisionColors.Black.copy(alpha = 0.34f),
+                        0f to colors.Black.copy(alpha = 0.91f),
+                        0.38f to colors.Black.copy(alpha = 0.62f),
+                        0.72f to colors.Black.copy(alpha = 0.16f),
+                        1f to colors.Black.copy(alpha = 0.34f),
                     ),
                 ),
         )
@@ -71,10 +72,10 @@ fun TelevisionBackground(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0f to TelevisionColors.Black.copy(alpha = 0.52f),
-                        0.30f to TelevisionColors.Black.copy(alpha = 0.04f),
-                        0.62f to TelevisionColors.Black.copy(alpha = 0.20f),
-                        1f to TelevisionColors.Black.copy(alpha = 0.92f),
+                        0f to colors.Black.copy(alpha = 0.52f),
+                        0.30f to colors.Black.copy(alpha = 0.04f),
+                        0.62f to colors.Black.copy(alpha = 0.20f),
+                        1f to colors.Black.copy(alpha = 0.92f),
                     ),
                 ),
         )

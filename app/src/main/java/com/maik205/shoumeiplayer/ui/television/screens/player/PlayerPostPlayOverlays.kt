@@ -71,7 +71,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import java.util.Locale
 
@@ -89,9 +89,9 @@ internal fun PlayerErrorOverlay(
             .fillMaxSize()
             .background(
                 Brush.horizontalGradient(
-                    0f to TelevisionColors.Black.copy(alpha = 0.98f),
-                    0.58f to TelevisionColors.Black.copy(alpha = 0.72f),
-                    1f to TelevisionColors.Black.copy(alpha = 0.34f),
+                    0f to TelevisionTheme.colors.Black.copy(alpha = 0.98f),
+                    0.58f to TelevisionTheme.colors.Black.copy(alpha = 0.72f),
+                    1f to TelevisionTheme.colors.Black.copy(alpha = 0.34f),
                 ),
             ),
     ) {
@@ -110,7 +110,7 @@ internal fun PlayerErrorOverlay(
             Text(
                 message,
                 style = MaterialTheme.typography.bodyLarge,
-                color = TelevisionColors.PaperMuted,
+                color = TelevisionTheme.colors.PaperMuted,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 PlayerCompactActionButton(
@@ -145,9 +145,9 @@ internal fun StillWatchingOverlay(
             .fillMaxSize()
             .background(
                 Brush.horizontalGradient(
-                    0f to TelevisionColors.Black.copy(alpha = 0.94f),
-                    0.62f to TelevisionColors.Black.copy(alpha = 0.58f),
-                    1f to TelevisionColors.Black.copy(alpha = 0.2f),
+                    0f to TelevisionTheme.colors.Black.copy(alpha = 0.94f),
+                    0.62f to TelevisionTheme.colors.Black.copy(alpha = 0.58f),
+                    1f to TelevisionTheme.colors.Black.copy(alpha = 0.2f),
                 ),
             ),
     ) {
@@ -202,7 +202,7 @@ internal fun PostPlayOverlay(
         modifier = Modifier
             .playerModalFocusTrap()
             .fillMaxSize()
-            .background(TelevisionColors.Black),
+            .background(TelevisionTheme.colors.Black),
     ) {
         preview?.thumbUrl?.let { artwork ->
             AsyncImage(
@@ -217,15 +217,15 @@ internal fun PostPlayOverlay(
                 .fillMaxSize()
                 .background(
                     Brush.horizontalGradient(
-                        0f to TelevisionColors.Black.copy(alpha = 0.97f),
-                        0.52f to TelevisionColors.Black.copy(alpha = 0.68f),
-                        1f to TelevisionColors.Black.copy(alpha = 0.14f),
+                        0f to TelevisionTheme.colors.Black.copy(alpha = 0.97f),
+                        0.52f to TelevisionTheme.colors.Black.copy(alpha = 0.68f),
+                        1f to TelevisionTheme.colors.Black.copy(alpha = 0.14f),
                     ),
                 )
                 .background(
                     Brush.verticalGradient(
                         0f to Color.Transparent,
-                        1f to TelevisionColors.Black.copy(alpha = 0.9f),
+                        1f to TelevisionTheme.colors.Black.copy(alpha = 0.9f),
                     ),
                 ),
         )
@@ -266,7 +266,7 @@ internal fun PostPlayOverlay(
                                     Text(
                                         episode.subtitle ?: stringResource(R.string.tv_player_next),
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = TelevisionColors.PaperMuted,
+                                        color = TelevisionTheme.colors.PaperMuted,
                                         modifier = Modifier.width(64.dp),
                                     )
                                     Text(
@@ -276,7 +276,7 @@ internal fun PostPlayOverlay(
                                         } else {
                                             MaterialTheme.typography.bodyLarge
                                         },
-                                        color = if (focused) TelevisionColors.Paper else TelevisionColors.PaperMuted,
+                                        color = if (focused) TelevisionTheme.colors.Paper else TelevisionTheme.colors.PaperMuted,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.weight(1f),
@@ -301,7 +301,7 @@ internal fun PostPlayOverlay(
                     Text(
                         preview?.subtitle ?: stringResource(R.string.tv_episode),
                         style = MaterialTheme.typography.labelLarge,
-                        color = TelevisionColors.PaperMuted,
+                        color = TelevisionTheme.colors.PaperMuted,
                     )
                     Text(
                         preview?.title.orEmpty(),
@@ -324,7 +324,7 @@ internal fun PostPlayOverlay(
                     stringResource(R.string.tv_player_playback_complete)
                 },
                     style = MaterialTheme.typography.labelLarge,
-                    color = TelevisionColors.PaperMuted,
+                    color = TelevisionTheme.colors.PaperMuted,
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -336,7 +336,7 @@ internal fun PostPlayOverlay(
                 )
                 upNext?.subtitle?.let {
                     Spacer(Modifier.height(10.dp))
-                    Text(it, style = MaterialTheme.typography.bodyLarge, color = TelevisionColors.PaperMuted)
+                    Text(it, style = MaterialTheme.typography.bodyLarge, color = TelevisionTheme.colors.PaperMuted)
                 }
                 Spacer(Modifier.height(20.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -386,13 +386,13 @@ internal fun PostPlayOverlay(
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
                         .height(2.dp)
-                        .background(TelevisionColors.ProgressTrack),
+                        .background(TelevisionTheme.colors.ProgressTrack),
                 ) {
                     Box(
                         Modifier
                             .fillMaxWidth((countdownSeconds / 10f).coerceIn(0f, 1f))
                             .height(2.dp)
-                            .background(TelevisionColors.PaperMuted),
+                            .background(TelevisionTheme.colors.PaperMuted),
                     )
                 }
             }
@@ -420,7 +420,7 @@ private fun LegacyPostPlayOverlay(
         Text(
             stringResource(R.string.tv_player_up_next),
             style = MaterialTheme.typography.titleMedium,
-            color = TelevisionColors.PaperMuted,
+            color = TelevisionTheme.colors.PaperMuted,
         )
             AsyncImage(
                 model = upNext.thumbUrl,
@@ -429,7 +429,7 @@ private fun LegacyPostPlayOverlay(
                 modifier = Modifier
                     .width(420.dp)
                     .height(236.dp)
-                    .background(TelevisionColors.ImagePlaceholder),
+                    .background(TelevisionTheme.colors.ImagePlaceholder),
             )
             Text(
                 upNext.title,
@@ -437,7 +437,7 @@ private fun LegacyPostPlayOverlay(
                 maxLines = 2,
             )
             upNext.subtitle?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = TelevisionColors.PaperMuted)
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = TelevisionTheme.colors.PaperMuted)
             }
         PlayerTextButton(
             label = playNextLabel,
@@ -482,7 +482,7 @@ internal fun PlayerExitConfirmationOverlay(
         Text(
             text = stringResource(R.string.tv_player_exit_message),
             style = MaterialTheme.typography.bodyLarge,
-            color = TelevisionColors.PaperMuted,
+            color = TelevisionTheme.colors.PaperMuted,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             PlayerTextButton(
@@ -506,7 +506,7 @@ private fun ModalScrim(content: @Composable ColumnScope.() -> Unit) {
         modifier = Modifier
             .playerModalFocusTrap()
             .fillMaxSize()
-            .background(TelevisionColors.Black.copy(alpha = 0.94f)),
+            .background(TelevisionTheme.colors.Black.copy(alpha = 0.94f)),
         contentAlignment = Alignment.Center,
     ) {
         Column(

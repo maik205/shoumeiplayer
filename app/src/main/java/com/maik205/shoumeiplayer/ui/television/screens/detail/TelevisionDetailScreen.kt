@@ -61,7 +61,6 @@ import com.maik205.shoumeiplayer.ui.television.components.rememberPlaybackLaunch
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import com.maik205.shoumeiplayer.ui.i18n.UiText
 import com.maik205.shoumeiplayer.ui.i18n.resolve
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import kotlinx.coroutines.launch
 

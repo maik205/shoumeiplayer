@@ -70,8 +70,8 @@ import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWr
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.domain.model.ArtworkShape
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -145,7 +145,7 @@ internal fun DetailAbout(state: TelevisionDetailState) {
                             Text(
                                 text = stringResource(labelRes),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = TelevisionColors.PaperMuted,
+                                color = TelevisionTheme.colors.PaperMuted,
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(

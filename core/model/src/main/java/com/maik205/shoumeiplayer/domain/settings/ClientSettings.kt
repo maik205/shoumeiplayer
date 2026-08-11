@@ -57,6 +57,7 @@ data class ClientSettings(
     val displayLanguage: DisplayLanguage = DisplayLanguage.English,
     val interfaceScale: InterfaceScale = InterfaceScale.Comfortable,
     val theme: AppTheme = AppTheme.Dark,
+    val colorPalette: ColorPalette = ColorPalette.Midnight,
     val backdropImages: Boolean = true,
     val backdropRotationSeconds: Int = 20,
     val watchedIndicators: Boolean = true,

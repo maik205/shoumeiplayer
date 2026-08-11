@@ -66,7 +66,7 @@ import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.core.designsystem.tv.R
 import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
@@ -394,6 +394,7 @@ private fun TelevisionTopNavigationItem(
     focusRequester: FocusRequester,
     modifier: Modifier = Modifier,
 ) {
+    val colors = TelevisionTheme.colors
     TelevisionFocusSurface(
         onClick = onClick,
         focusRequester = focusRequester,
@@ -409,7 +410,7 @@ private fun TelevisionTopNavigationItem(
                     .clip(RoundedCornerShape(TelevisionDimensions.FocusRadius))
                     .background(
                         if (focused) {
-                            TelevisionColors.Paper.copy(alpha = 0.12f)
+                            colors.Paper.copy(alpha = 0.12f)
                         } else {
                             androidx.compose.ui.graphics.Color.Transparent
                         },
@@ -439,9 +440,9 @@ private fun TelevisionTopNavigationItem(
                         .height(1.dp)
                         .background(
                             if (selected) {
-                                TelevisionColors.Paper
+                                colors.Paper
                             } else {
-                                TelevisionColors.PaperMuted
+                                colors.PaperMuted
                             },
                         ),
                 )
@@ -474,6 +475,7 @@ private fun TelevisionAvatarButton(
     contentFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
 ) {
+    val colors = TelevisionTheme.colors
     TelevisionFocusSurface(
         onClick = onClick,
         focusRequester = focusRequester,
@@ -502,7 +504,7 @@ private fun TelevisionAvatarButton(
                 modifier = Modifier
                     .size(21.dp)
                     .clip(CircleShape)
-                    .background(TelevisionColors.Paper.copy(alpha = 0.14f)),
+                    .background(colors.Paper.copy(alpha = 0.14f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -512,7 +514,7 @@ private fun TelevisionAvatarButton(
                         initials.take(2)
                     },
                     style = MaterialTheme.typography.labelMedium,
-                    color = TelevisionColors.Paper,
+                    color = colors.Paper,
                 )
             }
         }

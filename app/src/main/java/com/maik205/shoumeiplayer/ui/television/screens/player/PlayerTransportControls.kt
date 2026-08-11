@@ -73,7 +73,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import java.util.Locale
 import kotlinx.coroutines.flow.StateFlow
@@ -89,6 +89,7 @@ internal fun PlayerActionButton(
     focusRequester: FocusRequester? = null,
     onFocused: () -> Unit = {},
 ) {
+    val colors = TelevisionTheme.colors
     TelevisionFocusSurface(
         onClick = onClick,
         enabled = enabled,
@@ -103,8 +104,8 @@ internal fun PlayerActionButton(
                 .fillMaxSize()
                 .background(
                     color = when {
-                        focused -> TelevisionColors.Paper
-                        selected -> TelevisionColors.Paper.copy(alpha = 0.14f)
+                        focused -> colors.Paper
+                        selected -> colors.Paper.copy(alpha = 0.14f)
                         else -> Color.Transparent
                     },
                     shape = RoundedCornerShape(TelevisionDimensions.FocusRadius),
@@ -116,14 +117,14 @@ internal fun PlayerActionButton(
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = if (focused) TelevisionColors.Black else TelevisionColors.Paper,
+                tint = if (focused) colors.Black else colors.Paper,
                 modifier = Modifier.size(24.dp),
             )
             Spacer(Modifier.height(3.dp))
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
-                color = if (focused) TelevisionColors.Black else TelevisionColors.Paper,
+                color = if (focused) colors.Black else colors.Paper,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -179,6 +180,7 @@ internal fun PlayerTextButton(
     focusRequester: FocusRequester? = null,
     height: Dp = 46.dp,
 ) {
+    val colors = TelevisionTheme.colors
     TelevisionFocusSurface(
         onClick = onClick,
         enabled = enabled,
@@ -191,7 +193,7 @@ internal fun PlayerTextButton(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
-                    if (focused) TelevisionColors.Paper else TelevisionColors.Paper.copy(alpha = 0.1f),
+                    if (focused) colors.Paper else colors.Paper.copy(alpha = 0.1f),
                     RoundedCornerShape(TelevisionDimensions.FocusRadius),
                 )
                 .padding(horizontal = 16.dp),
@@ -202,7 +204,7 @@ internal fun PlayerTextButton(
                 Icon(
                     imageVector = it,
                     contentDescription = null,
-                    tint = if (focused) TelevisionColors.Black else TelevisionColors.Paper,
+                    tint = if (focused) colors.Black else colors.Paper,
                     modifier = Modifier.size(20.dp),
                 )
                 Spacer(Modifier.width(8.dp))
@@ -210,7 +212,7 @@ internal fun PlayerTextButton(
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelLarge,
-                color = if (focused) TelevisionColors.Black else TelevisionColors.Paper,
+                color = if (focused) colors.Black else colors.Paper,
             )
         }
     }
@@ -232,6 +234,7 @@ internal fun PlayerTimeline(
     onFocused: () -> Unit = {},
 ) {
     val duration = durationMs?.takeIf { it > 0L }
+    val colors = TelevisionTheme.colors
     val directionalFocusModifier = if (downFocusRequester != null) {
         Modifier.focusProperties { down = downFocusRequester }
     } else {
@@ -277,7 +280,7 @@ internal fun PlayerTimeline(
             Canvas(Modifier.fillMaxWidth().height(if (focused) 6.dp else 3.dp)) {
                 val radius = size.height / 2f
                 drawRoundRect(
-                    color = TelevisionColors.ProgressTrack,
+                    color = colors.ProgressTrack,
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius),
                 )
                 val bufferedFraction = if (duration == null) {
@@ -286,7 +289,7 @@ internal fun PlayerTimeline(
                     ((bufferedMs ?: 0L).toFloat() / duration.toFloat()).coerceIn(0f, 1f)
                 }
                 drawRoundRect(
-                    color = TelevisionColors.PaperSoft,
+                    color = colors.PaperSoft,
                     size = size.copy(width = size.width * bufferedFraction),
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius),
                 )
@@ -296,7 +299,7 @@ internal fun PlayerTimeline(
                     (positionMs.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
                 }
                 drawRoundRect(
-                    color = TelevisionColors.Paper,
+                    color = colors.Paper,
                     size = size.copy(width = size.width * playedFraction),
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius),
                 )
@@ -307,9 +310,9 @@ internal fun PlayerTimeline(
                         val x = size.width * chapterFraction
                         drawLine(
                             color = if (chapter.positionMs <= positionMs) {
-                                TelevisionColors.Paper
+                                colors.Paper
                             } else {
-                                TelevisionColors.PaperSoft
+                                colors.PaperSoft
                             },
                             start = androidx.compose.ui.geometry.Offset(x, -3f),
                             end = androidx.compose.ui.geometry.Offset(x, size.height + 3f),
@@ -318,7 +321,7 @@ internal fun PlayerTimeline(
                     }
                 }
                 drawCircle(
-                    color = TelevisionColors.Paper,
+                    color = colors.Paper,
                     radius = if (focused) 8.5f else 6.5f,
                     center = androidx.compose.ui.geometry.Offset(
                         x = size.width * playedFraction,
@@ -331,14 +334,14 @@ internal fun PlayerTimeline(
                 Text(
                     text = formatPlayerTime(positionMs),
                     style = MaterialTheme.typography.labelSmall,
-                    color = TelevisionColors.Paper,
+                    color = colors.Paper,
                 )
                 Text(
                     text = duration?.let {
                         "-${formatPlayerTime((it - positionMs).coerceAtLeast(0L))}"
                     } ?: stringResource(R.string.tv_time_unknown),
                     style = MaterialTheme.typography.labelSmall,
-                    color = TelevisionColors.PaperMuted,
+                    color = colors.PaperMuted,
                 )
             }
         }
@@ -353,14 +356,15 @@ internal fun MiniPlayerTimeline(
 ) {
     val duration = durationMs?.takeIf { it > 0L }
     val fraction = if (duration == null) 0f else (positionMs.toFloat() / duration).coerceIn(0f, 1f)
+    val colors = TelevisionTheme.colors
     Box(
         modifier = modifier
             .height(58.dp)
             .background(
                 Brush.verticalGradient(
                     0f to Color.Transparent,
-                    0.35f to TelevisionColors.Black.copy(alpha = 0.08f),
-                    1f to TelevisionColors.Black.copy(alpha = 0.72f),
+                    0.35f to colors.Black.copy(alpha = 0.08f),
+                    1f to colors.Black.copy(alpha = 0.72f),
                 ),
             )
             .padding(horizontal = 67.dp)
@@ -375,11 +379,11 @@ internal fun MiniPlayerTimeline(
             Canvas(Modifier.weight(1f).height(2.dp)) {
                 val radius = size.height / 2f
                 drawRoundRect(
-                    color = TelevisionColors.ProgressTrack,
+                    color = colors.ProgressTrack,
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius),
                 )
                 drawRoundRect(
-                    color = TelevisionColors.Paper,
+                    color = colors.Paper,
                     size = size.copy(width = size.width * fraction),
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius),
                 )

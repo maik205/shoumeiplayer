@@ -52,8 +52,8 @@ import coil3.request.crossfade
 import com.maik205.shoumeiplayer.domain.model.ArtworkShape
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import com.maik205.shoumeiplayer.core.designsystem.tv.R
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -78,6 +78,7 @@ fun TelevisionRowHeader(
     supportingText: String? = null,
     action: (@Composable RowScope.() -> Unit)? = null,
 ) {
+    val colors = TelevisionTheme.colors
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Bottom,
@@ -88,14 +89,14 @@ fun TelevisionRowHeader(
                 text = title,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = TelevisionColors.Paper,
+                color = colors.Paper,
             )
             if (supportingText != null) {
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = supportingText,
                     style = MaterialTheme.typography.bodySmall,
-                    color = TelevisionColors.PaperSoft,
+                    color = colors.PaperSoft,
                 )
             }
         }
@@ -122,10 +123,11 @@ fun TelevisionMediaTile(
     titleStyle: TextStyle? = null,
     subtitleOverride: String? = null,
     subtitleStyle: TextStyle? = null,
-    subtitleColor: Color = TelevisionColors.PaperMuted,
+    subtitleColor: Color = TelevisionTheme.colors.PaperMuted,
     showUnfocusedVeil: Boolean = true,
     onFocusChanged: (Boolean) -> Unit = {},
 ) {
+    val colors = TelevisionTheme.colors
     val defaultDimensions = shape.dimensions()
     val dimensions = TileDimensions(
         width = tileWidth ?: defaultDimensions.width,
@@ -176,8 +178,8 @@ fun TelevisionMediaTile(
                             .size(dimensions.width, dimensions.height)
                             .background(
                                 Brush.verticalGradient(
-                                    0.30f to TelevisionColors.Black.copy(alpha = 0f),
-                                    1f to TelevisionColors.Black.copy(alpha = 0.84f),
+                                    0.30f to colors.Black.copy(alpha = 0f),
+                                    1f to colors.Black.copy(alpha = 0.84f),
                                 ),
                             ),
                     )
@@ -190,7 +192,7 @@ fun TelevisionMediaTile(
                             text = item.title,
                             style = resolvedTitleStyle,
                             fontWeight = FontWeight.Bold,
-                            color = TelevisionColors.Paper,
+                            color = colors.Paper,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -224,7 +226,7 @@ fun TelevisionMediaTile(
                     text = item.title,
                     style = resolvedTitleStyle,
                     fontWeight = FontWeight.Bold,
-                    color = TelevisionColors.Paper,
+                    color = colors.Paper,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -256,6 +258,7 @@ private fun TelevisionArtwork(
     width: Dp,
     height: Dp,
 ) {
+    val colors = TelevisionTheme.colors
     val context = LocalPlatformContext.current
     val density = LocalDensity.current
     val widthPx = with(density) { width.roundToPx() }
@@ -274,7 +277,7 @@ private fun TelevisionArtwork(
         modifier = Modifier
             .size(width, height)
             .clip(artworkShape)
-            .background(TelevisionColors.ImagePlaceholder),
+            .background(colors.ImagePlaceholder),
     ) {
         if (request != null) {
             AsyncImage(
@@ -288,7 +291,7 @@ private fun TelevisionArtwork(
             Box(
                 modifier = Modifier
                     .size(width, height)
-                    .background(TelevisionColors.ImageVeil),
+                    .background(colors.ImageVeil),
             )
         }
         TelevisionProgressMark(
@@ -366,6 +369,7 @@ fun TelevisionProgressMark(
     watched: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val colors = TelevisionTheme.colors
     if (watched) {
         Box(
             modifier = modifier
@@ -377,7 +381,7 @@ fun TelevisionProgressMark(
                 imageVector = Icons.Default.Check,
                 contentDescription = stringResource(R.string.ds_watched),
                 modifier = Modifier.size(18.dp),
-                tint = TelevisionColors.Paper,
+                tint = colors.Paper,
             )
         }
         return
@@ -388,13 +392,13 @@ fun TelevisionProgressMark(
         modifier = modifier
             .fillMaxWidth()
             .height(3.dp)
-            .background(TelevisionColors.ProgressTrack),
+            .background(colors.ProgressTrack),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth(value)
                 .height(3.dp)
-                .background(TelevisionColors.Paper),
+                .background(colors.Paper),
         )
     }
 }

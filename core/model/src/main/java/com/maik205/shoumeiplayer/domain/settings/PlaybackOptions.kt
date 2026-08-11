@@ -205,6 +205,16 @@ enum class AppTheme(
     System("system", "System"),
 }
 
+enum class ColorPalette(
+    override val storageId: String,
+    override val label: String,
+) : StoredOption {
+    Midnight("midnight", "Midnight"),
+    Ember("ember", "Ember"),
+    Daylight("daylight", "Daylight"),
+    Sunrise("sunrise", "Sunrise"),
+}
+
 enum class ScreensaverContent(
     override val storageId: String,
     override val label: String,

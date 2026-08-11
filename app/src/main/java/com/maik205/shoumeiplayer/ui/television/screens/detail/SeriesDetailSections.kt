@@ -69,8 +69,8 @@ import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWr
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.domain.model.ArtworkShape
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -98,9 +98,9 @@ internal fun SeriesDetailSection(
             .fillMaxWidth()
             .background(
                 Brush.verticalGradient(
-                    0f to TelevisionColors.Black.copy(alpha = 0f),
-                    0.12f to TelevisionColors.Black.copy(alpha = 0.94f),
-                    1f to TelevisionColors.Black,
+                    0f to TelevisionTheme.colors.Black.copy(alpha = 0f),
+                    0.12f to TelevisionTheme.colors.Black.copy(alpha = 0.94f),
+                    1f to TelevisionTheme.colors.Black,
                 ),
             )
             .padding(top = 66.dp, bottom = 12.dp),
@@ -171,7 +171,7 @@ private fun SeriesNextUp(
                     .fillMaxWidth()
                     .aspectRatio(16f / 9f)
                     .clip(RoundedCornerShape(TelevisionDimensions.FocusRadius))
-                    .background(TelevisionColors.ImagePlaceholder),
+                    .background(TelevisionTheme.colors.ImagePlaceholder),
             ) {
                 episode.imageUrl?.let { image ->
                     AsyncImage(
@@ -186,8 +186,8 @@ private fun SeriesNextUp(
                         .fillMaxSize()
                         .background(
                             Brush.horizontalGradient(
-                                0f to TelevisionColors.Black.copy(alpha = 0f),
-                                1f to TelevisionColors.Black.copy(alpha = 0.28f),
+                                0f to TelevisionTheme.colors.Black.copy(alpha = 0f),
+                                1f to TelevisionTheme.colors.Black.copy(alpha = 0.28f),
                             ),
                         ),
                 )
@@ -215,13 +215,13 @@ private fun SeriesNextUp(
             Text(
                 text = episodeNumberLabel(episode),
                 style = MaterialTheme.typography.labelMedium,
-                color = TelevisionColors.PaperMuted,
+                color = TelevisionTheme.colors.PaperMuted,
             )
             Spacer(Modifier.height(6.dp))
             Text(
                 text = stringResource(R.string.next_up),
                 style = MaterialTheme.typography.titleSmall,
-                color = TelevisionColors.PaperMuted,
+                color = TelevisionTheme.colors.PaperMuted,
                 fontWeight = FontWeight.Medium,
             )
             Text(
@@ -236,7 +236,7 @@ private fun SeriesNextUp(
                 Text(
                     text = overview,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TelevisionColors.PaperMuted,
+                    color = TelevisionTheme.colors.PaperMuted,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -247,7 +247,7 @@ private fun SeriesNextUp(
                 Text(
                     text = metadata.joinToString("   "),
                     style = MaterialTheme.typography.bodySmall,
-                    color = TelevisionColors.PaperMuted,
+                    color = TelevisionTheme.colors.PaperMuted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -257,7 +257,7 @@ private fun SeriesNextUp(
                 Text(
                     text = credits,
                     style = MaterialTheme.typography.bodySmall,
-                    color = TelevisionColors.PaperMuted,
+                    color = TelevisionTheme.colors.PaperMuted,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -361,7 +361,7 @@ internal fun EpisodeRail(
                                 .fillMaxWidth()
                                 .aspectRatio(16f / 9f)
                                 .clip(RoundedCornerShape(TelevisionDimensions.FocusRadius))
-                                .background(TelevisionColors.ImagePlaceholder),
+                                .background(TelevisionTheme.colors.ImagePlaceholder),
                         ) {
                             episode.imageUrl?.let { image ->
                                 AsyncImage(
@@ -377,9 +377,9 @@ internal fun EpisodeRail(
                                     .background(
                                         Brush.radialGradient(
                                             colors = listOf(
-                                                TelevisionColors.Black.copy(alpha = 0.84f),
-                                                TelevisionColors.Black.copy(alpha = 0.26f),
-                                                TelevisionColors.Black.copy(alpha = 0f),
+                                                TelevisionTheme.colors.Black.copy(alpha = 0.84f),
+                                                TelevisionTheme.colors.Black.copy(alpha = 0.26f),
+                                                TelevisionTheme.colors.Black.copy(alpha = 0f),
                                             ),
                                             center = androidx.compose.ui.geometry.Offset(22f, 148f),
                                             radius = 190f,
@@ -417,7 +417,7 @@ internal fun EpisodeRail(
                                 episodeQualityLabel(episode),
                             ).joinToString("  ·  "),
                             style = MaterialTheme.typography.labelSmall,
-                            color = TelevisionColors.PaperMuted,
+                            color = TelevisionTheme.colors.PaperMuted,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -434,7 +434,7 @@ internal fun EpisodeRail(
                             Text(
                                 text = overview,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = if (focused) TelevisionColors.PaperSoft else TelevisionColors.PaperMuted,
+                                color = if (focused) TelevisionTheme.colors.PaperSoft else TelevisionTheme.colors.PaperMuted,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -446,7 +446,7 @@ internal fun EpisodeRail(
                                 episode.officialRating,
                             ).joinToString("  ·  "),
                             style = MaterialTheme.typography.labelSmall,
-                            color = TelevisionColors.PaperMuted,
+                            color = TelevisionTheme.colors.PaperMuted,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -533,9 +533,9 @@ private fun SeasonSelector(
                     .fillMaxSize()
                     .background(
                         Brush.horizontalGradient(
-                            0f to TelevisionColors.Black.copy(alpha = 0f),
-                            0.58f to TelevisionColors.Black.copy(alpha = 0.74f),
-                            1f to TelevisionColors.Black,
+                            0f to TelevisionTheme.colors.Black.copy(alpha = 0f),
+                            0.58f to TelevisionTheme.colors.Black.copy(alpha = 0.74f),
+                            1f to TelevisionTheme.colors.Black,
                         ),
                     ),
             ) {
@@ -546,9 +546,9 @@ private fun SeasonSelector(
                         .width(330.dp)
                         .background(
                             Brush.horizontalGradient(
-                                0f to TelevisionColors.Black.copy(alpha = 0f),
-                                0.20f to TelevisionColors.Black.copy(alpha = 0.96f),
-                                1f to TelevisionColors.Black,
+                                0f to TelevisionTheme.colors.Black.copy(alpha = 0f),
+                                0.20f to TelevisionTheme.colors.Black.copy(alpha = 0.96f),
+                                1f to TelevisionTheme.colors.Black,
                             ),
                         )
                         .focusProperties { onExit = { cancelFocusChange() } }

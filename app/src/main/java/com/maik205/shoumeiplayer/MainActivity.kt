@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,6 +22,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.tv.material3.Surface
 import com.maik205.shoumeiplayer.di.LocalAppContainer
+import com.maik205.shoumeiplayer.domain.settings.ClientSettings
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionBrandSplash
 import com.maik205.shoumeiplayer.ui.television.navigation.TelevisionNavGraph
 import com.maik205.shoumeiplayer.ui.television.theme.ShoumeiTelevisionTheme
@@ -35,6 +37,9 @@ class MainActivity : ComponentActivity() {
         volumeControlStream = AudioManager.STREAM_MUSIC
         setContent {
             val appContainer = (application as ShoumeiApp).container
+            val settings by appContainer.settingsStore.settings.collectAsState(
+                initial = ClientSettings(),
+            )
             CompositionLocalProvider(
                 LocalAppContainer provides appContainer,
             ) {
@@ -46,7 +51,7 @@ class MainActivity : ComponentActivity() {
                             AppLocaleManager.apply(this@MainActivity, language)
                         }
                 }
-                ShoumeiTelevisionTheme {
+                ShoumeiTelevisionTheme(settings = settings) {
                     Surface(
                         modifier = Modifier.fillMaxSize(),
                         shape = RectangleShape

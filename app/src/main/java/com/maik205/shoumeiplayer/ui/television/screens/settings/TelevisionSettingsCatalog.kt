@@ -10,6 +10,7 @@ import com.maik205.shoumeiplayer.domain.settings.ClientSettings
 import com.maik205.shoumeiplayer.domain.settings.AppTheme
 import com.maik205.shoumeiplayer.domain.settings.AssSsaDirectPlay
 import com.maik205.shoumeiplayer.domain.settings.BurnSubtitles
+import com.maik205.shoumeiplayer.domain.settings.ColorPalette
 import com.maik205.shoumeiplayer.domain.settings.DeinterlaceMode
 import com.maik205.shoumeiplayer.domain.settings.DisplayLanguage
 import com.maik205.shoumeiplayer.domain.settings.HardwareCodecs
@@ -377,6 +378,13 @@ internal fun settingsRowsForStrings(
                 values = AppTheme.entries,
                 display = { it.localizedLabel() },
             ) { update { current -> current.copy(theme = it) } },
+            choiceRow(
+                key = "color-palette",
+                labelRes = R.string.tv_settings_color_palette,
+                current = settings.colorPalette,
+                values = ColorPalette.entries,
+                display = { it.localizedLabel() },
+            ) { update { current -> current.copy(colorPalette = it) } },
             toggleRow("backdrops", R.string.tv_settings_backdrop_images, settings.backdropImages) {
                 update { it.copy(backdropImages = !it.backdropImages) }
             },
@@ -743,6 +751,12 @@ private fun StoredOption.localizedLabelRes(): Int = when (this) {
     is AppTheme -> when (this) {
         AppTheme.Dark -> R.string.tv_settings_dark
         AppTheme.System -> R.string.tv_settings_system
+    }
+    is ColorPalette -> when (this) {
+        ColorPalette.Midnight -> R.string.tv_settings_palette_midnight
+        ColorPalette.Ember -> R.string.tv_settings_palette_ember
+        ColorPalette.Daylight -> R.string.tv_settings_palette_daylight
+        ColorPalette.Sunrise -> R.string.tv_settings_palette_sunrise
     }
     is ScreensaverContent -> when (this) {
         ScreensaverContent.AllLibraries -> R.string.tv_settings_all_libraries

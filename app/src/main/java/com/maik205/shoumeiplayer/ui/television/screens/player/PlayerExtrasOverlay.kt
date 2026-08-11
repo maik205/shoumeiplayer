@@ -71,7 +71,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import java.util.Locale
 
@@ -84,12 +84,13 @@ internal fun PlayerExtrasOverlay(
     onRetry: () -> Unit,
 ) {
     val backFocus = remember { FocusRequester() }
+    val colors = TelevisionTheme.colors
     LaunchedEffect(Unit) { runCatching { backFocus.requestFocus() } }
     Column(
         modifier = Modifier
             .playerModalFocusTrap()
             .fillMaxSize()
-            .background(TelevisionColors.Black.copy(alpha = 0.97f))
+            .background(colors.Black.copy(alpha = 0.97f))
             .padding(
                 start = TelevisionDimensions.SafeHorizontal,
                 end = TelevisionDimensions.SafeHorizontal,
@@ -133,7 +134,7 @@ internal fun PlayerExtrasOverlay(
                         Text(
                             text = shelvesError.resolveMessage(),
                             style = MaterialTheme.typography.bodyLarge,
-                            color = TelevisionColors.PaperMuted,
+                            color = colors.PaperMuted,
                         )
                         PlayerActionButton(
                             label = stringResource(R.string.retry),
@@ -151,7 +152,7 @@ internal fun PlayerExtrasOverlay(
                             stringResource(R.string.tv_player_empty_extras)
                         },
                         style = MaterialTheme.typography.bodyLarge,
-                        color = TelevisionColors.PaperMuted,
+                        color = colors.PaperMuted,
                     )
                 }
             }
@@ -176,6 +177,7 @@ internal fun PlayerWhileWatchingRail(
     }
     val railState = rememberLazyListState()
     val shelvesError = state.shelvesError
+    val colors = TelevisionTheme.colors
 
     LaunchedEffect(itemIds, shelvesError, state.shelvesLoading) {
         when {
@@ -195,7 +197,7 @@ internal fun PlayerWhileWatchingRail(
                 Text(
                     text = stringResource(R.string.tv_loading_more),
                     style = MaterialTheme.typography.labelMedium,
-                    color = TelevisionColors.PaperMuted,
+                    color = colors.PaperMuted,
                 )
             }
         }
@@ -233,7 +235,7 @@ internal fun PlayerWhileWatchingRail(
                     Text(
                         text = shelvesError.resolveMessage(),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TelevisionColors.PaperMuted,
+                        color = colors.PaperMuted,
                     )
                     PlayerActionButton(
                         label = stringResource(R.string.retry),
@@ -248,7 +250,7 @@ internal fun PlayerWhileWatchingRail(
                 Text(
                     text = stringResource(R.string.tv_loading_more),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TelevisionColors.PaperMuted,
+                    color = colors.PaperMuted,
                 )
             }
 
@@ -256,7 +258,7 @@ internal fun PlayerWhileWatchingRail(
                 Text(
                     text = stringResource(R.string.tv_player_empty_extras),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TelevisionColors.PaperMuted,
+                    color = colors.PaperMuted,
                 )
             }
         }
@@ -314,6 +316,7 @@ private fun CastRow(
         List(cast.size) { FocusRequester() }
     }
     val railState = rememberLazyListState()
+    val colors = TelevisionTheme.colors
     Column {
         Text(stringResource(R.string.tv_player_cast), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
@@ -339,13 +342,13 @@ private fun CastRow(
                             modifier = Modifier
                                 .size(94.dp)
                                 .clip(CircleShape)
-                                .background(TelevisionColors.ImagePlaceholder, CircleShape),
+                                .background(colors.ImagePlaceholder, CircleShape),
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
                             person.name,
                             style = MaterialTheme.typography.labelMedium,
-                            color = if (focused) TelevisionColors.Paper else TelevisionColors.PaperMuted,
+                            color = if (focused) colors.Paper else colors.PaperMuted,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -353,7 +356,7 @@ private fun CastRow(
                             Text(
                                 it,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = TelevisionColors.PaperSoft,
+                                color = colors.PaperSoft,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -376,6 +379,7 @@ internal fun PlayerArtworkTile(
     focusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
 ) {
+    val colors = TelevisionTheme.colors
     TelevisionFocusSurface(
         onClick = onClick,
         focusRequester = focusRequester,
@@ -391,7 +395,7 @@ internal fun PlayerArtworkTile(
                     .width(width)
                     .height(height)
                     .background(
-                        if (focused) TelevisionColors.Paper.copy(alpha = 0.18f) else TelevisionColors.ImagePlaceholder,
+                        if (focused) colors.Paper.copy(alpha = 0.18f) else colors.ImagePlaceholder,
                         RoundedCornerShape(TelevisionDimensions.FocusRadius),
                     ),
             )
@@ -399,7 +403,7 @@ internal fun PlayerArtworkTile(
             Text(
                 title,
                 style = MaterialTheme.typography.labelLarge.televisionItemTitle(),
-                color = if (focused) TelevisionColors.Paper else TelevisionColors.PaperMuted,
+                color = if (focused) colors.Paper else colors.PaperMuted,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -407,7 +411,7 @@ internal fun PlayerArtworkTile(
                 Text(
                     it,
                     style = MaterialTheme.typography.labelSmall,
-                    color = TelevisionColors.PaperSoft,
+                    color = colors.PaperSoft,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

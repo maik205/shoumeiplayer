@@ -117,7 +117,7 @@ import com.maik205.shoumeiplayer.ui.television.model.HeroUi
 import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDestinationUi
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import com.maik205.shoumeiplayer.domain.model.MediaShelf as MediaShelfUi
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
@@ -156,6 +156,7 @@ fun TelevisionLibraryScreen(
     val entryFocus = remember { FocusRequester() }
     val topNavigationFocus = remember { FocusRequester() }
     val selectedNavigationKey = "library:$libraryId"
+    val televisionColors = TelevisionTheme.colors
     var restoreMediaId by rememberSaveable(libraryId) { mutableStateOf<String?>(null) }
     val openItem: (MediaItemUi) -> Unit = { item ->
         restoreMediaId = item.id
@@ -170,11 +171,11 @@ fun TelevisionLibraryScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .drawBehind {
-                        drawRect(TelevisionColors.LibraryBackground)
+                        drawRect(televisionColors.LibraryBackground)
                         drawRect(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    TelevisionColors.Paper.copy(alpha = 0.035f),
+                                    televisionColors.Paper.copy(alpha = 0.035f),
                                     androidx.compose.ui.graphics.Color.Transparent,
                                 ),
                                 center = Offset(size.width * 0.18f, 0f),
@@ -309,7 +310,7 @@ private fun StandardLibraryContent(
                             fontSize = 7.sp,
                             lineHeight = 9.sp,
                         ),
-                        color = TelevisionColors.PaperSoft,
+                        color = TelevisionTheme.colors.PaperSoft,
                         modifier = Modifier.padding(top = 8.5.dp),
                     )
                 }
@@ -462,7 +463,7 @@ private fun StandardLibraryContent(
                                 fontSize = 6.5.sp,
                                 lineHeight = 8.5.sp,
                             ),
-                            subtitleColor = TelevisionColors.Paper.copy(alpha = 0.75f),
+                            subtitleColor = TelevisionTheme.colors.Paper.copy(alpha = 0.75f),
                             showUnfocusedVeil = false,
                             focusedTranslationY = (-2.5).dp,
                             focusAnimationMillis = 240,
@@ -497,7 +498,7 @@ private fun StandardLibraryContent(
                                 Spacer(Modifier.width(10.dp))
                                 Text(
                                     text = stringResource(R.string.tv_loading_more),
-                                    color = TelevisionColors.PaperMuted,
+                                    color = TelevisionTheme.colors.PaperMuted,
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             }

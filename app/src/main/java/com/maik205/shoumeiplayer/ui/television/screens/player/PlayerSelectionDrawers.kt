@@ -71,7 +71,7 @@ import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusSurface
 import com.maik205.shoumeiplayer.ui.television.components.televisionHorizontalWrap
 import com.maik205.shoumeiplayer.ui.television.components.televisionItemTitle
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
-import com.maik205.shoumeiplayer.ui.television.theme.TelevisionColors
+import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import java.util.Locale
 
@@ -83,6 +83,7 @@ internal fun PlayerSelectionPanel(
     modifier: Modifier = Modifier,
 ) {
     val first = remember { FocusRequester() }
+    val colors = TelevisionTheme.colors
     LaunchedEffect(title, rows.size) {
         runCatching { first.requestFocus() }
     }
@@ -91,7 +92,7 @@ internal fun PlayerSelectionPanel(
             .playerModalFocusTrap()
             .width(310.dp)
             .fillMaxHeight()
-            .playerDrawerSurface()
+            .playerDrawerSurface(colors.Black)
             .padding(
                 start = 32.dp,
                 end = 48.dp,
@@ -149,7 +150,7 @@ private fun PlayerSelectionPanelRow(
                 Text(
                     row.label,
                     style = MaterialTheme.typography.labelLarge,
-                    color = TelevisionColors.Paper,
+                    color = TelevisionTheme.colors.Paper,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -157,7 +158,7 @@ private fun PlayerSelectionPanelRow(
                     Text(
                         it,
                         style = MaterialTheme.typography.labelSmall,
-                        color = TelevisionColors.PaperMuted,
+                        color = TelevisionTheme.colors.PaperMuted,
                         maxLines = 1,
                     )
                 }
@@ -166,7 +167,7 @@ private fun PlayerSelectionPanelRow(
                 Icon(
                     Icons.Default.Check,
                         contentDescription = stringResource(R.string.tv_selected),
-                    tint = TelevisionColors.Paper,
+                    tint = TelevisionTheme.colors.Paper,
                     modifier = Modifier.size(10.dp),
                 )
             }
@@ -185,13 +186,14 @@ internal fun PlaybackOptionsPanel(
     modifier: Modifier = Modifier,
 ) {
     val first = remember { FocusRequester() }
+    val colors = TelevisionTheme.colors
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
     Column(
         modifier = modifier
             .playerModalFocusTrap()
             .width(310.dp)
             .fillMaxHeight()
-            .playerDrawerSurface()
+            .playerDrawerSurface(colors.Black)
             .padding(
                 start = 32.dp,
                 end = 48.dp,
@@ -214,7 +216,7 @@ internal fun PlaybackOptionsPanel(
         Text(
             stringResource(R.string.tv_player_delay_adjust_unbounded),
             style = MaterialTheme.typography.bodySmall,
-            color = TelevisionColors.PaperMuted,
+            color = colors.PaperMuted,
         )
         Spacer(Modifier.height(4.dp))
         DelayRow(
@@ -247,13 +249,14 @@ internal fun PlaybackDelayPanel(
     modifier: Modifier = Modifier,
 ) {
     val first = remember { FocusRequester() }
+    val colors = TelevisionTheme.colors
     LaunchedEffect(title) { runCatching { first.requestFocus() } }
     Column(
         modifier = modifier
             .playerModalFocusTrap()
             .width(310.dp)
             .fillMaxHeight()
-            .playerDrawerSurface()
+            .playerDrawerSurface(colors.Black)
             .padding(
                 start = 32.dp,
                 end = 48.dp,
@@ -273,7 +276,7 @@ internal fun PlaybackDelayPanel(
         Text(
             stringResource(R.string.tv_player_delay_adjust),
             style = MaterialTheme.typography.bodySmall,
-            color = TelevisionColors.PaperMuted,
+            color = colors.PaperMuted,
         )
         Spacer(Modifier.height(4.dp))
         DelayRow(
@@ -292,6 +295,7 @@ private fun DelayRow(
     onChange: (Long) -> Unit,
     focusRequester: FocusRequester? = null,
 ) {
+    val colors = TelevisionTheme.colors
     TelevisionFocusSurface(
         onClick = { onChange(0L) },
         focusRequester = focusRequester,
@@ -320,7 +324,7 @@ private fun DelayRow(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
-                    if (focused) TelevisionColors.Paper else TelevisionColors.Paper.copy(alpha = 0.1f),
+                    if (focused) colors.Paper else colors.Paper.copy(alpha = 0.1f),
                     RoundedCornerShape(TelevisionDimensions.FocusRadius),
                 )
                 .padding(horizontal = 8.dp, vertical = 4.dp),
@@ -331,28 +335,28 @@ private fun DelayRow(
                     Text(
                         label,
                         style = MaterialTheme.typography.labelLarge,
-                        color = if (focused) TelevisionColors.Black else TelevisionColors.Paper,
+                        color = if (focused) colors.Black else colors.Paper,
                     )
                     Text(
                         stringResource(R.string.tv_player_center_resets),
                         style = MaterialTheme.typography.labelSmall,
                         color = if (focused) {
-                            TelevisionColors.Black.copy(alpha = 0.62f)
+                            colors.Black.copy(alpha = 0.62f)
                         } else {
-                            TelevisionColors.PaperMuted
+                            colors.PaperMuted
                         },
                     )
                 }
                 Text(
                     signedDelay(valueMs),
                     style = MaterialTheme.typography.titleMedium,
-                    color = if (focused) TelevisionColors.Black else TelevisionColors.Paper,
+                    color = if (focused) colors.Black else colors.Paper,
                 )
             }
             Spacer(Modifier.height(2.5.dp))
             Canvas(Modifier.fillMaxWidth().height(2.5.dp)) {
-                val track = if (focused) TelevisionColors.Black.copy(alpha = 0.2f) else TelevisionColors.ProgressTrack
-                val marker = if (focused) TelevisionColors.Black else TelevisionColors.Paper
+                val track = if (focused) colors.Black.copy(alpha = 0.2f) else colors.ProgressTrack
+                val marker = if (focused) colors.Black else colors.Paper
                 val centerX = size.width / 2f
                 val normalized = valueMs.toDouble() / (kotlin.math.abs(valueMs.toDouble()) + 1_000.0)
                 val thumbX = centerX + (normalized.toFloat() * size.width * 0.45f)
@@ -376,12 +380,17 @@ private fun DelayRow(
     }
 }
 
-private fun Modifier.playerDrawerSurface(): Modifier = background(
+/**
+ * Not `@Composable`: it is chained inside `Modifier` expressions passed as a default-scope argument,
+ * which is not a composable context. Callers hoist [TelevisionTheme.colors] and pass its `Black`
+ * token in rather than reading the local here.
+ */
+private fun Modifier.playerDrawerSurface(black: Color): Modifier = background(
     Brush.horizontalGradient(
         0f to Color.Transparent,
-        0.18f to TelevisionColors.Black.copy(alpha = 0.18f),
-        0.5f to TelevisionColors.Black.copy(alpha = 0.68f),
-        0.78f to TelevisionColors.Black.copy(alpha = 0.94f),
-        1f to TelevisionColors.Black.copy(alpha = 0.99f),
+        0.18f to black.copy(alpha = 0.18f),
+        0.5f to black.copy(alpha = 0.68f),
+        0.78f to black.copy(alpha = 0.94f),
+        1f to black.copy(alpha = 0.99f),
     ),
 )
