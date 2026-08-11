@@ -143,15 +143,16 @@ fun TelevisionLibraryScreen(
     navigationState: LazyListState,
 ) {
     val isMusic = state.collectionType.equals("music", ignoreCase = true)
-    val focused = remember(state.items, isMusic) {
-        mutableStateOf(
-            if (isMusic) {
+    var focused by remember(libraryId) { mutableStateOf<MediaItemUi?>(null) }
+    LaunchedEffect(state.items, isMusic) {
+        focused = focused
+            ?.let { current -> state.items.firstOrNull { it.id == current.id } ?: current }
+            ?: if (isMusic) {
                 state.items.firstOrNull { it.type == "MusicAlbum" }
                     ?: state.items.firstOrNull()
             } else {
                 state.items.firstOrNull()
-            },
-        )
+            }
     }
     val entryFocus = remember { FocusRequester() }
     val topNavigationFocus = remember { FocusRequester() }
@@ -164,7 +165,7 @@ fun TelevisionLibraryScreen(
     }
 
     TelevisionBackground(
-        imageUrl = if (isMusic) focused.value?.backdropUrl else null,
+        imageUrl = if (isMusic) focused?.backdropUrl else null,
     ) {
         if (!isMusic) {
             Box(
@@ -188,8 +189,8 @@ fun TelevisionLibraryScreen(
         if (isMusic) {
             MusicLibraryContent(
                 state = state,
-                focused = focused.value,
-                onFocused = { focused.value = it },
+                focused = focused,
+                onFocused = { focused = it },
                 onOpenItem = openItem,
                 onRetry = onRetry,
                 onLoadMore = onLoadMore,

@@ -57,6 +57,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -74,12 +75,16 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -119,7 +124,6 @@ import com.maik205.shoumeiplayer.domain.model.MediaShelf as MediaShelfUi
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.isActive
 import kotlin.math.abs
 
 @Composable
@@ -176,7 +180,12 @@ internal fun MusicLibraryContent(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val heroActionFocus = remember { FocusRequester() }
-    val firstShelfFocus = remember { FocusRequester() }
+    val overviewFocus = entryFocus
+    val albumsFocus = remember { FocusRequester() }
+    val artistsFocus = remember { FocusRequester() }
+    val playlistsFocus = remember { FocusRequester() }
+    val sectionFocusRequesters = listOf(overviewFocus, albumsFocus, artistsFocus, playlistsFocus)
+    var lastSectionIndex by rememberSaveable(state.title) { mutableIntStateOf(0) }
     val overviewLabel = stringResource(R.string.tv_music_overview)
     val albumsLabel = stringResource(R.string.tv_music_albums)
     val artistsLabel = stringResource(R.string.tv_music_artists)
@@ -185,10 +194,10 @@ internal fun MusicLibraryContent(
     var selectedView by rememberSaveable(state.title) { mutableStateOf("overview") }
     val grouped = remember(state.items, albumsLabel, artistsLabel, playlistsLabel) {
         listOf(
-            albumsLabel to state.items.filter { it.type == "MusicAlbum" },
-            artistsLabel to state.items.filter { it.type == "MusicArtist" },
-            playlistsLabel to state.items.filter { it.type == "Playlist" },
-        ).filter { it.second.isNotEmpty() }
+            MusicShelfGroup("albums", albumsLabel, state.items.filter { it.type == "MusicAlbum" }),
+            MusicShelfGroup("artists", artistsLabel, state.items.filter { it.type == "MusicArtist" }),
+            MusicShelfGroup("playlists", playlistsLabel, state.items.filter { it.type == "Playlist" }),
+        ).filter { it.items.isNotEmpty() }
     }
     val itemFocusTargets = remember { mutableMapOf<String, MusicFocusTarget>() }
     val currentRestoreMediaId by rememberUpdatedState(restoreMediaId)
@@ -196,10 +205,10 @@ internal fun MusicLibraryContent(
     LifecycleResumeEffect(Unit) {
         val job = restoreScope.launch {
             val mediaId = currentRestoreMediaId ?: return@launch
-            val shelfIndex = grouped.indexOfFirst { (_, items) -> items.any { it.id == mediaId } }
+            val shelfIndex = grouped.indexOfFirst { group -> group.items.any { it.id == mediaId } }
             if (shelfIndex < 0) return@launch
             listState.scrollToItem(shelfIndex + 2)
-            while (isActive) {
+            repeat(12) {
                 val target = itemFocusTargets[mediaId]
                 if (target != null) {
                     target.rowState.scrollToItem(target.itemIndex)
@@ -208,7 +217,7 @@ internal fun MusicLibraryContent(
                         target.requester.requestFocus()
                     }.getOrDefault(false)
                 ) {
-                    break
+                    return@launch
                 }
                 androidx.compose.runtime.withFrameNanos { }
             }
@@ -216,10 +225,28 @@ internal fun MusicLibraryContent(
         onPauseOrDispose { job.cancel() }
     }
 
+    fun requestShelfFocus(shelfIndex: Int, itemIndex: Int) {
+        val targetItems = grouped.getOrNull(shelfIndex)?.items ?: return
+        val resolvedItemIndex = itemIndex.coerceIn(0, targetItems.lastIndex)
+        val itemId = targetItems[resolvedItemIndex].id
+        scope.launch {
+            listState.scrollToItem(shelfIndex + 2)
+            repeat(8) {
+                val target = itemFocusTargets[itemId]
+                if (target != null) {
+                    target.rowState.scrollToItem(target.itemIndex)
+                    androidx.compose.runtime.withFrameNanos { }
+                    if (runCatching { target.requester.requestFocus() }.getOrDefault(false)) return@launch
+                }
+                androidx.compose.runtime.withFrameNanos { }
+            }
+        }
+    }
+
     fun selectView(label: String, sectionTitle: String? = null) {
         selectedView = label
         val targetIndex = sectionTitle
-            ?.let { title -> grouped.indexOfFirst { it.first == title } }
+            ?.let { title -> grouped.indexOfFirst { it.title == title } }
             ?.takeIf { it >= 0 }
             ?.plus(2)
             ?: 0
@@ -228,9 +255,7 @@ internal fun MusicLibraryContent(
 
     LazyColumn(
         state = listState,
-        modifier = Modifier
-            .fillMaxSize()
-            .focusRestorer(),
+        modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 64.dp),
     ) {
         item("music-heading") {
@@ -262,9 +287,12 @@ internal fun MusicLibraryContent(
                         icon = Icons.Default.Headphones,
                         onClick = { selectView("overview") },
                         selected = selectedView == "overview",
-                        focusRequester = entryFocus,
+                        focusRequester = overviewFocus,
                         expandedWidth = 72.dp,
+                        onFocusChanged = { if (it) lastSectionIndex = 0 },
                         modifier = Modifier.focusProperties {
+                            left = FocusRequester.Cancel
+                            right = albumsFocus
                             up = topNavigationFocus
                             down = heroActionFocus
                         },
@@ -272,10 +300,19 @@ internal fun MusicLibraryContent(
                     TelevisionFocusRevealButton(
                         label = albumsLabel,
                         icon = Icons.Default.Album,
-                        onClick = { selectView("albums", albumsLabel) },
+                        onClick = {
+                            selectView("albums", albumsLabel)
+                            grouped.indexOfFirst { it.key == "albums" }
+                                .takeIf { it >= 0 }
+                                ?.let { requestShelfFocus(it, 0) }
+                        },
                         selected = selectedView == "albums",
+                        focusRequester = albumsFocus,
                         expandedWidth = 62.dp,
+                        onFocusChanged = { if (it) lastSectionIndex = 1 },
                         modifier = Modifier.focusProperties {
+                            left = overviewFocus
+                            right = artistsFocus
                             up = topNavigationFocus
                             down = heroActionFocus
                         },
@@ -283,10 +320,19 @@ internal fun MusicLibraryContent(
                     TelevisionFocusRevealButton(
                         label = artistsLabel,
                         icon = Icons.Default.Person,
-                        onClick = { selectView("artists", artistsLabel) },
+                        onClick = {
+                            selectView("artists", artistsLabel)
+                            grouped.indexOfFirst { it.key == "artists" }
+                                .takeIf { it >= 0 }
+                                ?.let { requestShelfFocus(it, 0) }
+                        },
                         selected = selectedView == "artists",
+                        focusRequester = artistsFocus,
                         expandedWidth = 60.dp,
+                        onFocusChanged = { if (it) lastSectionIndex = 2 },
                         modifier = Modifier.focusProperties {
+                            left = albumsFocus
+                            right = playlistsFocus
                             up = topNavigationFocus
                             down = heroActionFocus
                         },
@@ -294,10 +340,19 @@ internal fun MusicLibraryContent(
                     TelevisionFocusRevealButton(
                         label = playlistsLabel,
                         icon = Icons.AutoMirrored.Filled.QueueMusic,
-                        onClick = { selectView("playlists", playlistsLabel) },
+                        onClick = {
+                            selectView("playlists", playlistsLabel)
+                            grouped.indexOfFirst { it.key == "playlists" }
+                                .takeIf { it >= 0 }
+                                ?.let { requestShelfFocus(it, 0) }
+                        },
                         selected = selectedView == "playlists",
+                        focusRequester = playlistsFocus,
                         expandedWidth = 70.dp,
+                        onFocusChanged = { if (it) lastSectionIndex = 3 },
                         modifier = Modifier.focusProperties {
+                            left = artistsFocus
+                            right = FocusRequester.Cancel
                             up = topNavigationFocus
                             down = heroActionFocus
                         },
@@ -386,21 +441,35 @@ internal fun MusicLibraryContent(
                             selected = true,
                             focusRequester = heroActionFocus,
                             expandedWidth = 96.dp,
-                            modifier = Modifier.focusProperties {
-                                up = entryFocus
-                                if (grouped.isNotEmpty()) down = firstShelfFocus
-                            },
+                            modifier = Modifier
+                                .onPreviewKeyEvent { event ->
+                                    if (event.type == KeyEventType.KeyDown &&
+                                        event.key == Key.DirectionDown &&
+                                        grouped.isNotEmpty()
+                                    ) {
+                                        requestShelfFocus(0, 0)
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                }
+                                .focusProperties {
+                                    up = sectionFocusRequesters[lastSectionIndex]
+                                },
                         )
                     }
                 }
             }
         }
-        items(grouped, key = { it.first }) { (title, media) ->
+        itemsIndexed(grouped, key = { _, group -> group.key }) { shelfIndex, group ->
             MusicShelf(
-                title = title,
-                items = media,
-                firstItemFocusRequester = firstShelfFocus.takeIf { title == grouped.first().first },
-                upFocusRequester = heroActionFocus.takeIf { title == grouped.first().first },
+                group = group,
+                shelfIndex = shelfIndex,
+                shelfCount = grouped.size,
+                heroFocusRequester = heroActionFocus,
+                onMoveVertically = { targetShelf, itemIndex ->
+                    requestShelfFocus(targetShelf, itemIndex)
+                },
                 onFocused = onFocused,
                 onOpenItem = onOpenItem,
                 itemFocusTargets = itemFocusTargets,
@@ -457,27 +526,34 @@ internal fun MusicLibraryContent(
 
 @Composable
 private fun MusicShelf(
-    title: String,
-    items: List<MediaItemUi>,
-    firstItemFocusRequester: FocusRequester?,
-    upFocusRequester: FocusRequester?,
+    group: MusicShelfGroup,
+    shelfIndex: Int,
+    shelfCount: Int,
+    heroFocusRequester: FocusRequester,
+    onMoveVertically: (shelfIndex: Int, itemIndex: Int) -> Unit,
     onFocused: (MediaItemUi) -> Unit,
     onOpenItem: (MediaItemUi) -> Unit,
     itemFocusTargets: MutableMap<String, MusicFocusTarget>,
 ) {
-    var focusedItemId by remember(title) { mutableStateOf<String?>(null) }
+    val items = group.items
+    var focusedItemId by remember(group.key) { mutableStateOf<String?>(null) }
     val itemIdentity = items.fold(1) { hash, item -> 31 * hash + item.id.hashCode() }
     val railState = rememberLazyListState()
-    val railFocusRequesters = remember(items.size, itemIdentity, firstItemFocusRequester, railState) {
+    val railFocusRequesters = remember(items.size, itemIdentity, railState) {
         List(items.size) { index ->
-            if (index == 0 && firstItemFocusRequester != null) {
-                firstItemFocusRequester
-            } else {
-                itemFocusTargets[items[index].id]?.requester ?: FocusRequester()
-            }
+            itemFocusTargets[items[index].id]?.requester ?: FocusRequester()
         }.also { requesters ->
             items.forEachIndexed { index, item ->
                 itemFocusTargets[item.id] = MusicFocusTarget(requesters[index], railState, index)
+            }
+        }
+    }
+    DisposableEffect(group.key, railFocusRequesters) {
+        onDispose {
+            items.forEachIndexed { index, item ->
+                if (itemFocusTargets[item.id]?.requester === railFocusRequesters[index]) {
+                    itemFocusTargets.remove(item.id)
+                }
             }
         }
     }
@@ -496,7 +572,7 @@ private fun MusicShelf(
         ),
     ) {
         Text(
-            text = title,
+            text = group.title,
             style = MaterialTheme.typography.headlineLarge.copy(
                 fontSize = 16.sp,
                 lineHeight = 20.sp,
@@ -509,8 +585,7 @@ private fun MusicShelf(
             state = railState,
             modifier = Modifier
                 .fillMaxWidth()
-                .focusGroup()
-                .focusRestorer(),
+                .focusGroup(),
             contentPadding = PaddingValues(
                 start = TelevisionDimensions.SafeHorizontal,
                 end = TelevisionDimensions.SafeHorizontal,
@@ -549,13 +624,39 @@ private fun MusicShelf(
                     focusRequester = railFocusRequesters.getOrNull(index),
                     modifier = Modifier
                         .televisionHorizontalWrap(index, railFocusRequesters, railState)
-                        .then(
-                            if (index == 0 && upFocusRequester != null) {
-                                Modifier.focusProperties { up = upFocusRequester }
-                            } else {
-                                Modifier
-                            },
-                        ),
+                        .onPreviewKeyEvent { event ->
+                            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                            when (event.key) {
+                                Key.DirectionUp -> {
+                                    when (val move = resolveMusicVerticalMove(
+                                        shelfIndex,
+                                        shelfCount,
+                                        index,
+                                        MusicMoveDirection.Up,
+                                    )) {
+                                        MusicVerticalMove.Hero -> heroFocusRequester.requestFocus()
+                                        is MusicVerticalMove.Shelf -> onMoveVertically(move.shelfIndex, move.itemIndex)
+                                        MusicVerticalMove.None -> Unit
+                                    }
+                                    true
+                                }
+                                Key.DirectionDown -> {
+                                    when (val move = resolveMusicVerticalMove(
+                                        shelfIndex,
+                                        shelfCount,
+                                        index,
+                                        MusicMoveDirection.Down,
+                                    )) {
+                                        is MusicVerticalMove.Shelf -> {
+                                            onMoveVertically(move.shelfIndex, move.itemIndex)
+                                            true
+                                        }
+                                        MusicVerticalMove.Hero, MusicVerticalMove.None -> false
+                                    }
+                                }
+                                else -> false
+                            }
+                        },
                     onFocusChanged = { focused ->
                         if (focused) {
                             focusedItemId = item.id
@@ -571,11 +672,43 @@ private fun MusicShelf(
     }
 }
 
+private data class MusicShelfGroup(
+    val key: String,
+    val title: String,
+    val items: List<MediaItemUi>,
+)
+
 private data class MusicFocusTarget(
     val requester: FocusRequester,
     val rowState: LazyListState,
     val itemIndex: Int,
 )
+
+internal enum class MusicMoveDirection { Up, Down }
+
+internal sealed interface MusicVerticalMove {
+    data object Hero : MusicVerticalMove
+    data class Shelf(val shelfIndex: Int, val itemIndex: Int) : MusicVerticalMove
+    data object None : MusicVerticalMove
+}
+
+internal fun resolveMusicVerticalMove(
+    shelfIndex: Int,
+    shelfCount: Int,
+    itemIndex: Int,
+    direction: MusicMoveDirection,
+): MusicVerticalMove = when (direction) {
+    MusicMoveDirection.Up -> if (shelfIndex <= 0) {
+        MusicVerticalMove.Hero
+    } else {
+        MusicVerticalMove.Shelf(shelfIndex - 1, itemIndex)
+    }
+    MusicMoveDirection.Down -> if (shelfIndex in 0 until shelfCount - 1) {
+        MusicVerticalMove.Shelf(shelfIndex + 1, itemIndex)
+    } else {
+        MusicVerticalMove.None
+    }
+}
 
 private fun MediaItemUi.musicEyebrow(
     albumLabel: String,
