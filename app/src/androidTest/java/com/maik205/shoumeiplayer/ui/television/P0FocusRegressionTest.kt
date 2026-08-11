@@ -26,7 +26,6 @@ import com.maik205.shoumeiplayer.ui.television.screens.onboarding.ConnectUiState
 import com.maik205.shoumeiplayer.ui.television.screens.onboarding.InsecureConnectionUi
 import com.maik205.shoumeiplayer.ui.television.screens.onboarding.RecoveryScreen
 import com.maik205.shoumeiplayer.ui.television.screens.onboarding.RecoveryUiState
-import com.maik205.shoumeiplayer.ui.television.screens.player.PlayerExitConfirmationOverlay
 import com.maik205.shoumeiplayer.ui.television.theme.ShoumeiTelevisionTheme
 import org.junit.Rule
 import org.junit.Test
@@ -75,22 +74,6 @@ class P0FocusRegressionTest {
 
         compose.onNodeWithTag("recovery_action").assertIsFocused()
         compose.onNodeWithTag("recovery_username").assertIsNotFocused()
-    }
-
-    @Test
-    fun exitConfirmationHasOneVisibleFocusedAction() {
-        compose.setContent {
-            ShoumeiTelevisionTheme {
-                PlayerExitConfirmationOverlay(onConfirm = {}, onCancel = {})
-            }
-        }
-
-        compose.onNodeWithContentDescription("Cancel").assertIsFocused()
-
-        compose.onNodeWithContentDescription("Cancel").performKeyInput {
-            pressKey(Key.DirectionRight)
-        }
-        compose.onNodeWithContentDescription("Exit player").assertIsFocused()
     }
 
     @Test
