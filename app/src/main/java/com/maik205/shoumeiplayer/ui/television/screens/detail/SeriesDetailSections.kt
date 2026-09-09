@@ -292,12 +292,14 @@ internal fun EpisodeRail(
     val currentEpisodeIndex = episodes.indexOfFirst { it.id == currentEpisodeId }.coerceAtLeast(0)
     val entryEpisodeIndex = if (currentEpisodeId != null) currentEpisodeIndex else 0
     val stableFocusRequesters = remember { mutableMapOf<String, FocusRequester>() }
-    val railFocusRequesters = episodes.mapIndexed { index, episode ->
+    val railFocusRequesters = remember(episodes, entryEpisodeIndex, episodeFocusRequester) {
+        episodes.mapIndexed { index, episode ->
             if (index == entryEpisodeIndex && episodeFocusRequester != null) {
                 episodeFocusRequester
             } else {
                 stableFocusRequesters.getOrPut(episode.id) { FocusRequester() }
             }
+        }
     }
     val rowState = rememberLazyListState(initialFirstVisibleItemIndex = currentEpisodeIndex)
     LaunchedEffect(selectedSeasonId, episodes.firstOrNull()?.id) {

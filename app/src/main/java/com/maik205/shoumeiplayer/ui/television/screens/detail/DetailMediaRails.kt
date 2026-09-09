@@ -85,13 +85,15 @@ internal fun TrackRail(
     heroFocusRequester: FocusRequester? = null,
 ) {
     val focusRequesters = remember { mutableMapOf<String, FocusRequester>() }
-    val activeFocusRequesters = tracks.mapIndexed { index, track ->
-        track.id to if (index == 0 && entryFocusRequester != null) {
-            entryFocusRequester
-        } else {
-            focusRequesters.getOrPut(track.id) { FocusRequester() }
-        }
-    }.toMap()
+    val activeFocusRequesters = remember(tracks, entryFocusRequester) {
+        tracks.mapIndexed { index, track ->
+            track.id to if (index == 0 && entryFocusRequester != null) {
+                entryFocusRequester
+            } else {
+                focusRequesters.getOrPut(track.id) { FocusRequester() }
+            }
+        }.toMap()
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -175,9 +177,11 @@ internal fun DetailMediaRail(
     heroFocusRequester: FocusRequester? = null,
 ) {
     val focusRequesters = remember { mutableMapOf<String, FocusRequester>() }
-    val railFocusRequesters = items.mapIndexed { index, item ->
-        if (index == 0 && entryFocusRequester != null) entryFocusRequester
-        else focusRequesters.getOrPut(item.id) { FocusRequester() }
+    val railFocusRequesters = remember(items, entryFocusRequester) {
+        items.mapIndexed { index, item ->
+            if (index == 0 && entryFocusRequester != null) entryFocusRequester
+            else focusRequesters.getOrPut(item.id) { FocusRequester() }
+        }
     }
     val railState = rememberLazyListState()
     TelevisionArtworkPrefetch(
@@ -238,9 +242,11 @@ internal fun PeopleRail(
     heroFocusRequester: FocusRequester? = null,
 ) {
     val focusRequesters = remember { mutableMapOf<String, FocusRequester>() }
-    val railFocusRequesters = people.mapIndexed { index, person ->
-        if (index == 0 && entryFocusRequester != null) entryFocusRequester
-        else focusRequesters.getOrPut(person.id) { FocusRequester() }
+    val railFocusRequesters = remember(people, entryFocusRequester) {
+        people.mapIndexed { index, person ->
+            if (index == 0 && entryFocusRequester != null) entryFocusRequester
+            else focusRequesters.getOrPut(person.id) { FocusRequester() }
+        }
     }
     val railState = rememberLazyListState()
     Column(

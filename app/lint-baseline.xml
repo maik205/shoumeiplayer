@@ -52,7 +52,7 @@
         errorLine2="        ~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="85"
+            line="91"
             column="9"/>
     </issue>
 
@@ -74,7 +74,7 @@
         errorLine2="                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/maik205/shoumeiplayer/ui/television/screens/player/ShoumeiMediaSession.kt"
-            line="231"
+            line="232"
             column="66"/>
     </issue>
 
@@ -85,13 +85,13 @@
         errorLine2="                                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/maik205/shoumeiplayer/ui/television/screens/player/ShoumeiMediaSession.kt"
-            line="241"
+            line="242"
             column="82"/>
     </issue>
 
     <issue
         id="AndroidGradlePluginVersion"
-        message="A newer version of Gradle than 9.5.0 is available: 9.6.1"
+        message="A newer version of Gradle than 9.5.0 is available: 9.7.1"
         errorLine1="distributionUrl=https\://services.gradle.org/distributions/gradle-9.5.0-bin.zip"
         errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
@@ -101,14 +101,47 @@
     </issue>
 
     <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.application than 9.3.1 is available: 9.4.0. (There is also a newer version of 9.3.𝑥 available, if upgrading to 9.4.0 is difficult: 9.3.2)"
+        errorLine1="agp = &quot;9.3.1&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="$HOME/Documents/Projects/shoumeiplayer/gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.library than 9.3.1 is available: 9.4.0. (There is also a newer version of 9.3.𝑥 available, if upgrading to 9.4.0 is difficult: 9.3.2)"
+        errorLine1="agp = &quot;9.3.1&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="$HOME/Documents/Projects/shoumeiplayer/gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
         id="GradleDependency"
         message="A newer version of `compileSdk` than 36 is available: 37"
         errorLine1="        version = release(36) {"
         errorLine2="                  ^">
         <location
             file="build.gradle.kts"
-            line="77"
+            line="83"
             column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.compose:compose-bom than 2026.06.01 is available: 2026.08.00"
+        errorLine1="composeBom = &quot;2026.06.01&quot;          # -> compose ui/foundation 1.11.4, material3 1.4.0"
+        errorLine2="             ~~~~~~~~~~~~">
+        <location
+            file="$HOME/Documents/Projects/shoumeiplayer/gradle/libs.versions.toml"
+            line="4"
+            column="14"/>
     </issue>
 
     <issue
@@ -167,8 +200,74 @@
     </issue>
 
     <issue
+        id="GradleDependency"
+        message="A newer version of androidx.media3:media3-common than 1.10.1 is available: 1.11.0"
+        errorLine1="media3 = &quot;1.10.1&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/Documents/Projects/shoumeiplayer/gradle/libs.versions.toml"
+            line="9"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.media3:media3-datasource than 1.10.1 is available: 1.11.0"
+        errorLine1="media3 = &quot;1.10.1&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/Documents/Projects/shoumeiplayer/gradle/libs.versions.toml"
+            line="9"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.media3:media3-exoplayer than 1.10.1 is available: 1.11.0"
+        errorLine1="media3 = &quot;1.10.1&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/Documents/Projects/shoumeiplayer/gradle/libs.versions.toml"
+            line="9"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.media3:media3-exoplayer-hls than 1.10.1 is available: 1.11.0"
+        errorLine1="media3 = &quot;1.10.1&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/Documents/Projects/shoumeiplayer/gradle/libs.versions.toml"
+            line="9"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.media3:media3-session than 1.10.1 is available: 1.11.0"
+        errorLine1="media3 = &quot;1.10.1&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/Documents/Projects/shoumeiplayer/gradle/libs.versions.toml"
+            line="9"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.navigation:navigation-compose than 2.9.8 is available: 2.10.0"
+        errorLine1="navigationCompose = &quot;2.9.8&quot;"
+        errorLine2="                    ~~~~~~~">
+        <location
+            file="$HOME/Documents/Projects/shoumeiplayer/gradle/libs.versions.toml"
+            line="10"
+            column="21"/>
+    </issue>
+
+    <issue
         id="NewerVersionAvailable"
-        message="A newer version of org.jetbrains.kotlin.plugin.compose than 2.4.0 is available: 2.4.10"
+        message="A newer version of org.jetbrains.kotlin.plugin.compose than 2.4.0 is available: 2.4.20"
         errorLine1="kotlin = &quot;2.4.0&quot;"
         errorLine2="         ~~~~~~~">
         <location
@@ -179,7 +278,7 @@
 
     <issue
         id="NewerVersionAvailable"
-        message="A newer version of org.jetbrains.kotlin.plugin.serialization than 2.4.0 is available: 2.4.10"
+        message="A newer version of org.jetbrains.kotlin.plugin.serialization than 2.4.0 is available: 2.4.20"
         errorLine1="kotlin = &quot;2.4.0&quot;"
         errorLine2="         ~~~~~~~">
         <location
@@ -267,7 +366,29 @@
 
     <issue
         id="NewerVersionAvailable"
-        message="A newer version of org.json:json than 20250107 is available: 20260719"
+        message="A newer version of io.coil-kt.coil3:coil-compose than 3.5.0 is available: 3.6.2"
+        errorLine1="coil = &quot;3.5.0&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/Documents/Projects/shoumeiplayer/gradle/libs.versions.toml"
+            line="14"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of io.coil-kt.coil3:coil-network-okhttp than 3.5.0 is available: 3.6.2"
+        errorLine1="coil = &quot;3.5.0&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/Documents/Projects/shoumeiplayer/gradle/libs.versions.toml"
+            line="14"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.json:json than 20250107 is available: 20260814"
         errorLine1="orgJson = &quot;20250107&quot;"
         errorLine2="          ~~~~~~~~~~">
         <location
@@ -323,7 +444,7 @@
     <issue
         id="UnsafeOptInUsageError"
         message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
-        errorLine1="            session.setMediaButtonPreferences(sessionActions.buttons())"
+        errorLine1="            session.setMediaButtonPreferences(sessionActions.buttons(context))"
         errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/maik205/shoumeiplayer/ui/television/screens/player/TelevisionPlayerRoute.kt"
@@ -349,7 +470,7 @@
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/maik205/shoumeiplayer/ui/television/screens/player/TelevisionPlayerScreen.kt"
-            line="97"
+            line="179"
             column="20"/>
     </issue>
 
@@ -360,7 +481,7 @@
         errorLine2="    ~~~~~~~~">
         <location
             file="src/main/java/com/maik205/shoumeiplayer/ui/television/screens/player/AudioPlayerControls.kt"
-            line="194"
+            line="202"
             column="5"/>
     </issue>
 
@@ -371,7 +492,7 @@
         errorLine2="    ~~~~~~~~">
         <location
             file="src/main/java/com/maik205/shoumeiplayer/ui/television/screens/player/PlayerExtrasOverlay.kt"
-            line="250"
+            line="380"
             column="5"/>
     </issue>
 
@@ -382,7 +503,7 @@
         errorLine2="    ~~~~~~~~">
         <location
             file="src/main/java/com/maik205/shoumeiplayer/ui/television/screens/player/PlayerTransportControls.kt"
-            line="225"
+            line="231"
             column="5"/>
     </issue>
 
@@ -398,13 +519,145 @@
     </issue>
 
     <issue
+        id="MissingTranslation"
+        message="&quot;tv_search_searching&quot; is not translated in &quot;de&quot; (German), &quot;vi&quot; (Vietnamese), &quot;ja&quot; (Japanese), &quot;fr&quot; (French)"
+        errorLine1="    &lt;string name=&quot;tv_search_searching&quot;>Searching&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings_television.xml"
+            line="27"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;tv_search_clear&quot; is not translated in &quot;de&quot; (German), &quot;vi&quot; (Vietnamese), &quot;ja&quot; (Japanese), &quot;fr&quot; (French)"
+        errorLine1="    &lt;string name=&quot;tv_search_clear&quot;>Clear search&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings_television.xml"
+            line="28"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;tv_search_result_count&quot; is not translated in &quot;de&quot; (German), &quot;vi&quot; (Vietnamese), &quot;ja&quot; (Japanese), &quot;fr&quot; (French)"
+        errorLine1="    &lt;plurals name=&quot;tv_search_result_count&quot;>"
+        errorLine2="             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings_television.xml"
+            line="29"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;tv_media_movie&quot; is not translated in &quot;de&quot; (German), &quot;vi&quot; (Vietnamese), &quot;ja&quot; (Japanese), &quot;fr&quot; (French)"
+        errorLine1="    &lt;string name=&quot;tv_media_movie&quot;>Movie&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings_television.xml"
+            line="35"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;tv_media_series&quot; is not translated in &quot;de&quot; (German), &quot;vi&quot; (Vietnamese), &quot;ja&quot; (Japanese), &quot;fr&quot; (French)"
+        errorLine1="    &lt;string name=&quot;tv_media_series&quot;>Series&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings_television.xml"
+            line="36"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;tv_media_episode&quot; is not translated in &quot;de&quot; (German), &quot;vi&quot; (Vietnamese), &quot;ja&quot; (Japanese), &quot;fr&quot; (French)"
+        errorLine1="    &lt;string name=&quot;tv_media_episode&quot;>Episode&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings_television.xml"
+            line="37"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;tv_media_item&quot; is not translated in &quot;de&quot; (German), &quot;vi&quot; (Vietnamese), &quot;ja&quot; (Japanese), &quot;fr&quot; (French)"
+        errorLine1="    &lt;string name=&quot;tv_media_item&quot;>Media&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings_television.xml"
+            line="38"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;tv_settings_color_palette&quot; is not translated in &quot;de&quot; (German), &quot;vi&quot; (Vietnamese), &quot;ja&quot; (Japanese), &quot;fr&quot; (French)"
+        errorLine1="    &lt;string name=&quot;tv_settings_color_palette&quot;>Color palette&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings_television.xml"
+            line="565"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;tv_settings_palette_midnight&quot; is not translated in &quot;de&quot; (German), &quot;vi&quot; (Vietnamese), &quot;ja&quot; (Japanese), &quot;fr&quot; (French)"
+        errorLine1="    &lt;string name=&quot;tv_settings_palette_midnight&quot;>Midnight&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings_television.xml"
+            line="566"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;tv_settings_palette_ember&quot; is not translated in &quot;de&quot; (German), &quot;vi&quot; (Vietnamese), &quot;ja&quot; (Japanese), &quot;fr&quot; (French)"
+        errorLine1="    &lt;string name=&quot;tv_settings_palette_ember&quot;>Ember&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings_television.xml"
+            line="567"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;tv_settings_palette_daylight&quot; is not translated in &quot;de&quot; (German), &quot;vi&quot; (Vietnamese), &quot;ja&quot; (Japanese), &quot;fr&quot; (French)"
+        errorLine1="    &lt;string name=&quot;tv_settings_palette_daylight&quot;>Daylight&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings_television.xml"
+            line="568"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;tv_settings_palette_sunrise&quot; is not translated in &quot;de&quot; (German), &quot;vi&quot; (Vietnamese), &quot;ja&quot; (Japanese), &quot;fr&quot; (French)"
+        errorLine1="    &lt;string name=&quot;tv_settings_palette_sunrise&quot;>Sunrise&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings_television.xml"
+            line="569"
+            column="13"/>
+    </issue>
+
+    <issue
         id="AcceptsUserCertificates"
         message="The Network Security Configuration allows the use of user certificates in the release version of your app"
         errorLine1="            &lt;certificates src=&quot;user&quot; />"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/xml/network_security_config.xml"
-            line="14"
+            line="16"
             column="13"/>
     </issue>
 
@@ -426,15 +679,8 @@
         errorLine2="                                            ~~~~">
         <location
             file="src/main/res/xml/network_security_config.xml"
-            line="11"
+            line="13"
             column="45"/>
-    </issue>
-
-    <issue
-        id="ObsoleteSdkInt"
-        message="This folder configuration (`v26`) is unnecessary; `minSdkVersion` is 28. Merge all the resources in this folder into `mipmap-anydpi`.">
-        <location
-            file="src/main/res/mipmap-anydpi-v26"/>
     </issue>
 
     <issue
@@ -461,89 +707,12 @@
 
     <issue
         id="UnusedResources"
-        message="The resource `R.string.continue_watching` appears to be unused"
-        errorLine1="    &lt;string name=&quot;continue_watching&quot;>Continue watching&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="12"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.string.next_up` appears to be unused"
-        errorLine1="    &lt;string name=&quot;next_up&quot;>Next up&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="13"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.string.latest_in` appears to be unused"
-        errorLine1="    &lt;string name=&quot;latest_in&quot;>Latest in %1$s&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="14"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
         message="The resource `R.string.my_media` appears to be unused"
         errorLine1="    &lt;string name=&quot;my_media&quot;>My media&lt;/string>"
         errorLine2="            ~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
             line="15"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.string.play` appears to be unused"
-        errorLine1="    &lt;string name=&quot;play&quot;>Play&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="16"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.string.resume` appears to be unused"
-        errorLine1="    &lt;string name=&quot;resume&quot;>Resume&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="17"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.string.search` appears to be unused"
-        errorLine1="    &lt;string name=&quot;search&quot;>Search&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="18"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.string.retry` appears to be unused"
-        errorLine1="    &lt;string name=&quot;retry&quot;>Try again&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="21"
             column="13"/>
     </issue>
 
@@ -566,17 +735,6 @@
         <location
             file="src/main/res/values/strings.xml"
             line="23"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.string.off` appears to be unused"
-        errorLine1="    &lt;string name=&quot;off&quot;>Off&lt;/string>"
-        errorLine2="            ~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="24"
             column="13"/>
     </issue>
 
@@ -654,17 +812,6 @@
         <location
             file="src/main/res/values/strings.xml"
             line="43"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.string.filter_watched` appears to be unused"
-        errorLine1="    &lt;string name=&quot;filter_watched&quot;>Watched&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="44"
             column="13"/>
     </issue>
 
@@ -802,34 +949,12 @@
 
     <issue
         id="UnusedResources"
-        message="The resource `R.string.on` appears to be unused"
-        errorLine1="    &lt;string name=&quot;on&quot;>On&lt;/string>"
-        errorLine2="            ~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="63"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
         message="The resource `R.string.action_open_settings` appears to be unused"
         errorLine1="    &lt;string name=&quot;action_open_settings&quot;>Open settings&lt;/string>"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
             line="64"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.string.action_clear_filter` appears to be unused"
-        errorLine1="    &lt;string name=&quot;action_clear_filter&quot;>Clear filter&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="65"
             column="13"/>
     </issue>
 
@@ -846,78 +971,12 @@
 
     <issue
         id="UnusedResources"
-        message="The resource `R.string.empty_check_library_detail` appears to be unused"
-        errorLine1="    &lt;string name=&quot;empty_check_library_detail&quot;>Check that this account can see a library on the server.&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="67"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.string.home_empty_title` appears to be unused"
-        errorLine1="    &lt;string name=&quot;home_empty_title&quot;>Nothing to watch yet&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="70"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
         message="The resource `R.string.libraries_empty_title` appears to be unused"
         errorLine1="    &lt;string name=&quot;libraries_empty_title&quot;>No libraries yet&lt;/string>"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
             line="73"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.string.search_keep_typing` appears to be unused"
-        errorLine1="    &lt;string name=&quot;search_keep_typing&quot;>Keep typing&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="76"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.string.search_no_results_format` appears to be unused"
-        errorLine1="    &lt;string name=&quot;search_no_results_format&quot;>Nothing matched \&quot;%1$s\&quot;&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="77"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.string.library_empty_filtered` appears to be unused"
-        errorLine1="    &lt;string name=&quot;library_empty_filtered&quot;>No items match this filter&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="80"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.string.library_empty_unfiltered` appears to be unused"
-        errorLine1="    &lt;string name=&quot;library_empty_unfiltered&quot;>Nothing in this library yet&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="81"
             column="13"/>
     </issue>
 
@@ -1220,17 +1279,6 @@
 
     <issue
         id="UnusedResources"
-        message="The resource `R.string.settings_language_system_default` appears to be unused"
-        errorLine1="    &lt;string name=&quot;settings_language_system_default&quot;>System default&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="115"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
         message="The resource `R.string.settings_language_english` appears to be unused"
         errorLine1="    &lt;string name=&quot;settings_language_english&quot;>English&lt;/string>"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
@@ -1285,13 +1333,35 @@
     </issue>
 
     <issue
+        id="UnusedResources"
+        message="The resource `R.string.tv_player_exit_message` appears to be unused"
+        errorLine1="    &lt;string name=&quot;tv_player_exit_message&quot;>Playback will stop and your position will be saved.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings_television.xml"
+            line="339"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.tv_player_confirm_exit` appears to be unused"
+        errorLine1="    &lt;string name=&quot;tv_player_confirm_exit&quot;>Exit player&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings_television.xml"
+            line="340"
+            column="13"/>
+    </issue>
+
+    <issue
         id="NotShrinkingResources"
         message="If enabling minification, also set isShrinkResources = true"
         errorLine1="            isMinifyEnabled = true"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="109"
+            line="115"
             column="13"/>
     </issue>
 
@@ -1394,7 +1464,7 @@
         errorLine2="                                                 ~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/maik205/shoumeiplayer/ui/television/screens/player/ShoumeiMediaSession.kt"
-            line="370"
+            line="371"
             column="50"/>
     </issue>
 
@@ -1405,7 +1475,7 @@
         errorLine2="                                                               ~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/maik205/shoumeiplayer/ui/television/screens/player/ShoumeiMediaSession.kt"
-            line="383"
+            line="384"
             column="64"/>
     </issue>
 

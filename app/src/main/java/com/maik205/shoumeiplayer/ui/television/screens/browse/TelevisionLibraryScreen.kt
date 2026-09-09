@@ -468,7 +468,9 @@ private fun StandardLibraryContent(
                             showUnfocusedVeil = false,
                             focusedTranslationY = (-2.5).dp,
                             focusAnimationMillis = 240,
-                            focusRequester = itemFocusRequesters.getOrPut(media.id) { FocusRequester() },
+                            focusRequester = remember(media.id) {
+                                itemFocusRequesters.getOrPut(media.id) { FocusRequester() }
+                            },
                             restingAlpha = if (focusedMediaId != null) 0.5f else 1f,
                             onFocusChanged = { focused ->
                                 if (focused) {

@@ -8,7 +8,7 @@
         errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/maik205/shoumeiplayer/ui/television/components/TelevisionMedia.kt"
-            line="320"
+            line="330"
             column="21"/>
     </issue>
 
@@ -19,7 +19,7 @@
         errorLine2="             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/maik205/shoumeiplayer/ui/television/components/TelevisionMedia.kt"
-            line="350"
+            line="360"
             column="14"/>
     </issue>
 
@@ -30,7 +30,7 @@
         errorLine2="                                                       ~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/maik205/shoumeiplayer/ui/television/components/TelevisionNavigation.kt"
-            line="181"
+            line="197"
             column="56"/>
     </issue>
 
@@ -41,7 +41,7 @@
         errorLine2="                  ^">
         <location
             file="build.gradle.kts"
-            line="9"
+            line="15"
             column="19"/>
     </issue>
 
@@ -52,7 +52,7 @@
         errorLine2="    ~~~~~~~~">
         <location
             file="src/main/java/com/maik205/shoumeiplayer/ui/television/components/TelevisionNavigation.kt"
-            line="96"
+            line="99"
             column="5"/>
     </issue>
 
@@ -63,7 +63,7 @@
         errorLine2="    ~~~~~~~~">
         <location
             file="src/main/java/com/maik205/shoumeiplayer/ui/television/components/TelevisionNavigation.kt"
-            line="440"
+            line="479"
             column="5"/>
     </issue>
 
