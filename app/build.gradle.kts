@@ -21,6 +21,12 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+composeCompiler {
+    metricsDestination = layout.buildDirectory.dir("compose_metrics")
+    reportsDestination = layout.buildDirectory.dir("compose_reports")
+    stabilityConfigurationFiles.add(project(":core:designsystem-tv").layout.projectDirectory.file("compose_stability.conf"))
+}
+
 data class ShoumeiVersion(
     val name: String,
     val code: Int,
@@ -160,6 +166,7 @@ dependencies {
     // M-B9: Icons.Filled.VideoLibrary (Libraries rail item, §3.1) is not in the core set.
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.tv.material)
+    implementation(libs.androidx.profileinstaller)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)

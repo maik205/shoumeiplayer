@@ -95,12 +95,12 @@ fun TelevisionFocusSurface(
     val colors = TelevisionTheme.colors
     var focused by remember { mutableStateOf(false) }
     val density = LocalDensity.current
-    val scale by animateFloatAsState(
+    val scale = animateFloatAsState(
         targetValue = if (focused && enabled) scaleTo else 1f,
         animationSpec = tween(durationMillis = focusAnimationMillis),
         label = "televisionFocusScale",
     )
-    val translationY by animateFloatAsState(
+    val translationY = animateFloatAsState(
         targetValue = if (focused && enabled) {
             with(density) { focusedTranslationY.toPx() }
         } else {
@@ -109,7 +109,7 @@ fun TelevisionFocusSurface(
         animationSpec = tween(durationMillis = focusAnimationMillis),
         label = "televisionFocusTranslation",
     )
-    val alpha by animateFloatAsState(
+    val alpha = animateFloatAsState(
         targetValue = when {
             !enabled -> colors.PaperDisabled.alpha
             focused -> focusedAlpha
@@ -141,10 +141,10 @@ fun TelevisionFocusSurface(
             .zIndex(if (focused) 1f else 0f)
             .graphicsLayer {
                 transformOrigin = TransformOrigin.Center
-                scaleX = scale
-                scaleY = scale
-                this.translationY = translationY
-                this.alpha = alpha
+                scaleX = scale.value
+                scaleY = scale.value
+                this.translationY = translationY.value
+                this.alpha = alpha.value
             },
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(TelevisionDimensions.FocusRadius)),
         colors = ClickableSurfaceDefaults.colors(

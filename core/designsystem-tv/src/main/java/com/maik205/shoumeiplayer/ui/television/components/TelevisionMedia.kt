@@ -60,6 +60,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 private const val ARTWORK_CROSSFADE_MS = 180
+// Dimension caching and stability enabled
 private const val ITEM_TITLE_SCALE = 0.70f
 private const val ARTWORK_PREFETCH_COUNT = 2
 
@@ -128,15 +129,19 @@ fun TelevisionMediaTile(
     onFocusChanged: (Boolean) -> Unit = {},
 ) {
     val colors = TelevisionTheme.colors
-    val defaultDimensions = shape.dimensions()
-    val dimensions = TileDimensions(
-        width = tileWidth ?: defaultDimensions.width,
-        height = tileHeight ?: defaultDimensions.height,
-    )
-    val resolvedFocusScale = focusScale ?: when (shape) {
-        ArtworkShape.Landscape -> TelevisionFocusScale.Landscape
-        ArtworkShape.Square -> TelevisionFocusScale.Square
-        ArtworkShape.Poster, ArtworkShape.Portrait -> TelevisionFocusScale.Poster
+    val dimensions = remember(shape, tileWidth, tileHeight) {
+        val defaultDimensions = shape.dimensions()
+        TileDimensions(
+            width = tileWidth ?: defaultDimensions.width,
+            height = tileHeight ?: defaultDimensions.height,
+        )
+    }
+    val resolvedFocusScale = remember(focusScale, shape) {
+        focusScale ?: when (shape) {
+            ArtworkShape.Landscape -> TelevisionFocusScale.Landscape
+            ArtworkShape.Square -> TelevisionFocusScale.Square
+            ArtworkShape.Poster, ArtworkShape.Portrait -> TelevisionFocusScale.Poster
+        }
     }
     val resolvedTitleStyle = (titleStyle ?: MaterialTheme.typography.titleSmall).televisionItemTitle()
 

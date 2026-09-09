@@ -84,8 +84,8 @@ class ArtworkCache(context: Context) {
         const val DISK_CACHE_FREE_SPACE_PERCENT = 0.02
         const val MIN_DISK_CACHE_BYTES = 10L * 1024 * 1024
         const val MAX_DISK_CACHE_BYTES = 250L * 1024 * 1024
-        const val MAX_CONCURRENT_FETCHES = 4
-        const val MAX_CONCURRENT_DECODES = 2
+        const val MAX_CONCURRENT_FETCHES = 6
+        val MAX_CONCURRENT_DECODES = minOf(Runtime.getRuntime().availableProcessors(), 4)
     }
 }
 

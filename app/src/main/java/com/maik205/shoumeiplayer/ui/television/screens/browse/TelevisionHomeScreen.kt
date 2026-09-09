@@ -1,5 +1,6 @@
 package com.maik205.shoumeiplayer.ui.television.screens.browse
 
+// Compose stability and metrics baseline tracking
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -291,7 +292,7 @@ fun TelevisionHomeScreen(
                     } else {
                         items(
                             count = state.shelves.size,
-                            key = { index -> "${state.shelves[index].id}:$index" },
+                            key = { index -> state.shelves[index].id },
                         ) { railIndex ->
                             val shelf = state.shelves[railIndex]
                             HomeShelf(

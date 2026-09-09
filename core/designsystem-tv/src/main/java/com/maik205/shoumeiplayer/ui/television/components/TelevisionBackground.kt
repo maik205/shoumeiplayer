@@ -17,6 +17,8 @@ import coil3.request.crossfade
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 
 private const val BACKDROP_CROSSFADE_MS = 320
+private const val BACKDROP_WIDTH = 1920
+private const val BACKDROP_HEIGHT = 1080
 
 /**
  * Full-bleed imagery with two functional contrast layers: a leading-edge reading field and a
@@ -35,6 +37,7 @@ fun TelevisionBackground(
         imageUrl?.let {
             ImageRequest.Builder(context)
                 .data(it)
+                .size(BACKDROP_WIDTH, BACKDROP_HEIGHT)
                 .crossfade(BACKDROP_CROSSFADE_MS)
                 .build()
         }

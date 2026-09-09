@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
 
                         LaunchedEffect(appReady) {
                             if (appReady) {
-                                delay(120)
+                                runCatching { reportFullyDrawn() }
                                 splashVisible = false
                             }
                         }
@@ -73,7 +73,7 @@ class MainActivity : ComponentActivity() {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .onPreviewKeyEvent { splashVisible },
+                                .onPreviewKeyEvent { splashVisible && !appReady },
                         ) {
                             TelevisionNavGraph(
                                 onReady = { appReady = true },
@@ -82,7 +82,7 @@ class MainActivity : ComponentActivity() {
                             AnimatedVisibility(
                                 visible = splashVisible,
                                 enter = EnterTransition.None,
-                                exit = fadeOut(animationSpec = tween(durationMillis = 420)),
+                                exit = fadeOut(animationSpec = tween(durationMillis = 150)),
                             ) {
                                 TelevisionBrandSplash()
                             }

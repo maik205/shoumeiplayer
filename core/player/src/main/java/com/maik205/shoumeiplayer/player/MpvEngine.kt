@@ -157,6 +157,13 @@ internal class MpvEngine(context: Context) : PlayerEngine, MpvNative.EventObserv
         // network-timeout: give up on a dead connection after 15s instead of hanging forever;
         // the resulting end-file surfaces as PlayerState.Error.
         setOption("network-timeout", "15")
+        // Demuxer probe tuning: reduce FFmpeg probe size and analyze duration to accelerate
+        // Time-To-First-Frame over remote Jellyfin HTTP streams without risking stream parse failures.
+        setOption("demuxer-lavf-probesize", "1048576")
+        setOption("demuxer-lavf-analyzeduration", "2")
+        setOption("demuxer-lavf-hacks", "yes")
+        // Drop non-keyframes during scrubbing for fast D-pad seeking response.
+        setOption("hr-seek-framedrop", "yes")
         // stream-buffer-size is deliberately left at mpv's default — raising it only adds
         // latency in front of the demuxer cache that is already sized above.
         setOption("sub-scale-with-window", "yes")
