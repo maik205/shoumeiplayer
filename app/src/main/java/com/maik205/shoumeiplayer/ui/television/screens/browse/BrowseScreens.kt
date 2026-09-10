@@ -58,6 +58,7 @@ import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -111,6 +112,7 @@ import com.maik205.shoumeiplayer.domain.model.LibraryDestination as LibraryDesti
 import com.maik205.shoumeiplayer.domain.model.MediaItem as MediaItemUi
 import com.maik205.shoumeiplayer.domain.model.MediaShelf as MediaShelfUi
 import com.maik205.shoumeiplayer.R
+import com.maik205.shoumeiplayer.di.LocalAppContainer
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionDimensions
 import com.maik205.shoumeiplayer.ui.television.theme.TelevisionTheme
 import kotlinx.coroutines.launch
@@ -182,11 +184,19 @@ internal fun AppTopNavigation(
     onNavigateLibrary: (LibraryDestinationUi) -> Unit,
     onNavigateSettings: () -> Unit,
     onNavigateProfile: () -> Unit,
+    onPairClick: (() -> Unit)? = null,
     contentFocusRequester: FocusRequester? = null,
     selectedFocusRequester: FocusRequester? = null,
     navigationState: LazyListState? = null,
     onNavigationFocused: () -> Unit = {},
 ) {
+    val container = LocalAppContainer.current
+    val isCardVisible by container.remoteCoordinator.isCardVisible.collectAsState()
+    val connectedClients by container.remoteCoordinator.connectedClients.collectAsState()
+    val effectivePairClick: () -> Unit = onPairClick ?: {
+        container.remoteCoordinator.togglePairingCard()
+    }
+
     TelevisionAppTopNavigation(
         libraries = libraries,
         selectedKey = selectedKey,
@@ -197,6 +207,8 @@ internal fun AppTopNavigation(
         onNavigateLibrary = onNavigateLibrary,
         onNavigateSettings = onNavigateSettings,
         onNavigateProfile = onNavigateProfile,
+        onPairClick = effectivePairClick,
+        isPairingActive = isCardVisible || connectedClients.isNotEmpty(),
         contentFocusRequester = contentFocusRequester,
         selectedFocusRequester = selectedFocusRequester,
         navigationState = navigationState,

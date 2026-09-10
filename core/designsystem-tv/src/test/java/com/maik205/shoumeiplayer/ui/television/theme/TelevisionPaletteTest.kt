@@ -144,19 +144,19 @@ class TelevisionPaletteTest {
         assertEquals(Color(0xFF111315), midnight.BlackRaised)
         assertEquals(Color(0xFF0E1012), midnight.LibraryBackground)
         assertEquals(Color(0xFFF7F6F2), midnight.Paper)
-        assertEquals(Color(0xFFDF754F), midnight.Ember)
+        assertEquals(midnight.Paper, midnight.Ember)
         assertEquals(Color(0xFF1B1D20), midnight.ImagePlaceholder)
 
     }
 
-    /** The accent is the only role allowed to differ between a palette and its accented sibling. */
+    /** The surfaces are identical across siblings. */
     @Test
     fun `the accented palettes keep their sibling's surfaces`() {
         assertEquals(TelevisionPalettes.Midnight.Black, TelevisionPalettes.Ember.Black)
         assertEquals(TelevisionPalettes.Midnight.Paper, TelevisionPalettes.Ember.Paper)
         assertEquals(TelevisionPalettes.Daylight.Black, TelevisionPalettes.Sunrise.Black)
         assertEquals(TelevisionPalettes.Daylight.Paper, TelevisionPalettes.Sunrise.Paper)
-        assertTrue(TelevisionPalettes.Ember.Ember != TelevisionPalettes.Midnight.Paper)
-        assertTrue(TelevisionPalettes.Sunrise.Ember != TelevisionPalettes.Daylight.Paper)
+        assertEquals(TelevisionPalettes.Midnight.Paper, TelevisionPalettes.Ember.Ember)
+        assertEquals(TelevisionPalettes.Daylight.Paper, TelevisionPalettes.Sunrise.Ember)
     }
 }

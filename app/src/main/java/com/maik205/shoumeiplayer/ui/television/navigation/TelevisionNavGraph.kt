@@ -162,6 +162,17 @@ fun TelevisionNavGraph(
         }
     }
 
+    LaunchedEffect(navController) {
+        container.remoteCoordinator.playItemRequests.collect { request ->
+            navController.navigate(
+                PlayerRoute(
+                    itemId = request.itemId,
+                    startPositionTicks = request.startPositionTicks,
+                )
+            )
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = startRoute,

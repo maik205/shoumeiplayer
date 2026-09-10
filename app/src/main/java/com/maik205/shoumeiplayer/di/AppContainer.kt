@@ -41,6 +41,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.maik205.shoumeiplayer.player.PlaybackMetricsSink
+import com.maik205.shoumeiplayer.remote.RemoteCommandCoordinator
+import com.maik205.shoumeiplayer.remote.RemoteDiscoveryService
+import com.maik205.shoumeiplayer.remote.RemoteServer
 
 class AppContainer(
     private val context: Context,
@@ -126,6 +129,16 @@ class AppContainer(
     fun newAudioServicePlayerEngine(): PlayerEngine = AudioServicePlayerEngine(context) { activeAccountId }
     val progressReporter: PlaybackProgressReporter by lazy {
         PlaybackProgressReporter(playbackRepository)
+    }
+
+    val remoteCoordinator: RemoteCommandCoordinator by lazy {
+        RemoteCommandCoordinator(applicationScope, context)
+    }
+    val remoteServer: RemoteServer by lazy {
+        RemoteServer(applicationScope, remoteCoordinator, sessionStore)
+    }
+    val remoteDiscoveryService: RemoteDiscoveryService by lazy {
+        RemoteDiscoveryService(context)
     }
 
     /**

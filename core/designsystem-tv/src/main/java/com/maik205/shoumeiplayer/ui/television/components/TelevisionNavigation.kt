@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.CastConnected
 import androidx.compose.material.icons.filled.CollectionsBookmark
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
@@ -96,6 +97,8 @@ fun TelevisionAppTopNavigation(
     onNavigateLibrary: (LibraryDestinationUi) -> Unit,
     onNavigateSettings: () -> Unit,
     onNavigateProfile: () -> Unit,
+    onPairClick: (() -> Unit)? = null,
+    isPairingActive: Boolean = false,
     modifier: Modifier = Modifier,
     settingsFocusRequester: FocusRequester? = null,
     contentFocusRequester: FocusRequester? = null,
@@ -134,6 +137,8 @@ fun TelevisionAppTopNavigation(
         },
         onSettingsClick = onNavigateSettings,
         onAvatarClick = onNavigateProfile,
+        onPairClick = onPairClick,
+        isPairingActive = isPairingActive,
         modifier = modifier,
         settingsFocusRequester = settingsFocusRequester,
         contentFocusRequester = contentFocusRequester,
@@ -158,6 +163,8 @@ fun TelevisionTopNavigation(
     onDestinationClick: (key: String) -> Unit,
     onSettingsClick: () -> Unit,
     onAvatarClick: () -> Unit,
+    onPairClick: (() -> Unit)? = null,
+    isPairingActive: Boolean = false,
     modifier: Modifier = Modifier,
     avatarUrl: String? = null,
     avatarLabel: String,
@@ -201,17 +208,20 @@ fun TelevisionTopNavigation(
         selectedFocusRequester?.takeIf { key == selectedKey }
             ?: focusRequesters.getOrPut(key) { FocusRequester() }
     val profileFocusRequester = focusRequesterFor("profile")
+    val pairFocusRequester = focusRequesterFor("pair")
     val navigationFocusRequesters =
         primaryDestinations.map { focusRequesterFor(it.key) } +
             libraryDestinations.map { focusRequesterFor(televisionLibraryNavigationKey(it.id)) } +
+            (if (onPairClick != null) listOf(pairFocusRequester) else emptyList()) +
             resolvedSettingsFocusRequester +
             profileFocusRequester
     val lazyNavigationItemCount = primaryDestinations.size + libraryDestinations.size
     val navigationRailState = navigationState ?: rememberLazyListState()
-    val activeKeys = remember(primaryDestinations, libraryDestinations) {
+    val activeKeys = remember(primaryDestinations, libraryDestinations, onPairClick != null) {
         buildSet {
             primaryDestinations.forEach { add(it.key) }
             libraryDestinations.forEach { add(televisionLibraryNavigationKey(it.id)) }
+            if (onPairClick != null) add("pair")
             add("settings")
             add("profile")
         }
@@ -228,8 +238,9 @@ fun TelevisionTopNavigation(
         val key = selectedKey?.takeIf { selectedDestinationAvailable && !initialFocusAssigned }
             ?: return@LaunchedEffect
         val targetIndex = when (key) {
-            "settings" -> lazyNavigationItemCount
-            "profile" -> lazyNavigationItemCount + 1
+            "pair" -> lazyNavigationItemCount
+            "settings" -> if (onPairClick != null) lazyNavigationItemCount + 1 else lazyNavigationItemCount
+            "profile" -> if (onPairClick != null) lazyNavigationItemCount + 2 else lazyNavigationItemCount + 1
             else -> primaryDestinations.indexOfFirst { it.key == key }
                 .takeIf { it >= 0 }
                 ?: libraryDestinations.indexOfFirst {
@@ -341,7 +352,34 @@ fun TelevisionTopNavigation(
             }
         }
 
-        Spacer(Modifier.width(8.dp))
+        if (onPairClick != null) {
+            Spacer(Modifier.width(8.dp))
+            TelevisionFocusRevealButton(
+                label = stringResource(R.string.ds_nav_pair_remote),
+                icon = Icons.Default.CastConnected,
+                selected = isPairingActive,
+                onClick = onPairClick,
+                focusRequester = pairFocusRequester,
+                expandedWidth = 56.dp,
+                onFocusChanged = { focused ->
+                    onNavigationFocusChanged("pair", library = false, focused = focused)
+                },
+                modifier = Modifier
+                    .televisionNavigationRing(
+                        lazyNavigationItemCount,
+                        navigationFocusRequesters,
+                        lazyNavigationItemCount,
+                        navigationRailState,
+                    )
+                    .then(
+                        contentFocusRequester?.let { target ->
+                            Modifier.focusProperties { down = target }
+                        } ?: Modifier,
+                    ),
+            )
+        }
+
+        Spacer(Modifier.width(if (onPairClick != null) 6.dp else 8.dp))
         TelevisionFocusRevealButton(
             label = stringResource(R.string.ds_nav_settings),
             icon = Icons.Default.Settings,
@@ -354,7 +392,7 @@ fun TelevisionTopNavigation(
             },
             modifier = Modifier
                 .televisionNavigationRing(
-                    lazyNavigationItemCount,
+                    lazyNavigationItemCount + (if (onPairClick != null) 1 else 0),
                     navigationFocusRequesters,
                     lazyNavigationItemCount,
                     navigationRailState,
@@ -377,7 +415,7 @@ fun TelevisionTopNavigation(
             },
             contentFocusRequester = contentFocusRequester,
             modifier = Modifier.televisionNavigationRing(
-                lazyNavigationItemCount + 1,
+                lazyNavigationItemCount + (if (onPairClick != null) 2 else 1),
                 navigationFocusRequesters,
                 lazyNavigationItemCount,
                 navigationRailState,

@@ -7,6 +7,10 @@ data class PlayerTrack(
     val type: TrackType,
     val label: String,
     val language: String? = null,
+    val title: String? = null,
+    val codec: String? = null,
     val isDefault: Boolean = false,
+    val isForced: Boolean = false,
+    val isExternal: Boolean = false,
     val selected: Boolean = false,
 )

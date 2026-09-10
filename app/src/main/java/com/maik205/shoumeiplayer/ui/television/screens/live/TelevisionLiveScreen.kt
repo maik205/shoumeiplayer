@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +49,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.R
+import com.maik205.shoumeiplayer.di.LocalAppContainer
 import com.maik205.shoumeiplayer.ui.i18n.resolve
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionEmptyState
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionAppTopNavigation
@@ -179,6 +181,10 @@ fun TelevisionLiveScreen(
             }
         }
 
+        val container = LocalAppContainer.current
+        val isCardVisible by container.remoteCoordinator.isCardVisible.collectAsState()
+        val connectedClients by container.remoteCoordinator.connectedClients.collectAsState()
+
         TelevisionAppTopNavigation(
             libraries = libraries,
             selectedKey = selectedNavigationKey,
@@ -189,6 +195,10 @@ fun TelevisionLiveScreen(
             onNavigateLibrary = onNavigateLibrary,
             onNavigateSettings = onNavigateSettings,
             onNavigateProfile = onNavigateProfile,
+            onPairClick = {
+                container.remoteCoordinator.togglePairingCard()
+            },
+            isPairingActive = isCardVisible || connectedClients.isNotEmpty(),
             contentFocusRequester = heroFocus,
             selectedFocusRequester = topNavigationFocus,
             navigationState = navigationState,
