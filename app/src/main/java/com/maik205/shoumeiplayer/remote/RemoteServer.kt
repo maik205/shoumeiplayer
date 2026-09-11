@@ -33,6 +33,7 @@ class RemoteServer(
     private val scope: CoroutineScope,
     private val coordinator: RemoteCommandCoordinator,
     private val sessionStore: SessionStore,
+    private val pairedStore: PairedRemoteStore = PairedRemoteStore(),
     private val preferredPort: Int = DEFAULT_PORT,
 ) {
     companion object {
@@ -54,6 +55,8 @@ class RemoteServer(
 
     fun start() {
         if (isRunning) return
+
+        pairedStore.purgeExpired()
 
         serverJob = scope.launch(Dispatchers.IO) {
             try {
@@ -119,6 +122,8 @@ class RemoteServer(
         private var isWebSocket = false
         private var authenticated = false
         private var derivedAesKey: ByteArray? = null
+        private var activePairingToken: String? = null
+        private var activeExpiresAtMs: Long? = null
 
         suspend fun run() = withContext(Dispatchers.IO) {
             // Perform HTTP Upgrade if client is WebSocket
@@ -135,6 +140,17 @@ class RemoteServer(
                 }
             }
 
+            val sessionJob = launch {
+                sessionStore.session.collectLatest {
+                    val key = derivedAesKey
+                    val token = activePairingToken
+                    val expires = activeExpiresAtMs
+                    if (authenticated && key != null && token != null && expires != null) {
+                        sendEncryptedCredentials(key, token, expires)
+                    }
+                }
+            }
+
             try {
                 while (isActive && !socket.isClosed) {
                     val text = readFrame() ?: break
@@ -144,6 +160,7 @@ class RemoteServer(
                 Log.d(TAG, "Client connection ended: ${e.message}")
             } finally {
                 stateJob.cancel()
+                sessionJob.cancel()
                 if (authenticated) {
                     coordinator.onClientDisconnected(clientId)
                 }
@@ -197,25 +214,32 @@ class RemoteServer(
                     is RemoteMessage.HandshakeInit -> handleHandshakeInit(message)
                     is RemoteMessage.PairConfirm -> handlePairConfirm(message)
                     is RemoteMessage.KeyCommand -> {
-                        coordinator.dispatchKey(message.key)
+                        if (authenticated) coordinator.dispatchKey(message.key)
+                        else sendJson(RemoteMessage.StatusAck(success = false, message = "Unauthenticated"))
                     }
                     is RemoteMessage.TextInput -> {
-                        coordinator.dispatchTextInput(message.text)
+                        if (authenticated) coordinator.dispatchTextInput(message.text)
+                        else sendJson(RemoteMessage.StatusAck(success = false, message = "Unauthenticated"))
                     }
                     is RemoteMessage.PlaybackCommand -> {
-                        coordinator.handlePlaybackCommand(message.action, message.positionMs, message.deltaMs)
+                        if (authenticated) coordinator.handlePlaybackCommand(message.action, message.positionMs, message.deltaMs)
+                        else sendJson(RemoteMessage.StatusAck(success = false, message = "Unauthenticated"))
                     }
                     is RemoteMessage.PlayItem -> {
-                        coordinator.requestPlayItem(message)
+                        if (authenticated) coordinator.requestPlayItem(message)
+                        else sendJson(RemoteMessage.StatusAck(success = false, message = "Unauthenticated"))
                     }
                     is RemoteMessage.SelectTrack -> {
-                        coordinator.selectTrack(message.trackId, message.type)
+                        if (authenticated) coordinator.selectTrack(message.trackId, message.type)
+                        else sendJson(RemoteMessage.StatusAck(success = false, message = "Unauthenticated"))
                     }
                     is RemoteMessage.SetQuality -> {
-                        coordinator.setQuality(message.quality)
+                        if (authenticated) coordinator.setQuality(message.quality)
+                        else sendJson(RemoteMessage.StatusAck(success = false, message = "Unauthenticated"))
                     }
                     is RemoteMessage.SetVolume -> {
-                        coordinator.setSystemVolume(message.volume)
+                        if (authenticated) coordinator.setSystemVolume(message.volume)
+                        else sendJson(RemoteMessage.StatusAck(success = false, message = "Unauthenticated"))
                     }
                     else -> Unit
                 }
@@ -237,6 +261,65 @@ class RemoteServer(
                 val sessionKeys = RemoteCrypto.deriveKeysAndPin(sharedSecret, salt)
                 this.derivedAesKey = sessionKeys.aesKey
 
+                // Check for persisted handshake / pairing token
+                val clientToken = init.pairingToken
+                if (!clientToken.isNullOrBlank()) {
+                    val existing = pairedStore.findClient(clientToken)
+                    val now = System.currentTimeMillis()
+                    if (existing != null && now >= existing.expiresAtMs) {
+                        // Handshake has expired after 7 days!
+                        Log.i(TAG, "Pairing token expired for client $clientId (${existing.deviceName}). Re-pairing required.")
+                        pairedStore.removeClient(clientToken)
+                        val activePin = coordinator.getOrCreatePairingPin()
+                        coordinator.showPairingCard()
+                        val challenge = RemoteMessage.HandshakeChallenge(
+                            serverPublicKeyBase64 = Base64.getEncoder().encodeToString(serverKeyPair.public.encoded),
+                            saltBase64 = Base64.getEncoder().encodeToString(salt),
+                            pin = activePin,
+                            pairingValid = false,
+                            pairingExpired = true,
+                        )
+                        sendJson(challenge)
+                        return
+                    } else if (existing != null) {
+                        // Valid unexpired handshake! Auto-authenticate without PIN
+                        Log.i(TAG, "Reconnecting with valid pairing token for client $clientId (${existing.deviceName})")
+                        authenticated = true
+                        activePairingToken = existing.pairingToken
+                        activeExpiresAtMs = existing.expiresAtMs
+                        coordinator.onClientConnected(
+                            id = clientId,
+                            deviceName = clientDeviceName.ifBlank { existing.deviceName },
+                            ipAddress = socket.inetAddress?.hostAddress ?: "Unknown",
+                        )
+                        val challenge = RemoteMessage.HandshakeChallenge(
+                            serverPublicKeyBase64 = Base64.getEncoder().encodeToString(serverKeyPair.public.encoded),
+                            saltBase64 = Base64.getEncoder().encodeToString(salt),
+                            pin = "",
+                            pairingValid = true,
+                            pairingExpired = false,
+                        )
+                        sendJson(challenge)
+                        sendEncryptedCredentials(sessionKeys.aesKey, existing.pairingToken, existing.expiresAtMs)
+                        return
+                    } else {
+                        // Token unknown or previously revoked
+                        Log.i(TAG, "Unknown pairing token for client $clientId. Re-pairing required.")
+                        val activePin = coordinator.getOrCreatePairingPin()
+                        coordinator.showPairingCard()
+                        val challenge = RemoteMessage.HandshakeChallenge(
+                            serverPublicKeyBase64 = Base64.getEncoder().encodeToString(serverKeyPair.public.encoded),
+                            saltBase64 = Base64.getEncoder().encodeToString(salt),
+                            pin = activePin,
+                            pairingValid = false,
+                            pairingExpired = true,
+                        )
+                        sendJson(challenge)
+                        return
+                    }
+                }
+
+                // First-time pairing (or pairing with QR code PIN)
                 val activePin = if (!init.pairingPin.isNullOrBlank()) {
                     coordinator.pairingPin.value ?: sessionKeys.pin
                 } else {
@@ -249,6 +332,8 @@ class RemoteServer(
                     serverPublicKeyBase64 = Base64.getEncoder().encodeToString(serverKeyPair.public.encoded),
                     saltBase64 = Base64.getEncoder().encodeToString(salt),
                     pin = activePin,
+                    pairingValid = false,
+                    pairingExpired = false,
                 )
                 sendJson(challenge)
 
@@ -259,7 +344,10 @@ class RemoteServer(
                         deviceName = clientDeviceName,
                         ipAddress = socket.inetAddress?.hostAddress ?: "Unknown",
                     )
-                    sendEncryptedCredentials(sessionKeys.aesKey)
+                    val pairing = pairedStore.createPairing(clientId, clientDeviceName)
+                    activePairingToken = pairing.pairingToken
+                    activeExpiresAtMs = pairing.expiresAtMs
+                    sendEncryptedCredentials(sessionKeys.aesKey, pairing.pairingToken, pairing.expiresAtMs)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error in handshake init", e)
@@ -281,34 +369,39 @@ class RemoteServer(
                 deviceName = clientDeviceName,
                 ipAddress = socket.inetAddress?.hostAddress ?: "Unknown",
             )
-            sendEncryptedCredentials(aesKey)
+            val pairing = pairedStore.createPairing(clientId, clientDeviceName)
+            activePairingToken = pairing.pairingToken
+            activeExpiresAtMs = pairing.expiresAtMs
+            sendEncryptedCredentials(aesKey, pairing.pairingToken, pairing.expiresAtMs)
         }
 
-        private suspend fun sendEncryptedCredentials(aesKey: ByteArray) {
+        private suspend fun sendEncryptedCredentials(
+            aesKey: ByteArray,
+            pairingToken: String,
+            expiresAtMs: Long,
+        ) {
             val session = sessionStore.session.firstOrNull()
             val serverUrl = sessionStore.serverUrl.firstOrNull().orEmpty()
 
-            if (session != null) {
-                val credentialsPayload = RemoteSessionData(
-                    tvName = "Shoumei TV (${Build.MODEL})",
-                    serverUrl = serverUrl,
-                    accessToken = session.accessToken,
-                    userId = session.userId,
-                    userName = session.userName,
-                )
-                val plainBytes = RemoteJson.encodeToString(RemoteSessionData.serializer(), credentialsPayload)
-                    .toByteArray(Charsets.UTF_8)
-                val encrypted = RemoteCrypto.encrypt(plainBytes, aesKey)
+            val credentialsPayload = RemoteSessionData(
+                tvName = "Shoumei TV (${Build.MODEL})",
+                serverUrl = serverUrl,
+                accessToken = session?.accessToken.orEmpty(),
+                userId = session?.userId.orEmpty(),
+                userName = session?.userName.orEmpty(),
+                pairingToken = pairingToken,
+                expiresAtMs = expiresAtMs,
+            )
+            val plainBytes = RemoteJson.encodeToString(RemoteSessionData.serializer(), credentialsPayload)
+                .toByteArray(Charsets.UTF_8)
+            val encrypted = RemoteCrypto.encrypt(plainBytes, aesKey)
 
-                sendJson(
-                    RemoteMessage.EncryptedCredentials(
-                        ivBase64 = encrypted.ivBase64(),
-                        cipherTextBase64 = encrypted.cipherTextBase64(),
-                    )
+            sendJson(
+                RemoteMessage.EncryptedCredentials(
+                    ivBase64 = encrypted.ivBase64(),
+                    cipherTextBase64 = encrypted.cipherTextBase64(),
                 )
-            } else {
-                sendJson(RemoteMessage.StatusAck(success = true, message = "Paired (No active TV session)"))
-            }
+            )
         }
 
         private fun sendJson(message: RemoteMessage) {

@@ -10,6 +10,8 @@ val RemoteJson = Json {
     encodeDefaults = true
 }
 
+const val PAIRING_EXPIRY_MS = 7L * 24 * 60 * 60 * 1000L // 7 days
+
 /**
  * Commands and events transferred between the Companion App and the TV.
  */
@@ -24,6 +26,7 @@ sealed interface RemoteMessage {
         val clientPublicKeyBase64: String,
         val clientDeviceName: String = "Mobile Device",
         val pairingPin: String? = null,
+        val pairingToken: String? = null,
     ) : RemoteMessage
 
     @Serializable
@@ -32,6 +35,8 @@ sealed interface RemoteMessage {
         val serverPublicKeyBase64: String,
         val saltBase64: String,
         val pin: String,
+        val pairingValid: Boolean = false,
+        val pairingExpired: Boolean = false,
     ) : RemoteMessage
 
     @Serializable
@@ -175,6 +180,8 @@ data class RemoteSessionData(
     val accessToken: String,
     val userId: String,
     val userName: String,
+    val pairingToken: String? = null,
+    val expiresAtMs: Long? = null,
 )
 
 /**
