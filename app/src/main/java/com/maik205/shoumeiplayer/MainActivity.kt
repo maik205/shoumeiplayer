@@ -70,7 +70,7 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         val appContainer = (application as ShoumeiApp).container
         appContainer.remoteCoordinator.registerKeyDispatcher { event ->
-            this.dispatchKeyEvent(event)
+            window.superDispatchKeyEvent(event)
         }
         appContainer.remoteCoordinator.registerBackDispatcher {
             this.onBackPressedDispatcher.onBackPressed()
