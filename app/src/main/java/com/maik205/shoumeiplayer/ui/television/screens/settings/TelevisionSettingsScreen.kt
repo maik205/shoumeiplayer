@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,6 +41,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.maik205.shoumeiplayer.R
+import com.maik205.shoumeiplayer.di.LocalAppContainer
 import com.maik205.shoumeiplayer.domain.settings.ClientSettings
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionAppTopNavigation
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionErrorState
@@ -243,6 +245,10 @@ fun TelevisionSettingsScreen(
             )
         }
 
+        val container = LocalAppContainer.current
+        val isCardVisible by container.remoteCoordinator.isCardVisible.collectAsState()
+        val connectedClients by container.remoteCoordinator.connectedClients.collectAsState()
+
         TelevisionAppTopNavigation(
             libraries = libraries,
             selectedKey = "settings",
@@ -253,6 +259,10 @@ fun TelevisionSettingsScreen(
             onNavigateLibrary = onNavigateLibrary,
             onNavigateSettings = {},
             onNavigateProfile = onNavigateProfile,
+            onPairClick = {
+                container.remoteCoordinator.togglePairingCard()
+            },
+            isPairingActive = isCardVisible || connectedClients.isNotEmpty(),
             settingsFocusRequester = settingsTopFocus,
             contentFocusRequester = sectionFocus.getValue(section),
             navigationState = navigationState,

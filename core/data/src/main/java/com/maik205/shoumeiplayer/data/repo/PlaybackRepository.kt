@@ -285,7 +285,11 @@ class PlaybackRepository(
         type = type,
         label = stream.displayTitle ?: "${stream.codec.orEmpty()} ${stream.language.orEmpty()}".trim(),
         language = stream.language,
+        title = stream.displayTitle,
+        codec = stream.codec,
         isDefault = stream.isDefault,
+        isForced = stream.isForced,
+        isExternal = stream.isExternal,
         selected = stream.isDefault,
     )
 

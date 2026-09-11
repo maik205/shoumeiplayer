@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -76,6 +77,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.R
+import com.maik205.shoumeiplayer.di.LocalAppContainer
 import com.maik205.shoumeiplayer.ui.i18n.resolve
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionBackground
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionFocusRevealButton
@@ -1071,6 +1073,27 @@ private fun NativeTvField(
 ) {
     var focused by remember { mutableStateOf(false) }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val remoteCoordinator = LocalAppContainer.current.remoteCoordinator
+
+    LaunchedEffect(focused, value) {
+        if (focused) {
+            remoteCoordinator?.updateInputFocus(
+                isFocused = true,
+                text = value,
+                fieldHint = placeholder,
+                onSetText = onValueChange,
+            )
+        } else {
+            remoteCoordinator?.updateInputFocus(isFocused = false)
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            remoteCoordinator?.updateInputFocus(isFocused = false)
+        }
+    }
+
     BasicTextField(
         value = value,
         onValueChange = onValueChange,

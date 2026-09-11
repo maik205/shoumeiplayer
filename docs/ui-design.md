@@ -26,7 +26,7 @@ The palette uses warm white over near-black surfaces. Color is reserved for stat
 | `PaperSoft` | `Paper` at 48% | Tertiary text |
 | `PaperDisabled` | `Paper` at 28% | Disabled content |
 | `ImagePlaceholder` | `#1B1D20` | Artwork placeholders and skeletons |
-| `Ember` | `#DF754F` | Playback progress state |
+| `Ember` | `Paper` | Playback progress state |
 
 Use `MaterialTheme.colorScheme` or `TelevisionColors` instead of defining screen-local color constants.
 

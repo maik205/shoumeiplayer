@@ -117,7 +117,11 @@ internal object MpvTrackList {
                 type = track.type,
                 label = label(track),
                 language = track.language,
+                title = track.title,
+                codec = track.codec,
                 isDefault = track.isDefault,
+                isForced = track.isForced,
+                isExternal = track.isExternal,
                 selected = track.selected,
             )
         }

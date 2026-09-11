@@ -4,20 +4,27 @@ import android.view.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import com.maik205.shoumeiplayer.di.LocalAppContainer
 import com.maik205.shoumeiplayer.di.player.JellyfinPlaybackMetadataLoader
 import com.maik205.shoumeiplayer.feature.player.PlayerViewModel
 import com.maik205.shoumeiplayer.feature.player.PlayerObservabilityInputs
 import com.maik205.shoumeiplayer.feature.player.PlaybackUserDataMutator
 import com.maik205.shoumeiplayer.feature.player.TrackController
 import com.maik205.shoumeiplayer.domain.result.ApiResult
+import com.maik205.shoumeiplayer.player.PlayerState
 import com.maik205.shoumeiplayer.player.PlayerTrack
 import com.maik205.shoumeiplayer.player.VideoQuality
+import com.maik205.shoumeiplayer.remote.RemoteMediaTrack
+import com.maik205.shoumeiplayer.remote.RemoteNowPlayingState
+import com.maik205.shoumeiplayer.remote.RemotePlaybackAction
+import com.maik205.shoumeiplayer.remote.RemoteTrackType
 import com.maik205.shoumeiplayer.ui.navigation.containerViewModel
 
 @Composable
@@ -88,9 +95,110 @@ fun TelevisionPlayerScreen(
         )
     }
     val controller = remember(viewModel) { PlayerViewModelController(viewModel) }
+    val container = LocalAppContainer.current
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val timelineState by viewModel.timelineState.collectAsStateWithLifecycle()
+
+    DisposableEffect(viewModel, controller, container) {
+        container.remoteCoordinator.registerPlaybackCommandHandler { action, pos, delta ->
+            when (action) {
+                RemotePlaybackAction.PLAY -> controller.play()
+                RemotePlaybackAction.PAUSE -> controller.pause()
+                RemotePlaybackAction.TOGGLE_PLAY_PAUSE -> controller.togglePlayPause()
+                RemotePlaybackAction.SEEK_TO -> pos?.let(controller::seekTo)
+                RemotePlaybackAction.SKIP_FORWARD -> delta?.let(controller::seekBy) ?: controller.seekBy(10_000L)
+                RemotePlaybackAction.SKIP_BACKWARD -> delta?.let { controller.seekBy(-it) } ?: controller.seekBy(-10_000L)
+                RemotePlaybackAction.TOGGLE_SUBTITLES -> controller.toggleSubtitles()
+            }
+        }
+        container.remoteCoordinator.registerTrackSelectHandler { trackId, type ->
+            val track = when (type) {
+                RemoteTrackType.SUBTITLE -> uiState.subtitleTracks.firstOrNull { it.id == trackId }
+                RemoteTrackType.AUDIO -> uiState.audioTracks.firstOrNull { it.id == trackId }
+                RemoteTrackType.VIDEO -> uiState.videoTracks.firstOrNull { it.id == trackId }
+            }
+            track?.let(controller::selectTrack)
+        }
+        container.remoteCoordinator.registerQualitySelectHandler { qualityLabel ->
+            val q = VideoQuality.Ladder.firstOrNull { it.label.equals(qualityLabel, ignoreCase = true) }
+            q?.let(controller::setQuality)
+        }
+        onDispose {
+            container.remoteCoordinator.registerPlaybackCommandHandler(null)
+            container.remoteCoordinator.registerTrackSelectHandler(null)
+            container.remoteCoordinator.registerQualitySelectHandler(null)
+            container.remoteCoordinator.updateNowPlaying(RemoteNowPlayingState())
+        }
+    }
+
+    LaunchedEffect(uiState, timelineState.positionMs, container) {
+        container.remoteCoordinator.updateNowPlaying(
+            RemoteNowPlayingState(
+                itemId = itemId,
+                title = uiState.title,
+                subtitle = uiState.seriesName ?: uiState.artist ?: uiState.album,
+                posterUrl = uiState.logoUrl ?: uiState.albumArtworkUrl ?: uiState.artistArtworkUrl,
+                isPlaying = uiState.state == PlayerState.Playing,
+                positionMs = timelineState.positionMs,
+                durationMs = timelineState.durationMs ?: 0L,
+                volume = container.remoteCoordinator.getSystemVolume(),
+                isMuted = container.remoteCoordinator.isSystemMuted(),
+                speed = uiState.speed,
+                audioTracks = uiState.audioTracks.map {
+                    RemoteMediaTrack(
+                        id = it.id,
+                        type = RemoteTrackType.AUDIO,
+                        label = it.label,
+                        language = it.language,
+                        title = it.title,
+                        codec = it.codec,
+                        isDefault = it.isDefault,
+                        isForced = it.isForced,
+                        isExternal = it.isExternal,
+                        selected = it.selected,
+                    )
+                },
+                subtitleTracks = uiState.subtitleTracks.map {
+                    RemoteMediaTrack(
+                        id = it.id,
+                        type = RemoteTrackType.SUBTITLE,
+                        label = it.label,
+                        language = it.language,
+                        title = it.title,
+                        codec = it.codec,
+                        isDefault = it.isDefault,
+                        isForced = it.isForced,
+                        isExternal = it.isExternal,
+                        selected = it.selected,
+                    )
+                },
+                videoTracks = uiState.videoTracks.map {
+                    RemoteMediaTrack(
+                        id = it.id,
+                        type = RemoteTrackType.VIDEO,
+                        label = it.label,
+                        language = it.language,
+                        title = it.title,
+                        codec = it.codec,
+                        isDefault = it.isDefault,
+                        isForced = it.isForced,
+                        isExternal = it.isExternal,
+                        selected = it.selected,
+                    )
+                },
+                availableQualities = VideoQuality.Ladder.map { it.label },
+                selectedQuality = uiState.quality.label,
+                seriesName = uiState.seriesName,
+                seasonNumber = uiState.seasonNumber,
+                episodeNumber = uiState.episodeNumber,
+                mediaType = if (uiState.isEpisode) "Episode" else if (uiState.isAudio) "Audio" else "Movie",
+            )
+        )
+    }
+
     if (!audioOnly) PlayerMediaSession(viewModel, controller)
     TelevisionPlayerContent(
-        state = viewModel.uiState.collectAsStateWithLifecycle().value,
+        state = uiState,
         timelineState = viewModel.timelineState,
         controller = controller,
         audioOnly = audioOnly,

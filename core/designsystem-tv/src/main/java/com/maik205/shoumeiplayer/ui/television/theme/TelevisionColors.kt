@@ -74,8 +74,7 @@ data class TelevisionPalette(
 object TelevisionPalettes {
 
     /**
-     * Today's look, byte-for-byte, and the default -- an upgrade must not shift anybody's TV. Its
-     * accent is the original Ember (#DF754F), which already tints the Compose progress indicators.
+     * Today's look, byte-for-byte, and the default -- clean achromatic black and paper.
      */
     val Midnight: TelevisionPalette = run {
         val black = Color(0xFF08090A)
@@ -85,7 +84,7 @@ object TelevisionPalettes {
             BlackRaised = Color(0xFF111315),
             LibraryBackground = Color(0xFF0E1012),
             Paper = paper,
-            Ember = Color(0xFFDF754F),
+            Ember = paper,
             PaperMuted = paper.copy(alpha = 0.68f),
             PaperSoft = paper.copy(alpha = 0.48f),
             PaperDisabled = paper.copy(alpha = 0.28f),
@@ -96,9 +95,7 @@ object TelevisionPalettes {
     }
 
     /**
-     * Midnight's surfaces with the accent turned up: the same base, but chrome that can carry
-     * colour does. [TelevisionPalette.ProgressTrack] is a step lighter than Midnight's so the ember
-     * fill still clears 3:1 against its own rail.
+     * Midnight's surfaces with adjusted progress track contrast.
      */
     val Ember: TelevisionPalette = Midnight.copy(
         ProgressTrack = Midnight.Paper.copy(alpha = 0.18f),
@@ -128,11 +125,11 @@ object TelevisionPalettes {
     }
 
     /**
-     * Daylight with an accent. The original #DF754F only reaches 2.8:1 on a white surface, which is
-     * under the 3:1 floor for interface colour, so the light palette uses a deeper ember instead of
-     * reusing the dark one.
+     * Daylight with adjusted progress track contrast.
      */
-    val Sunrise: TelevisionPalette = Daylight.copy(Ember = Color(0xFFA8442A))
+    val Sunrise: TelevisionPalette = Daylight.copy(
+        ProgressTrack = Daylight.Paper.copy(alpha = 0.18f),
+    )
 
     fun of(choice: ColorPalette): TelevisionPalette = when (choice) {
         ColorPalette.Midnight -> Midnight
