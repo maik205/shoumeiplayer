@@ -1,5 +1,6 @@
 package com.maik205.shoumeiplayer.ui.television.screens.browse
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -58,6 +59,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -102,6 +104,7 @@ import androidx.tv.material3.Text
 import androidx.compose.material3.CircularProgressIndicator
 import coil3.compose.AsyncImage
 import com.maik205.shoumeiplayer.R
+import com.maik205.shoumeiplayer.di.LocalAppContainer
 import com.maik205.shoumeiplayer.ui.i18n.UiText
 import com.maik205.shoumeiplayer.ui.i18n.resolve
 import com.maik205.shoumeiplayer.ui.television.components.TelevisionBackground
@@ -147,6 +150,8 @@ fun TelevisionSearchScreen(
     onNavigateProfile: () -> Unit,
     navigationState: LazyListState,
 ) {
+    BackHandler(onBack = onBack)
+
     val fieldFocus = remember { FocusRequester() }
     val backFocus = remember { FocusRequester() }
     val clearFocus = remember { FocusRequester() }
@@ -195,20 +200,29 @@ fun TelevisionSearchScreen(
 
     LifecycleResumeEffect(Unit) {
         val job = scope.launch {
-            val itemId = currentRestoreResultId ?: return@launch
-            repeat(12) {
-                val target = results.indexOfFirst { it.id == itemId }
-                    .takeIf { it >= 0 }
-                    ?: focusedResultIndex.coerceIn(0, results.lastIndex.coerceAtLeast(0))
-                if (visibleResults && target in results.indices) {
-                    gridState.scrollToItem(target)
+            val itemId = currentRestoreResultId
+            if (itemId != null) {
+                repeat(12) {
+                    val target = results.indexOfFirst { it.id == itemId }
+                        .takeIf { it >= 0 }
+                        ?: focusedResultIndex.coerceIn(0, results.lastIndex.coerceAtLeast(0))
+                    if (visibleResults && target in results.indices) {
+                        gridState.scrollToItem(target)
+                        androidx.compose.runtime.withFrameNanos { }
+                        if (runCatching { resultFocusRequesters[target].requestFocus() }.getOrDefault(false)) {
+                            restoreResultId = null
+                            return@launch
+                        }
+                    }
                     androidx.compose.runtime.withFrameNanos { }
-                    if (runCatching { resultFocusRequesters[target].requestFocus() }.getOrDefault(false)) {
-                        restoreResultId = null
+                }
+            } else {
+                repeat(3) {
+                    androidx.compose.runtime.withFrameNanos { }
+                    if (runCatching { fieldFocus.requestFocus() }.getOrDefault(false)) {
                         return@launch
                     }
                 }
-                androidx.compose.runtime.withFrameNanos { }
             }
         }
         onPauseOrDispose { job.cancel() }
@@ -216,6 +230,27 @@ fun TelevisionSearchScreen(
 
     LaunchedEffect(error) {
         if (error == null && retryFocused) runCatching { fieldFocus.requestFocus() }
+    }
+
+    val remoteCoordinator = LocalAppContainer.current.remoteCoordinator
+
+    LaunchedEffect(focused, query) {
+        if (focused) {
+            remoteCoordinator?.updateInputFocus(
+                isFocused = true,
+                text = query,
+                fieldHint = "Search movies, shows...",
+                onSetText = onQueryChange,
+            )
+        } else {
+            remoteCoordinator?.updateInputFocus(isFocused = false)
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            remoteCoordinator?.updateInputFocus(isFocused = false)
+        }
     }
 
     Box(
@@ -369,6 +404,7 @@ fun TelevisionSearchScreen(
                     .weight(1f)
                     .height(52.dp)
                     .focusRequester(fieldFocus)
+                    .onFocusChanged { focused = it.isFocused }
                     .focusProperties { up = topNavigationFocus }
                     .onPreviewKeyEvent { event ->
                         if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false

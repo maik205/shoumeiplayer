@@ -188,6 +188,10 @@ fun TelevisionPlayerScreen(
                 },
                 availableQualities = VideoQuality.Ladder.map { it.label },
                 selectedQuality = uiState.quality.label,
+                seriesName = uiState.seriesName,
+                seasonNumber = uiState.seasonNumber,
+                episodeNumber = uiState.episodeNumber,
+                mediaType = if (uiState.isEpisode) "Episode" else if (uiState.isAudio) "Audio" else "Movie",
             )
         )
     }

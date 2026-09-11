@@ -140,6 +140,19 @@ class RemoteServer(
                 }
             }
 
+            val inputFocusJob = launch {
+                coordinator.inputFocusState.collectLatest { focusState ->
+                    if (authenticated) {
+                        val msg = RemoteMessage.InputFocusState(
+                            focused = focusState.isFocused,
+                            text = focusState.text,
+                            hint = focusState.fieldHint,
+                        )
+                        sendJson(msg)
+                    }
+                }
+            }
+
             val sessionJob = launch {
                 sessionStore.session.collectLatest {
                     val key = derivedAesKey
@@ -161,6 +174,7 @@ class RemoteServer(
             } finally {
                 stateJob.cancel()
                 sessionJob.cancel()
+                inputFocusJob.cancel()
                 if (authenticated) {
                     coordinator.onClientDisconnected(clientId)
                 }
@@ -221,12 +235,24 @@ class RemoteServer(
                         if (authenticated) coordinator.dispatchTextInput(message.text)
                         else sendJson(RemoteMessage.StatusAck(success = false, message = "Unauthenticated"))
                     }
+                    is RemoteMessage.SetText -> {
+                        if (authenticated) coordinator.setText(message.text)
+                        else sendJson(RemoteMessage.StatusAck(success = false, message = "Unauthenticated"))
+                    }
                     is RemoteMessage.PlaybackCommand -> {
                         if (authenticated) coordinator.handlePlaybackCommand(message.action, message.positionMs, message.deltaMs)
                         else sendJson(RemoteMessage.StatusAck(success = false, message = "Unauthenticated"))
                     }
                     is RemoteMessage.PlayItem -> {
                         if (authenticated) coordinator.requestPlayItem(message)
+                        else sendJson(RemoteMessage.StatusAck(success = false, message = "Unauthenticated"))
+                    }
+                    is RemoteMessage.OpenItem -> {
+                        if (authenticated) coordinator.requestOpenItem(message)
+                        else sendJson(RemoteMessage.StatusAck(success = false, message = "Unauthenticated"))
+                    }
+                    is RemoteMessage.OpenLibrary -> {
+                        if (authenticated) coordinator.requestOpenLibrary(message)
                         else sendJson(RemoteMessage.StatusAck(success = false, message = "Unauthenticated"))
                     }
                     is RemoteMessage.SelectTrack -> {

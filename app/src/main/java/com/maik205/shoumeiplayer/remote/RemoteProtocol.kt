@@ -66,6 +66,12 @@ sealed interface RemoteMessage {
         val text: String,
     ) : RemoteMessage
 
+    @Serializable
+    @SerialName("set_text")
+    data class SetText(
+        val text: String,
+    ) : RemoteMessage
+
     // --- Playback Controls ---
 
     @Serializable
@@ -83,12 +89,34 @@ sealed interface RemoteMessage {
         val startPositionTicks: Long = 0L,
     ) : RemoteMessage
 
+    @Serializable
+    @SerialName("open_item")
+    data class OpenItem(
+        val itemId: String,
+    ) : RemoteMessage
+
+    @Serializable
+    @SerialName("open_library")
+    data class OpenLibrary(
+        val libraryId: String,
+        val title: String,
+        val collectionType: String? = null,
+    ) : RemoteMessage
+
     // --- State Updates from TV ---
 
     @Serializable
     @SerialName("now_playing")
     data class NowPlaying(
         val state: RemoteNowPlayingState,
+    ) : RemoteMessage
+
+    @Serializable
+    @SerialName("input_focus_state")
+    data class InputFocusState(
+        val focused: Boolean,
+        val text: String = "",
+        val hint: String? = null,
     ) : RemoteMessage
 
     @Serializable
@@ -204,4 +232,8 @@ data class RemoteNowPlayingState(
     val videoTracks: List<RemoteMediaTrack> = emptyList(),
     val availableQualities: List<String> = emptyList(),
     val selectedQuality: String? = null,
+    val seriesName: String? = null,
+    val seasonNumber: Int? = null,
+    val episodeNumber: Int? = null,
+    val mediaType: String? = null,
 )

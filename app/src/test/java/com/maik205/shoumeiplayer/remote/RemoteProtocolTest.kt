@@ -62,10 +62,30 @@ class RemoteProtocolTest {
         val decodedPlay = RemoteJson.decodeFromString<RemoteMessage>(jsonPlay)
         assertEquals(playItem, decodedPlay)
 
+        val openItem = RemoteMessage.OpenItem(itemId = "series-456")
+        val jsonOpen = RemoteJson.encodeToString(RemoteMessage.serializer(), openItem)
+        val decodedOpen = RemoteJson.decodeFromString<RemoteMessage>(jsonOpen)
+        assertEquals(openItem, decodedOpen)
+
+        val openLib = RemoteMessage.OpenLibrary(libraryId = "lib-789", title = "TV Shows", collectionType = "tvshows")
+        val jsonLib = RemoteJson.encodeToString(RemoteMessage.serializer(), openLib)
+        val decodedLib = RemoteJson.decodeFromString<RemoteMessage>(jsonLib)
+        assertEquals(openLib, decodedLib)
+
         val textInput = RemoteMessage.TextInput(text = "Dune: Part Two")
         val jsonText = RemoteJson.encodeToString(RemoteMessage.serializer(), textInput)
         val decodedText = RemoteJson.decodeFromString<RemoteMessage>(jsonText)
         assertEquals(textInput, decodedText)
+
+        val setText = RemoteMessage.SetText(text = "https://my-jellyfin-server.local:8096")
+        val jsonSetText = RemoteJson.encodeToString(RemoteMessage.serializer(), setText)
+        val decodedSetText = RemoteJson.decodeFromString<RemoteMessage>(jsonSetText)
+        assertEquals(setText, decodedSetText)
+
+        val focusState = RemoteMessage.InputFocusState(focused = true, text = "Breaking Bad", hint = "Search")
+        val jsonFocus = RemoteJson.encodeToString(RemoteMessage.serializer(), focusState)
+        val decodedFocus = RemoteJson.decodeFromString<RemoteMessage>(jsonFocus)
+        assertEquals(focusState, decodedFocus)
 
         val setVol = RemoteMessage.SetVolume(volume = 65)
         val jsonVol = RemoteJson.encodeToString(RemoteMessage.serializer(), setVol)

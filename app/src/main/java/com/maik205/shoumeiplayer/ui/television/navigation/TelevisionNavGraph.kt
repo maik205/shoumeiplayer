@@ -173,6 +173,24 @@ fun TelevisionNavGraph(
         }
     }
 
+    LaunchedEffect(navController) {
+        container.remoteCoordinator.openItemRequests.collect { request ->
+            navController.navigate(DetailRoute(itemId = request.itemId))
+        }
+    }
+
+    LaunchedEffect(navController) {
+        container.remoteCoordinator.openLibraryRequests.collect { request ->
+            navController.navigate(
+                LibraryRoute(
+                    libraryId = request.libraryId,
+                    title = request.title,
+                    collectionType = request.collectionType,
+                )
+            )
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = startRoute,

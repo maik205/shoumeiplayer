@@ -27,6 +27,12 @@ data class RemoteConnectedClient(
     val connectedAtMs: Long = System.currentTimeMillis(),
 )
 
+data class RemoteInputFocusState(
+    val isFocused: Boolean = false,
+    val text: String = "",
+    val fieldHint: String? = null,
+)
+
 /**
  * Coordinates incoming commands from the companion app and outgoing playback state
  * to connected remote clients.
@@ -98,6 +104,12 @@ class RemoteCommandCoordinator(
     private val _playItemRequests = MutableSharedFlow<RemoteMessage.PlayItem>(extraBufferCapacity = 16)
     val playItemRequests: SharedFlow<RemoteMessage.PlayItem> = _playItemRequests.asSharedFlow()
 
+    private val _openItemRequests = MutableSharedFlow<RemoteMessage.OpenItem>(extraBufferCapacity = 16)
+    val openItemRequests: SharedFlow<RemoteMessage.OpenItem> = _openItemRequests.asSharedFlow()
+
+    private val _openLibraryRequests = MutableSharedFlow<RemoteMessage.OpenLibrary>(extraBufferCapacity = 16)
+    val openLibraryRequests: SharedFlow<RemoteMessage.OpenLibrary> = _openLibraryRequests.asSharedFlow()
+
     private val _pairingPin = MutableStateFlow<String?>(null)
     val pairingPin: StateFlow<String?> = _pairingPin.asStateFlow()
 
@@ -106,6 +118,42 @@ class RemoteCommandCoordinator(
 
     private val _connectedClients = MutableStateFlow<List<RemoteConnectedClient>>(emptyList())
     val connectedClients: StateFlow<List<RemoteConnectedClient>> = _connectedClients.asStateFlow()
+
+    private val _inputFocusState = MutableStateFlow(RemoteInputFocusState())
+    val inputFocusState: StateFlow<RemoteInputFocusState> = _inputFocusState.asStateFlow()
+
+    @Volatile
+    private var textInputSetter: ((String) -> Unit)? = null
+
+    fun updateInputFocus(
+        isFocused: Boolean,
+        text: String = "",
+        fieldHint: String? = null,
+        onSetText: ((String) -> Unit)? = null,
+    ) {
+        if (isFocused) {
+            textInputSetter = onSetText
+            _inputFocusState.value = RemoteInputFocusState(
+                isFocused = true,
+                text = text,
+                fieldHint = fieldHint,
+            )
+        } else {
+            textInputSetter = null
+            _inputFocusState.value = RemoteInputFocusState(isFocused = false)
+        }
+    }
+
+    fun setText(text: String) {
+        mainHandler.post {
+            val setter = textInputSetter
+            if (setter != null) {
+                setter(text)
+            } else {
+                dispatchTextInput(text)
+            }
+        }
+    }
 
     fun showPairingCard() {
         if (_pairingPin.value == null) {
@@ -324,6 +372,18 @@ class RemoteCommandCoordinator(
     fun requestPlayItem(request: RemoteMessage.PlayItem) {
         scope.launch {
             _playItemRequests.emit(request)
+        }
+    }
+
+    fun requestOpenItem(request: RemoteMessage.OpenItem) {
+        scope.launch {
+            _openItemRequests.emit(request)
+        }
+    }
+
+    fun requestOpenLibrary(request: RemoteMessage.OpenLibrary) {
+        scope.launch {
+            _openLibraryRequests.emit(request)
         }
     }
 
